@@ -1,5 +1,106 @@
 # AGENTS.md
 
+> ⚠️ **READ THIS SECTION FIRST — SMA-app project rules.**
+> Everything below "Cross-tool agent instructions for Gentelella v4" is generic
+> upstream template documentation. This section is what actually governs how
+> we work on **this fork** (Soul Mitra Abadi internal CMS). If you are an AI
+> coding assistant (Claude Code, ChatGPT, Cursor, or anything else) working in
+> this repo, read this whole section before writing or changing any code.
+
+## SMA-app — what this project actually is
+
+This is **not** a Gentelella demo. It's the internal CMS for Soul Mitra
+Abadi (business licensing/legal consultant). Frontend = this Gentelella v4
+shell (vanilla JS + Vite, no framework). Backend = **Supabase** (Postgres +
+Auth + RLS), no separate API server. Auth = magic-link only, invite-only
+(`shouldCreateUser: false`), three roles: `admin`, `internal`, `client`.
+
+Full product spec for the feature currently being built (Client Management):
+**`PRD_Client_Management_SMA-app.md`** in the repo root. Read the relevant
+section before starting any issue — this file tells you *how* to work,
+the PRD tells you *what* to build.
+
+## Team & git workflow — read before touching `main`
+
+Two people build this together, each using a **different AI assistant**
+(Claude Code and ChatGPT). Different models, same rules — that's the point
+of this file. Follow this exactly, no exceptions:
+
+1. **Never commit or push directly to `main`.** Every change happens on a
+   branch tied to a GitHub Issue.
+2. **One issue = one branch.** Branches are created from the Issue's
+   "Development → Create a branch" button on GitHub, not by hand — this
+   keeps the branch linked to the issue automatically.
+3. **Before starting work on an issue**, always run `git checkout main &&
+   git pull` first, then checkout/create your branch from the fresh `main`.
+   Never branch off a stale local `main`.
+4. **When an issue is done**, open a Pull Request into `main`. Don't
+   self-merge — the other person (or the repo owner) reviews it first.
+5. **Never edit a file that belongs to someone else's in-progress issue**
+   (see ownership map below) unless explicitly coordinating in the issue
+   comments first.
+
+## File / feature ownership (current sprint — Client Management)
+
+Assignments live on GitHub Issues (source of truth — check there for
+current status), summarized here for quick reference:
+
+| Owner | GitHub Issues | Scope |
+|---|---|---|
+| **Ray** (`soulmediaglobal`) | #2, #3, #4, #5 | Everything scoped to the `clients` table: Client List page, DB migration, Tab "Info", "Tambah Client" form |
+| **Dimas** (`dancowwkk`) | #6, #7, #8, #9, #10 | Everything scoped to `cases`/`documents`/`payments`/`activities`: Tab "Case & Progress", "Tambah Case" form, Tab "Dokumen", Tab "Pembayaran", Tab "Aktivitas" |
+
+**Critical shared file: `production/client-detail.html`.** This file holds
+all 5 tabs and is edited by both people. Sequencing to avoid conflicts:
+
+1. Ray builds and merges issue **#4** (Tab Info) first — this establishes
+   the 5-tab shell structure (empty tab containers for Case & Progress,
+   Dokumen, Pembayaran, Aktivitas) as part of that PR.
+2. Only after #4 is merged to `main` does Dimas branch off to build #6-#10
+   — filling in the empty tab containers Ray already created, not
+   restructuring the file.
+3. If you're an AI agent and you find `client-detail.html` doesn't have the
+   5-tab shell yet, and you were assigned #6-#10: **stop and tell the human
+   you're working with** — issue #4 needs to land first.
+
+## Supabase / data conventions
+
+- **Query pattern**: follow `src/v4/dashboard.js` as the reference
+  implementation — embedded relational selects (`clients(name)`,
+  `assignee:profiles(name)`), `Intl.NumberFormat('id-ID', {style:'currency',
+  currency:'IDR'})` for Rupiah, `Intl.DateTimeFormat('id-ID', ...)` for
+  dates.
+- **RLS is already on** for every table (`clients`, `cases`, `documents`,
+  `payments`, `activities`, `profiles`). Don't write code that tries to
+  bypass it or assumes a service-role key — the frontend only ever uses the
+  anon key (`src/lib/supabaseClient.js`) and relies on RLS for access
+  control.
+- **Role checks** in the UI (e.g. hiding the "reassign PIC" dropdown from
+  non-admins) use `getProfile()` from `src/lib/auth.js`. This is a UX
+  convenience, not the security boundary — RLS is the real boundary.
+- **Auto-activity-logging pattern**: whenever a case status, document
+  status, or payment status changes, insert a row into `activities`
+  describing the change (see PRD §6.2 Tab Aktivitas). Every feature that
+  changes a status is responsible for writing its own activity-log insert
+  — don't assume another tab will do it for you.
+- **Migrations**: write them as plain `.sql` files, run via `psql` against
+  the Supabase connection string (the Supabase web SQL Editor has shown
+  inconsistent permission behavior on this project — prefer `psql`).
+  Commit the migration file to the repo once applied.
+
+## Before you (the AI) start any issue
+
+1. Read this file's SMA-app section (above) fully.
+2. Read the relevant section of `PRD_Client_Management_SMA-app.md` for the
+   issue you're working on.
+3. Confirm which GitHub Issue number you're working on and who it's
+   assigned to — don't pick up work assigned to the other person.
+4. Confirm you're on a fresh branch off latest `main`, not `main` itself.
+5. If your issue touches `client-detail.html` and the 5-tab shell isn't
+   there yet, stop and flag it instead of restructuring the file yourself.
+
+---
+
 Cross-tool agent instructions for Gentelella v4. Read by Aider, Cline, Codex, Continue, and any tool following the [agents.md](https://agents.md) convention. Claude Code reads `CLAUDE.md`; Cursor reads `.cursor/rules/`; GitHub Copilot reads `.github/copilot-instructions.md`. Content is intentionally overlapping — each tool only sees its own file.
 
 ## What this is
