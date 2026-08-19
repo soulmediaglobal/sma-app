@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masuk | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body>
+
+<div class="auth-page" data-auth="otp">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-icon">G</div>
+      <div class="brand-name">Gentelella <small style="font-weight:400;color:var(--text-muted);font-size:13px;margin-left:2px">v4</small></div>
+    </div>
+
+    <!-- STEP 1: email -->
+    <div id="otp-email-step">
+      <div class="auth-title">Masuk</div>
+      <div class="auth-subtitle">Masukkan email kamu, kami kirim kode login — tanpa password.</div>
+
+      <form id="otp-email-form">
+        <div class="form-group">
+          <label class="form-label" for="otp-email">Email</label>
+          <div class="input-group">
+            <svg class="input-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 5l6 4 6-4"/></svg>
+            <input type="email" id="otp-email" class="form-control" placeholder="kamu@smanusantara.id" required autocomplete="email">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;height:38px">
+          Kirim kode
+        </button>
+      </form>
+    </div>
+
+    <!-- STEP 2: 6-digit code -->
+    <div id="otp-code-step" style="display:none">
+      <div class="auth-title">Cek email kamu</div>
+      <div class="auth-subtitle">Kode 6 digit dikirim ke <strong id="otp-email-display"></strong></div>
+
+      <form id="otp-code-form">
+        <div class="form-group">
+          <label class="form-label" for="otp-code">Kode Verifikasi</label>
+          <div class="input-group">
+            <svg class="input-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+            <input type="text" id="otp-code" class="form-control" placeholder="123456" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;height:38px">
+          Verifikasi
+        </button>
+      </form>
+
+      <div class="auth-actions" style="margin-top:12px">
+        <button type="button" id="otp-back" class="btn-link" style="background:none;border:none;padding:0;color:var(--text-muted);cursor:pointer;font-size:12.5px">&larr; Ganti email</button>
+        <button type="button" id="otp-resend" class="btn-link" style="background:none;border:none;padding:0;color:var(--primary);cursor:pointer;font-size:12.5px">Kirim ulang kode</button>
+      </div>
+    </div>
+
+    <div class="auth-footer">
+      Belum punya akun? Hubungi admin SMA untuk diundang.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

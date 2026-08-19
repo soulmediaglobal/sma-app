@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overview | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="dashboard" data-breadcrumb="Home > Overview">
+
+<main class="main">
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-row">
+      <div>
+        <div class="page-pretitle">Overview</div>
+        <h1 class="page-title">Dashboard</h1>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STAT CARDS (data real dari Supabase) ── -->
+  <div class="row col-3">
+    <div class="card">
+      <div class="stat">
+        <div class="stat-icon teal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Total Client</div>
+          <div class="stat-value-row"><span class="stat-value" id="stat-total-client">—</span></div>
+          <div class="stat-subtext">Semua client terdaftar</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stat">
+        <div class="stat-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Case Aktif</div>
+          <div class="stat-value-row"><span class="stat-value" id="stat-case-aktif">—</span></div>
+          <div class="stat-subtext">Status: Baru + Proses</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stat">
+        <div class="stat-icon red">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Piutang Belum Lunas</div>
+          <div class="stat-value-row"><span class="stat-value" id="stat-piutang">—</span></div>
+          <div class="stat-subtext">Total payment status Pending</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row col-3">
+    <div class="card">
+      <div class="stat">
+        <div class="stat-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Total Nilai RAB Aktif</div>
+          <div class="stat-value-row"><span class="stat-value" id="stat-rab-aktif">—</span></div>
+          <div class="stat-subtext">Case status Baru + Proses</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATUS BREAKDOWN + ACTIVITY ── -->
+  <div class="row col-8-4">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Case per Status</div>
+      </div>
+      <div class="card-body" id="status-breakdown" style="padding:16px">
+        <div class="stat-subtext">Memuat…</div>
+      </div>
+    </div>
+
+    <!-- Activity feed -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Aktivitas Terbaru</div>
+      </div>
+      <div class="card-body" style="padding:8px 16px">
+        <ul class="activity-list" id="activity-list">
+          <li class="activity-item"><div class="activity-body">Memuat…</div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CASE TERBARU ── -->
+  <div class="row col-8-4" style="grid-template-columns:1fr">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Case Terbaru</div>
+          <div class="card-subtitle">8 case yang paling baru dibuat</div>
+        </div>
+        <a href="contacts.html" class="btn btn-outline btn-sm">Lihat Semua Client →</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Layanan</th>
+                <th>PIC</th>
+                <th>RAB</th>
+                <th>Status</th>
+                <th>Dibuat</th>
+              </tr>
+            </thead>
+            <tbody id="recent-cases-body">
+              <tr><td colspan="6">Memuat…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+</body>
+</html>
