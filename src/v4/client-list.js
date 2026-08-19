@@ -26,7 +26,7 @@ let filterCaseStatus = '';
 function visible() {
   const q = filterText.trim().toLowerCase();
   return clients.filter((c) =>
-    (!q || c.name.toLowerCase().includes(q) || (c.contact_name || '').toLowerCase().includes(q)) &&
+    (!q || c.name.toLowerCase().includes(q) || (c.pic_name || '').toLowerCase().includes(q)) &&
     (!filterType || c.type === filterType) &&
     (!filterCaseStatus || (filterCaseStatus === 'active' ? c.activeCaseCount > 0 : c.activeCaseCount === 0))
   );
@@ -51,8 +51,8 @@ function render() {
     <tr data-id="${c.id}" style="cursor:pointer">
       <td class="cell-strong">${escapeHtml(c.name)}</td>
       <td>${escapeHtml(c.type) || '—'}</td>
-      <td>${escapeHtml(c.contact_name) || '—'}</td>
-      <td>${escapeHtml(c.contact_phone) || '—'}</td>
+      <td>${escapeHtml(c.pic_name) || '—'}</td>
+      <td>${escapeHtml(c.pic_phone) || '—'}</td>
       <td>${c.activeCaseCount}</td>
       <td class="cell-strong">${c.activeCaseCount > 0 ? rupiah.format(c.activeRabTotal) : '—'}</td>
       <td>${dateFmt.format(new Date(c.created_at))}</td>
@@ -66,7 +66,7 @@ async function loadClients() {
   const [clientsRes, casesRes] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, type, contact_name, contact_phone, contact_email, created_at')
+      .select('id, name, type, pic_name, pic_phone, pic_email, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('cases')
