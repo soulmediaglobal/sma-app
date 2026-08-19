@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="client" data-breadcrumb="Home > Client">
+
+<main class="main">
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-row">
+      <div>
+        <div class="page-pretitle">Client Management</div>
+        <h1 class="page-title">Daftar Client</h1>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="client-form.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8h8M8 4v8"/></svg>
+          Tambah Client
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="gap:12px;flex-wrap:wrap">
+      <div class="users-filters">
+        <div class="search-box" style="width:260px">
+          <svg class="s-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+          <input type="text" id="client-search" placeholder="Cari nama client atau PIC…" aria-label="Cari client">
+        </div>
+        <select class="form-control" id="filter-type" style="width:150px;height:32px" aria-label="Filter tipe client">
+          <option value="">Semua tipe</option>
+          <option value="PT">PT</option>
+          <option value="CV">CV</option>
+          <option value="Yayasan">Yayasan</option>
+          <option value="Perorangan">Perorangan</option>
+        </select>
+        <select class="form-control" id="filter-case-status" style="width:180px;height:32px" aria-label="Filter status case">
+          <option value="">Semua status</option>
+          <option value="active">Punya case aktif</option>
+          <option value="inactive">Tidak ada case aktif</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Nama Client</th>
+              <th>Tipe</th>
+              <th>PIC</th>
+              <th>No. HP PIC</th>
+              <th>Jumlah Case Aktif</th>
+              <th>Total RAB Aktif</th>
+              <th>Tanggal Terdaftar</th>
+            </tr>
+          </thead>
+          <tbody id="client-rows">
+            <tr><td colspan="7">Memuat…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+</body>
+</html>
