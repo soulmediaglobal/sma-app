@@ -47,8 +47,8 @@ current status), summarized here for quick reference:
 
 | Owner | GitHub Issues | Scope |
 |---|---|---|
-| **Ray** (`soulmediaglobal`) | #2, #3, #4, #5 | Everything scoped to the `clients` table: Client List page, DB migration, Tab "Info", "Tambah Client" form |
-| **Dimas** (`dancowwkk`) | #6, #7, #8, #9, #10 | Everything scoped to `cases`/`documents`/`payments`/`activities`: Tab "Case & Progress", "Tambah Case" form, Tab "Dokumen", Tab "Pembayaran", Tab "Aktivitas" |
+| **Ray** (`soulmediaglobal`) | #2, #3, #5 | Everything scoped to the `clients` table: Client List page, DB migration, "Tambah Client" form |
+| **Dimas** (`dancowwkk`) | #4, #6, #7, #8, #9, #10 | Tab "Info" plus everything scoped to `cases`/`documents`/`payments`/`activities`: Tab "Case & Progress", "Tambah Case" form, Tab "Dokumen", Tab "Pembayaran", Tab "Aktivitas" |
 
 **Critical shared file: `production/client-detail.html`.** This file holds
 all 5 tabs and is edited by both people. Sequencing to avoid conflicts:

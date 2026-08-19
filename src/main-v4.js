@@ -24,6 +24,9 @@ initPageActions();
 guardAdminPage().then(() => {
   initDashboard();
   initClientList();
+  if (document.getElementById('client-detail-root')) {
+    import('./v4/client-detail.js').then((m) => m.initClientDetail());
+  }
 });
 
 // SMA-app: OTP login flow — only loads on the login page.
