@@ -10,6 +10,7 @@ import { initCommandPalette } from './v4/command-palette.js';
 import { initPageActions } from './v4/page-actions.js';
 import { guardAdminPage } from './lib/auth-guard.js';
 import { initDashboard } from './v4/dashboard.js';
+import { initClientList } from './v4/client-list.js';
 
 mountShell();
 initCharts();
@@ -20,7 +21,10 @@ initPageActions();
 // SMA-app: session check + role-based nav gating. No-op on pages without
 // data-shell="admin" (e.g. login.html). Runs after mountShell() so the
 // sidebar/nav DOM (and its data-roles attributes) already exists.
-guardAdminPage().then(() => initDashboard());
+guardAdminPage().then(() => {
+  initDashboard();
+  initClientList();
+});
 
 // SMA-app: OTP login flow — only loads on the login page.
 if (document.querySelector('[data-auth="otp"]')) {

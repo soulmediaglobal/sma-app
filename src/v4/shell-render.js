@@ -31,7 +31,7 @@ export const NAV = [
     label: 'Utama',
     items: [
       { key: 'dashboard', href: 'index.html',    text: 'Overview',  icon: 'dashboard', roles: ['admin', 'internal'] },
-      { key: 'users',     href: 'contacts.html', text: 'Client',    icon: 'users',     roles: ['admin', 'internal'] },
+      { key: 'client',    href: 'client.html',   text: 'Client',    icon: 'users',     roles: ['admin', 'internal'] },
       { key: 'invoice',   href: 'invoice.html',  text: 'Transaksi', icon: 'receipt',   roles: ['admin', 'internal'] }
     ]
   },
