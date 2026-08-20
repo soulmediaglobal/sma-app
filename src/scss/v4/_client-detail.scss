@@ -96,6 +96,36 @@
   margin-bottom: 0;
 }
 
+.status-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.status-trigger:hover,
+.status-trigger:focus-visible {
+  background: var(--bg-surface-secondary);
+}
+
+.client-project-pic-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 100ms;
+}
+
+.client-project-pic-trigger:hover,
+.client-project-pic-trigger:focus-visible {
+  text-decoration-color: currentColor;
+}
+
 @media (max-width: 768px) {
   .client-info-columns {
     grid-template-columns: minmax(0, 1fr);
