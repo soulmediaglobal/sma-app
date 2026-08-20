@@ -72,19 +72,18 @@ async function submitClient(form) {
   submitButton.textContent = 'Menyimpan…';
 
   try {
-    const { data, error } = await supabase
+    const id = crypto.randomUUID();
+    const { error } = await supabase
       .from('clients')
-      .insert(formPayload(form))
-      .select('id')
-      .single();
+      .insert({ id, ...formPayload(form) });
 
-    if (error || !data) {
+    if (error) {
       showToast('Gagal menyimpan client baru.', { variant: 'error' });
       return;
     }
 
     showToast('Client baru berhasil ditambahkan.', { variant: 'success' });
-    window.location.href = `client-detail.html?id=${encodeURIComponent(data.id)}`;
+    window.location.href = `client-detail.html?id=${encodeURIComponent(id)}`;
   } catch {
     showToast('Gagal menyimpan client baru.', { variant: 'error' });
   } finally {
