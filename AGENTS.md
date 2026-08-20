@@ -97,6 +97,13 @@ all 5 tabs and is edited by both people. Sequencing to avoid conflicts:
   the Supabase connection string (the Supabase web SQL Editor has shown
   inconsistent permission behavior on this project — prefer `psql`).
   Commit the migration file to the repo once applied.
+- **Email OTP length**: the login form's code input expects a 6-digit
+  code, but new Supabase projects sometimes default to generating 8-digit
+  OTPs. If login fails with a correctly-typed code, check Authentication
+  → Sign In / Providers → Email → OTP Settings and make sure "Email OTP
+  Length" is set to 6. Also check Authentication → Emails → "Magic link or
+  OTP" template uses `{{ .Token }}` (not `{{ .ConfirmationURL }}`), so the
+  email shows a code instead of a clickable link.
 
 ## Before you (the AI) start any issue
 
