@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tambah Client | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="client-form" data-breadcrumb="Home > Client|client.html > Tambah Client">
+
+<main class="main">
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-row">
+      <div>
+        <div class="page-pretitle">Client Management</div>
+        <h1 class="page-title">Tambah Client Baru</h1>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Data Client</div>
+        <div class="card-subtitle">Hanya Nama badan usaha dan Tipe yang wajib diisi — field lain bisa menyusul.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-warning" id="client-form-duplicate-warning" style="display:none">
+        <svg class="alert-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 14h14L8 2z"/><path d="M8 6v3M8 11v.01"/></svg>
+        <div class="alert-body" id="client-form-duplicate-text"></div>
+      </div>
+
+      <form id="client-form" novalidate>
+        <div class="client-info-columns">
+          <div class="client-info-column">
+            <section class="client-info-section" aria-labelledby="client-form-business-heading">
+              <h2 id="client-form-business-heading">Identitas Badan Usaha</h2>
+              <div class="form-group"><label class="form-label" for="client-name">Nama badan usaha <span class="required">*</span></label><input class="form-control" id="client-name" name="name" type="text" required autocomplete="off"></div>
+              <div class="form-group"><label class="form-label" for="client-type">Tipe <span class="required">*</span></label><select class="form-control" id="client-type" name="type" required><option value="">Pilih tipe</option><option value="PT">PT</option><option value="CV">CV</option><option value="Yayasan">Yayasan</option><option value="Perorangan">Perorangan</option></select></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label" for="client-npwp">NPWP</label><input class="form-control" id="client-npwp" name="npwp" type="text"></div>
+                <div class="form-group"><label class="form-label" for="client-nib">NIB</label><input class="form-control" id="client-nib" name="nib" type="text"></div>
+              </div>
+              <div class="form-group"><label class="form-label" for="client-business-field">Bidang usaha / KBLI</label><input class="form-control" id="client-business-field" name="business_field" type="text"></div>
+              <div class="form-group"><label class="form-label" for="client-address">Alamat kantor/domisili</label><textarea class="form-control" id="client-address" name="address"></textarea></div>
+            </section>
+
+            <section class="client-info-section" aria-labelledby="client-form-pic-heading">
+              <h2 id="client-form-pic-heading">Kontak PIC</h2>
+              <div class="form-group"><label class="form-label" for="client-pic-name">Nama PIC</label><input class="form-control" id="client-pic-name" name="pic_name" type="text"></div>
+              <div class="form-group"><label class="form-label" for="client-pic-title">Jabatan PIC</label><input class="form-control" id="client-pic-title" name="pic_title" type="text"></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label" for="client-pic-phone">No. HP/WA PIC</label><input class="form-control" id="client-pic-phone" name="pic_phone" type="tel"></div>
+                <div class="form-group"><label class="form-label" for="client-pic-email">Email PIC</label><input class="form-control" id="client-pic-email" name="pic_email" type="email"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="client-info-column">
+            <section class="client-info-section" aria-labelledby="client-form-director-heading">
+              <h2 id="client-form-director-heading">Kontak Direktur</h2>
+              <div class="form-group"><label class="form-label" for="client-director-name">Nama Direktur</label><input class="form-control" id="client-director-name" name="director_name" type="text"></div>
+              <div class="form-group"><label class="form-label" for="client-director-phone">No. HP Direktur</label><input class="form-control" id="client-director-phone" name="director_phone" type="tel"></div>
+              <div class="form-group"><label class="form-label" for="client-director-id">No. KTP Direktur</label><input class="form-control" id="client-director-id" name="director_id_number" type="text"></div>
+            </section>
+
+            <section class="client-info-section" aria-labelledby="client-form-other-heading">
+              <h2 id="client-form-other-heading">Lainnya</h2>
+              <div class="form-group"><label class="form-label" for="client-referral-source">Sumber referral</label><input class="form-control" id="client-referral-source" name="referral_source" type="text"></div>
+              <div class="form-group"><label class="form-label" for="client-general-notes">Catatan umum</label><textarea class="form-control" id="client-general-notes" name="general_notes"></textarea></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="form-actions right">
+          <a class="btn btn-outline" href="client.html">Batal</a>
+          <button class="btn btn-primary" id="client-form-submit" type="submit">Simpan Client</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+</main>
+
+</body>
+</html>
