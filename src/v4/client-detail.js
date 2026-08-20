@@ -4,6 +4,7 @@
 
 import { supabase } from '../lib/supabaseClient.js';
 import { showToast } from './toast.js';
+import { openAddCaseModal } from './case-form.js';
 
 const CLIENT_FIELDS = [
   'id',
@@ -158,6 +159,12 @@ async function saveClient(root, form) {
   }
 }
 
+function wireCaseActions(root) {
+  root.querySelector('#client-add-case-btn')?.addEventListener('click', () => {
+    openAddCaseModal(clientId);
+  });
+}
+
 function wireInfoActions(root) {
   const form = root.querySelector('#client-info-form');
   root.querySelector('#client-edit-btn').addEventListener('click', () => setEditMode(root, true));
@@ -203,6 +210,7 @@ export async function initClientDetail() {
 
   wireTabs(root);
   wireInfoActions(root);
+  wireCaseActions(root);
 
   clientId = new URLSearchParams(window.location.search).get('id')?.trim() || '';
   if (!UUID_PATTERN.test(clientId)) {
