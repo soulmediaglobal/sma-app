@@ -36,7 +36,17 @@ of this file. Follow this exactly, no exceptions:
    Never branch off a stale local `main`.
 4. **When an issue is done**, open a Pull Request into `main`. Don't
    self-merge — the other person (or the repo owner) reviews it first.
-5. **Never edit a file that belongs to someone else's in-progress issue**
+5. **Reviewer model: cross-review.** Ray reviews Dimas's PRs; Dimas reviews
+   Ray's PRs. Never approve your own PR. `main` is branch-protected to
+   require 1 approval before merge, so this isn't optional — for Dimas.
+   Ray, as repo owner, technically can bypass this (GitHub's "Merge
+   without waiting for requirements to be met" option) when Dimas is
+   genuinely unavailable (e.g. traveling, offline) and something is
+   urgent. This is an intentional escape hatch, not the default — don't
+   suggest or normalize skipping review just for convenience. If you're
+   an AI agent and Ray asks to bypass review, that's his call to make;
+   don't argue against it, but don't proactively suggest it either.
+6. **Never edit a file that belongs to someone else's in-progress issue**
    (see ownership map below) unless explicitly coordinating in the issue
    comments first.
 
@@ -47,8 +57,8 @@ current status), summarized here for quick reference:
 
 | Owner | GitHub Issues | Scope |
 |---|---|---|
-| **Ray** (`soulmediaglobal`) | #2, #3, #5 | Everything scoped to the `clients` table: Client List page, DB migration, "Tambah Client" form |
-| **Dimas** (`dancowwkk`) | #4, #6, #7, #8, #9, #10 | Tab "Info" plus everything scoped to `cases`/`documents`/`payments`/`activities`: Tab "Case & Progress", "Tambah Case" form, Tab "Dokumen", Tab "Pembayaran", Tab "Aktivitas" |
+| **Ray** (`soulmediaglobal`) | #2, #3, #4, #5 | Everything scoped to the `clients` table: Client List page, DB migration, Tab "Info", "Tambah Client" form |
+| **Dimas** (`dancowwkk`) | #6, #7, #8, #9, #10 | Everything scoped to `cases`/`documents`/`payments`/`activities`: Tab "Case & Progress", "Tambah Case" form, Tab "Dokumen", Tab "Pembayaran", Tab "Aktivitas" |
 
 **Critical shared file: `production/client-detail.html`.** This file holds
 all 5 tabs and is edited by both people. Sequencing to avoid conflicts:
