@@ -52,6 +52,24 @@ let client = null;
 let clientId = '';
 let currentProfile = null;
 let internalUsers = null;
+let projectsById = new Map();
+const updatingCaseIds = new Set();
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) {node.className = className;}
+  if (text !== undefined) {node.textContent = text;}
+  return node;
+}
+
+function relatedRecord(value) {
+  if (Array.isArray(value)) {return value[0] || null;}
+  return value && typeof value === 'object' ? value : null;
+}
+
+function renderProjectError(panel) {
+  panel.appendChild(element('div', 'client-detail-status', 'Gagal memuat project.'));
+}
 
 function setStatus(root, message, state = 'loading') {
   const status = root.querySelector('#client-detail-status');
@@ -196,40 +214,108 @@ async function loadInternalUsers() {
 }
 
 async function logActivity({ caseId, type, notes }) {
-  const { error } = await supabase
-    .from('activities')
-    .insert({
-      client_id: clientId,
-      case_id: caseId,
-      type,
-      notes,
-      by_user: currentProfile?.id
-    });
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('Gagal mencatat aktivitas:', error.message);
+  if (!currentProfile?.id) {return { error: new Error('Profil pengguna tidak tersedia') };}
+  try {
+    return await supabase
+      .from('activities')
+      .insert({
+        client_id: clientId,
+        case_id: caseId,
+        type,
+        notes,
+        by_user: currentProfile.id
+      });
+  } catch (error) {
+    return { error };
   }
 }
 
-async function updateCaseStatus(root, caseId, oldStatus, newStatus) {
-  const { error } = await supabase
-    .from('cases')
-    .update({ status: newStatus })
-    .eq('id', caseId);
+function canUpdateCaseStatus() {
+  return Boolean(currentProfile?.id && ['admin', 'internal'].includes(currentProfile.role));
+}
 
-  if (error) {
-    showToast('Gagal mengubah status case.', { variant: 'error' });
+async function rollbackCaseStatus(caseId, changedStatus, oldStatus) {
+  try {
+    return await supabase
+      .from('cases')
+      .update({ status: oldStatus }, { count: 'exact' })
+      .eq('id', caseId)
+      .eq('client_id', clientId)
+      .eq('status', changedStatus);
+  } catch (error) {
+    return { error, count: null };
+  }
+}
+
+async function updateCaseStatus(root, control, newStatus) {
+  if (!canUpdateCaseStatus() || control.disabled) {return;}
+  const caseId = control.dataset.caseId;
+  const project = projectsById.get(caseId);
+  const oldStatus = project?.status;
+  if (
+    !project ||
+    project.client_id !== clientId ||
+    !STATUS_OPTIONS.includes(oldStatus) ||
+    !STATUS_OPTIONS.includes(newStatus) ||
+    updatingCaseIds.has(caseId)
+  ) {
+    showToast('Status project tidak dapat diubah.', { variant: 'error' });
+    await loadProjects(root);
     return;
   }
+  if (newStatus === oldStatus) {return;}
 
-  await logActivity({
-    caseId,
-    type: 'Status Case',
-    notes: `Status diubah dari ${oldStatus} menjadi ${newStatus}.`
-  });
+  control.value = oldStatus;
+  control.disabled = true;
+  updatingCaseIds.add(caseId);
 
-  showToast('Status case berhasil diubah.', { variant: 'success' });
-  await loadProjects(root);
+  try {
+    const { error: updateError, count: updatedCount } = await supabase
+      .from('cases')
+      .update({ status: newStatus }, { count: 'exact' })
+      .eq('id', caseId)
+      .eq('client_id', clientId)
+      .eq('status', oldStatus);
+
+    if (updateError || updatedCount !== 1) {
+      showToast('Gagal mengubah status project.', { variant: 'error' });
+      await loadProjects(root);
+      return;
+    }
+
+    const { error: activityError } = await logActivity({
+      caseId,
+      type: 'Status Case',
+      notes: `Status project ${project.service_type} diubah dari ${oldStatus} menjadi ${newStatus}.`
+    });
+
+    if (activityError) {
+      const { error: rollbackError, count: rollbackCount } = await rollbackCaseStatus(
+        caseId,
+        newStatus,
+        oldStatus
+      );
+      if (rollbackError || rollbackCount !== 1) {
+        showToast('Status berubah, tetapi aktivitas gagal dicatat. Hubungi admin.', {
+          variant: 'error',
+          duration: 5000
+        });
+      } else {
+        showToast('Perubahan dibatalkan karena aktivitas gagal dicatat.', { variant: 'error' });
+      }
+      await loadProjects(root);
+      return;
+    }
+
+    showToast('Status project berhasil diubah.', { variant: 'success' });
+    await loadProjects(root);
+  } catch {
+    showToast('Gagal mengubah status project.', { variant: 'error' });
+    await loadProjects(root);
+  } finally {
+    updatingCaseIds.delete(caseId);
+    if (control.isConnected) {control.disabled = false;}
+  }
 }
 
 async function reassignCasePic(root, caseId, newAssigneeId, newAssigneeName) {
@@ -251,17 +337,6 @@ async function reassignCasePic(root, caseId, newAssigneeId, newAssigneeName) {
 
   showToast('PIC berhasil diperbarui.', { variant: 'success' });
   await loadProjects(root);
-}
-
-function openStatusMenu(root, trigger) {
-  const caseId = trigger.dataset.caseId;
-  const current = trigger.dataset.status;
-  openMenu(trigger, STATUS_OPTIONS.map((status) => ({
-    label: status === current ? `${status} ✓` : status,
-    action: () => {
-      if (status !== current) {updateCaseStatus(root, caseId, current, status);}
-    }
-  })));
 }
 
 async function openPicMenu(root, trigger) {
@@ -290,12 +365,11 @@ async function openPicMenu(root, trigger) {
 
 function wireProjectActions(root) {
   const panel = root.querySelector('#client-panel-cases');
+  panel.addEventListener('change', (event) => {
+    const statusControl = event.target.closest('[data-case-status-control]');
+    if (statusControl) {updateCaseStatus(root, statusControl, statusControl.value);}
+  });
   panel.addEventListener('click', (event) => {
-    const statusTrigger = event.target.closest('[data-case-status-trigger]');
-    if (statusTrigger) {
-      openStatusMenu(root, statusTrigger);
-      return;
-    }
     const picTrigger = event.target.closest('[data-case-pic-trigger]');
     if (picTrigger) {
       openPicMenu(root, picTrigger);
@@ -306,91 +380,115 @@ function wireProjectActions(root) {
 async function loadProjects(root) {
   const panel = root.querySelector('#client-panel-cases');
   panel.querySelectorAll('.client-project-list, .client-detail-status').forEach((el) => el.remove());
+  projectsById = new Map();
 
   const isAdmin = currentProfile?.role === 'admin';
+  const canUpdateStatus = canUpdateCaseStatus();
 
-  const { data, error } = await supabase
-    .from('cases')
-    .select(`
-      id,
-      service_type,
-      status,
-      total_rab,
-      created_at,
-      assigned_to,
-      assignee:profiles(id, name)
-    `)
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: false });
+  let data;
+  let error;
+  try {
+    ({ data, error } = await supabase
+      .from('cases')
+      .select(`
+        id,
+        client_id,
+        service_type,
+        status,
+        total_rab,
+        created_at,
+        assigned_to,
+        assignee:profiles(id, name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }));
+  } catch {
+    renderProjectError(panel);
+    return;
+  }
 
   if (error) {
-    panel.insertAdjacentHTML(
-      'beforeend',
-      '<div class="client-detail-status">Gagal memuat project.</div>'
-    );
+    renderProjectError(panel);
     return;
   }
 
   const projects = data || [];
+  projectsById = new Map(projects.map((project) => [project.id, project]));
 
   const list = document.createElement('div');
   list.className = 'client-project-list';
 
   if (projects.length === 0) {
-    list.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-title">Belum ada project</div>
-        <div class="empty-state-desc">Tambahkan project pertama untuk client ini.</div>
-      </div>
-    `;
+    const empty = element('div', 'empty-state');
+    empty.append(
+      element('div', 'empty-state-title', 'Belum ada project'),
+      element('div', 'empty-state-desc', 'Tambahkan project pertama untuk client ini.')
+    );
+    list.appendChild(empty);
   } else {
-    list.innerHTML = projects.map((project) => `
-      <article class="client-project-card">
-        <div class="client-project-card-header">
-          <div>
-            <h2>${project.service_type}</h2>
-            <div class="client-project-meta">
-              Dibuat ${dateFmt.format(new Date(project.created_at))}
-            </div>
-          </div>
-          <button
-            type="button"
-            class="status status-trigger ${STATUS_BADGE[project.status] || ''}"
-            data-case-status-trigger
-            data-case-id="${project.id}"
-            data-status="${project.status}"
-            aria-haspopup="true"
-            aria-expanded="false"
-          >
-            ${project.status}
-          </button>
-        </div>
+    projects.forEach((project) => {
+      const card = element('article', 'client-project-card');
+      const header = element('div', 'client-project-card-header');
+      const heading = document.createElement('div');
+      heading.append(
+        element('h2', '', project.service_type || 'Project tanpa jenis'),
+        element('div', 'client-project-meta', `Dibuat ${displayValue('created_at', project.created_at)}`)
+      );
 
-        <div class="client-project-card-body">
-          <div>
-            <span class="client-project-label">PIC</span>
-            ${isAdmin ? `
-              <button
-                type="button"
-                class="client-project-pic-trigger"
-                data-case-pic-trigger
-                data-case-id="${project.id}"
-                data-assignee-id="${project.assigned_to || ''}"
-                aria-haspopup="true"
-                aria-expanded="false"
-              >
-                ${project.assignee?.name || 'Belum di-assign'}
-              </button>
-            ` : `<span>${project.assignee?.name || 'Belum di-assign'}</span>`}
-          </div>
+      if (canUpdateStatus) {
+        const statusControl = element(
+          'span',
+          `client-project-status-control status ${STATUS_BADGE[project.status] || ''}`
+        );
+        const select = element('select', 'client-project-status-select');
+        select.dataset.caseStatusControl = '';
+        select.dataset.caseId = project.id;
+        select.setAttribute(
+          'aria-label',
+          `Ubah status project ${project.service_type || 'tanpa jenis'}, ID ${project.id.slice(0, 8)}`
+        );
+        STATUS_OPTIONS.forEach((status) => {
+          const option = element('option', '', status);
+          option.value = status;
+          option.selected = status === project.status;
+          select.appendChild(option);
+        });
+        statusControl.append(select, element('span', 'client-project-status-chevron', '▾'));
+        statusControl.lastElementChild.setAttribute('aria-hidden', 'true');
+        header.append(heading, statusControl);
+      } else {
+        header.append(
+          heading,
+          element('span', `status ${STATUS_BADGE[project.status] || ''}`, project.status || '—')
+        );
+      }
 
-          <div>
-            <span class="client-project-label">RAB</span>
-            <span>${project.total_rab ? rupiah.format(project.total_rab) : '—'}</span>
-          </div>
-        </div>
-      </article>
-    `).join('');
+      const body = element('div', 'client-project-card-body');
+      const pic = document.createElement('div');
+      pic.appendChild(element('span', 'client-project-label', 'PIC'));
+      const assigneeName = relatedRecord(project.assignee)?.name || 'Belum di-assign';
+      if (isAdmin) {
+        const picTrigger = element('button', 'client-project-pic-trigger', assigneeName);
+        picTrigger.type = 'button';
+        picTrigger.dataset.casePicTrigger = '';
+        picTrigger.dataset.caseId = project.id;
+        picTrigger.dataset.assigneeId = project.assigned_to || '';
+        picTrigger.setAttribute('aria-haspopup', 'true');
+        picTrigger.setAttribute('aria-expanded', 'false');
+        pic.appendChild(picTrigger);
+      } else {
+        pic.appendChild(element('span', '', assigneeName));
+      }
+
+      const rab = document.createElement('div');
+      rab.append(
+        element('span', 'client-project-label', 'RAB'),
+        element('span', '', project.total_rab ? rupiah.format(project.total_rab) : '—')
+      );
+      body.append(pic, rab);
+      card.append(header, body);
+      list.appendChild(card);
+    });
   }
 
   panel.appendChild(list);
