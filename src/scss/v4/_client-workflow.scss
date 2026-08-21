@@ -9,9 +9,9 @@
       align-items: center;
       margin-bottom: 16px;
       padding: 18px 20px;
-      background: var(--surface);
+      background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
     }
 
     .workflow-eyebrow {
@@ -26,7 +26,7 @@
     .workflow-project-title {
       font-size: 18px;
       font-weight: 700;
-      color: var(--text-primary);
+      color: var(--text);
       margin-bottom: 8px;
     }
 
@@ -84,8 +84,8 @@
       padding: 0 12px;
       border: 1px solid var(--border-color);
       border-radius: 7px;
-      background: var(--surface-muted);
-      color: var(--text-primary);
+      background: var(--bg-surface-secondary);
+      color: var(--text);
       font: inherit;
       cursor: pointer;
     }
@@ -93,9 +93,9 @@
     .workflow-card {
       margin-bottom: 16px;
       padding: 20px;
-      background: var(--surface);
+      background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
     }
 
     .workflow-card-header {
@@ -109,7 +109,7 @@
     .workflow-card-header h2 {
       margin: 0 0 5px;
       font-size: 17px;
-      color: var(--text-primary);
+      color: var(--text);
     }
 
     .workflow-card-header p {
@@ -124,7 +124,7 @@
       white-space: nowrap;
       padding: 6px 10px;
       border-radius: 999px;
-      background: var(--surface-muted);
+      background: var(--bg-surface-secondary);
       color: var(--text-secondary);
       font-size: 11px;
       font-weight: 600;
@@ -180,7 +180,7 @@
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      background: var(--surface-muted);
+      background: var(--bg-surface-secondary);
       border: 2px solid var(--border-color);
       color: var(--text-muted);
       font-size: 11px;
@@ -190,13 +190,13 @@
     .workflow-stage.done .workflow-stage-dot {
       background: var(--green);
       border-color: var(--green);
-      color: var(--surface);
+      color: var(--bg-surface);
     }
 
     .workflow-stage.active .workflow-stage-dot {
       background: var(--primary);
       border-color: var(--primary);
-      color: var(--surface);
+      color: var(--bg-surface);
       box-shadow: 0 0 0 4px var(--primary-lt);
     }
 
@@ -226,7 +226,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 24px;
-      background: var(--surface-muted);
+      background: var(--bg-surface-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
     }
@@ -242,7 +242,7 @@
     .workflow-responsibility h3 {
       margin: 0 0 5px;
       font-size: 17px;
-      color: var(--text-primary);
+      color: var(--text);
     }
 
     .workflow-responsibility p {
@@ -321,7 +321,7 @@
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      background: var(--surface-muted);
+      background: var(--bg-surface-secondary);
       color: var(--text-muted);
       font-size: 11px;
     }

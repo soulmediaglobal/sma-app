@@ -15,6 +15,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.1.1] - 2026-08-22
+
+### Fixed
+- Token CSS salah di tab Workflow (`--surface`, `--surface-muted`,
+  `--text-primary`, `--radius-md` tidak terdefinisi di `_tokens.scss`)
+  menyebabkan styling berpotensi tidak muncul di browser meski lint &
+  build PASS. Diganti ke token yang benar. Issue #29.
+
 ## [2.1.0] - 2026-08-22
 
 ### Added
