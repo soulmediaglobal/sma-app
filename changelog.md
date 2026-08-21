@@ -15,6 +15,41 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - Database
+
+### Fixed
+- **RLS `profiles`**: menutup celah self-role-escalation — sebelumnya
+  policy `profiles_self_update` cuma membatasi baris (`auth.uid() = id`)
+  tanpa membatasi kolom, sehingga user non-admin secara teknis bisa
+  mengubah `role`/`client_id` di profil sendiri lewat query langsung.
+  Ditambahkan trigger `profiles_prevent_privilege_escalation` yang
+  memblokir perubahan `role`/`client_id` kecuali oleh `admin`.
+- Perubahan dijalankan manual via psql (Session Pooler), bukan lewat
+  file migration/Issue/PR — didokumentasikan retroaktif lewat entry ini.
+
+### Notes (verifikasi manual terhadap skema real)
+- Tabel `case_assignees` (multi-assignee per project) dan role
+  `supervisor` di constraint `profiles.role` **sudah ada di database**
+  dari sesi kerja sebelumnya (belum sempat terdokumentasi resmi).
+  Sudah diverifikasi:
+  - Trigger `cases_prevent_internal_pic_reassignment` sudah membatasi
+    reassign PIC dari sisi `internal` di level DB, bukan cuma UI.
+  - RLS `documents`/`payments` sudah membedakan hak `internal` (dibatasi
+    status) vs `supervisor` (bebas verifikasi dokumen & tandai lunas),
+    sesuai PRD User & Role Management.
+  - `case_assignees` **belum dipakai di frontend sama sekali** — kode
+    (`case-form.js`, `client-detail.js`) masih murni pakai kolom lama
+    `cases.assigned_to` (single PIC). Backend sudah siap, UI belum
+    disambungkan — bukan tabel usang, tapi fitur yang belum dibangun.
+  - Role `supervisor` **belum ada satupun referensinya di frontend**
+    (dropdown role, menu, dsb).
+
+### Open questions
+- Siapa dari 5 staf internal yang naik jadi `supervisor` — belum
+  diputuskan, bukan blocker untuk merge dokumentasi ini.
+- Kapan `case_assignees` mulai disambungkan ke UI (multi-assignee per
+  project) — belum ada Issue-nya.
+
 ## [2.1.1] - 2026-08-22
 
 ### Fixed
