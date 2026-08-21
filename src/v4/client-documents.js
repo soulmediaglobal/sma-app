@@ -14,6 +14,18 @@ const STATUS_CLASS = {
   Terverifikasi: 'status-green',
   Ditolak: 'status-red'
 };
+// Terverifikasi/Ditolak are manual staff decisions after reviewing the file —
+// auto-sync from file_url presence must never override them.
+// NOTE: this admin/internal-side document link editing may need reconciling
+// with the client-facing document upload flow once the Client Self-Service
+// Portal (roadmap #8) is built — check for duplicated logic or RLS conflicts
+// when that lands.
+const LOCKED_STATUSES = ['Terverifikasi', 'Ditolak'];
+
+function deriveAutoStatus(currentStatus, fileUrl) {
+  if (LOCKED_STATUSES.includes(currentStatus)) {return currentStatus;}
+  return fileUrl ? 'Upload' : 'Belum';
+}
 
 const dateFmt = new Intl.DateTimeFormat('id-ID', {
   day: 'numeric',
@@ -65,6 +77,19 @@ function createFileLink(documentRow) {
   return link;
 }
 
+function createEditLinkButton(documentRow) {
+  const button = element('button', 'btn btn-outline btn-sm client-document-edit-link', 'Edit Link');
+  button.type = 'button';
+  button.dataset.editDocumentLink = '';
+  button.dataset.documentId = documentRow.id;
+  button.dataset.caseId = documentRow.case_id;
+  button.dataset.documentName = documentRow.name;
+  button.dataset.fileUrl = documentRow.file_url || '';
+  button.dataset.status = documentRow.status;
+  button.setAttribute('aria-label', `Edit link dokumen ${documentRow.name}`);
+  return button;
+}
+
 function createStatusButton(documentRow) {
   const button = element('button', `status client-document-status ${STATUS_CLASS[documentRow.status] || ''}`, documentRow.status);
   button.type = 'button';
@@ -92,6 +117,7 @@ function createDocumentRow(documentRow) {
 
   const actions = element('div', 'client-document-actions');
   actions.appendChild(createFileLink(documentRow));
+  actions.appendChild(createEditLinkButton(documentRow));
   actions.appendChild(createStatusButton(documentRow));
   row.append(info, actions);
   return row;
@@ -245,7 +271,7 @@ async function submitDocument(ctx, form, root, caseId) {
       .insert({
         case_id: caseId,
         name,
-        status: 'Belum',
+        status: deriveAutoStatus('Belum', normalizedFileUrl),
         file_url: normalizedFileUrl
       });
 
@@ -297,15 +323,16 @@ function openAddDocumentModal(root, trigger) {
   });
 }
 
-async function insertStatusActivity({ caseId, documentName, oldStatus, newStatus }) {
+async function insertStatusActivity({ caseId, documentName, oldStatus, newStatus, automatic = false }) {
   if (!currentProfile?.id) {return { error: new Error('Profil pengguna tidak tersedia') };}
+  const suffix = automatic ? ' (otomatis mengikuti keberadaan link file)' : '';
   return supabase
     .from('activities')
     .insert({
       client_id: activeClientId,
       case_id: caseId,
       type: 'Status Dokumen',
-      notes: `Status dokumen "${documentName}" diubah dari ${oldStatus} menjadi ${newStatus}.`,
+      notes: `Status dokumen "${documentName}" diubah dari ${oldStatus} menjadi ${newStatus}.${suffix}`,
       by_user: currentProfile.id
     });
 }
@@ -317,6 +344,153 @@ async function rollbackDocumentStatus(documentId, caseId, changedStatus, oldStat
     .eq('id', documentId)
     .eq('case_id', caseId)
     .eq('status', changedStatus);
+}
+
+async function rollbackDocumentEdit(documentId, caseId, changedStatus, oldStatus, oldFileUrl) {
+  return supabase
+    .from('documents')
+    .update({ status: oldStatus, file_url: oldFileUrl }, { count: 'exact' })
+    .eq('id', documentId)
+    .eq('case_id', caseId)
+    .eq('status', changedStatus);
+}
+
+function buildEditLinkForm(documentName, currentFileUrl) {
+  const form = document.createElement('form');
+  form.id = 'edit-document-link-form';
+  form.noValidate = true;
+
+  const context = element('div', 'client-document-form-context');
+  context.appendChild(element('span', '', 'Dokumen'));
+  context.appendChild(element('strong', '', documentName));
+
+  const urlGroup = element('div', 'form-group');
+  const urlLabel = element('label', 'form-label', 'Link file');
+  urlLabel.htmlFor = 'edit-document-file-url';
+  const urlInput = element('input', 'form-control');
+  urlInput.id = 'edit-document-file-url';
+  urlInput.name = 'file_url';
+  urlInput.type = 'url';
+  urlInput.placeholder = 'Tempel link file';
+  urlInput.value = currentFileUrl || '';
+  const help = element(
+    'div',
+    'form-help',
+    'Kosongkan untuk menghapus link. Status Belum/Upload mengikuti otomatis; Terverifikasi/Ditolak tidak berubah.'
+  );
+  urlGroup.append(urlLabel, urlInput, help);
+
+  form.append(context, urlGroup);
+  return form;
+}
+
+async function submitEditLink(ctx, form, root, { documentId, caseId, documentName, oldStatus, oldFileUrl }) {
+  if (!canManageDocuments) {return;}
+  if (!form.reportValidity()) {return;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+
+  const fileUrl = form.elements.namedItem('file_url').value.trim();
+  const normalizedFileUrl = safeFileUrl(fileUrl);
+  if (fileUrl && !normalizedFileUrl) {
+    showToast('Link file harus menggunakan http atau https.', { variant: 'error' });
+    submitButton.disabled = false;
+    submitButton.textContent = 'Simpan';
+    return;
+  }
+
+  const newStatus = deriveAutoStatus(oldStatus, normalizedFileUrl);
+
+  try {
+    const { error: updateError, count: updatedCount } = await supabase
+      .from('documents')
+      .update({ file_url: normalizedFileUrl, status: newStatus }, { count: 'exact' })
+      .eq('id', documentId)
+      .eq('case_id', caseId)
+      .eq('status', oldStatus);
+
+    if (updateError || updatedCount !== 1) {
+      showToast('Gagal memperbarui link dokumen.', { variant: 'error' });
+      await loadDocuments(root);
+      return;
+    }
+
+    if (newStatus !== oldStatus) {
+      const { error: activityError } = await insertStatusActivity({
+        caseId,
+        documentName,
+        oldStatus,
+        newStatus,
+        automatic: true
+      });
+
+      if (activityError) {
+        const { error: rollbackError, count: rollbackCount } = await rollbackDocumentEdit(
+          documentId,
+          caseId,
+          newStatus,
+          oldStatus,
+          oldFileUrl
+        );
+        if (rollbackError || rollbackCount !== 1) {
+          showToast('Link berubah, tetapi aktivitas gagal dicatat. Hubungi admin.', { variant: 'error', duration: 5000 });
+        } else {
+          showToast('Perubahan dibatalkan karena aktivitas gagal dicatat.', { variant: 'error' });
+        }
+        await loadDocuments(root);
+        return;
+      }
+    }
+
+    ctx.close();
+    showToast('Link dokumen berhasil diperbarui.', { variant: 'success' });
+    await loadDocuments(root);
+  } catch {
+    showToast('Gagal memperbarui link dokumen.', { variant: 'error' });
+    await loadDocuments(root);
+  } finally {
+    if (submitButton.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Simpan';
+    }
+  }
+}
+
+// NOTE: this is the admin/internal "Edit Link" path — reconcile with the
+// client-facing document upload flow once the Client Self-Service Portal
+// (roadmap #8) is built (duplicated logic or RLS conflicts on file_url/status).
+function openEditLinkModal(root, trigger) {
+  if (!canManageDocuments) {return;}
+  const documentId = trigger.dataset.documentId;
+  const caseId = trigger.dataset.caseId;
+  const documentName = trigger.dataset.documentName;
+  const oldFileUrl = trigger.dataset.fileUrl || '';
+  const oldStatus = trigger.dataset.status;
+  const form = buildEditLinkForm(documentName, oldFileUrl);
+  const context = { documentId, caseId, documentName, oldStatus, oldFileUrl };
+
+  const ctx = showModal({
+    title: 'Edit Link Dokumen',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Simpan',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {submitEditLink(ctx, form, root, context);}
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitEditLink(ctx, form, root, context);
+  });
 }
 
 async function updateDocumentStatus(root, trigger, newStatus) {
@@ -390,6 +564,12 @@ function wireActions(root) {
     const addTrigger = event.target.closest('[data-add-document]');
     if (addTrigger) {
       openAddDocumentModal(root, addTrigger);
+      return;
+    }
+
+    const editLinkTrigger = event.target.closest('[data-edit-document-link]');
+    if (editLinkTrigger) {
+      openEditLinkModal(root, editLinkTrigger);
       return;
     }
 
