@@ -450,6 +450,16 @@ async function loadClient(root) {
         paymentsRoot.setAttribute('aria-busy', 'false');
       }
     }
+    try {
+      const { initClientActivities } = await import('./client-activities.js');
+      await initClientActivities({ clientId, profile: currentProfile });
+    } catch {
+      const activitiesRoot = root.querySelector('#client-activities-root');
+      if (activitiesRoot) {
+        activitiesRoot.textContent = 'Gagal memuat modul aktivitas.';
+        activitiesRoot.setAttribute('aria-busy', 'false');
+      }
+    }
   } catch {
     setStatus(root, 'Gagal memuat data client. Silakan coba lagi.', 'error');
   }
