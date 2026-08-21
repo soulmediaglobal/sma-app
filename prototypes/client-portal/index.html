@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1525" />
+    <title>Masuk — SMA Client Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="login-page">
+    <main class="login-layout">
+      <section class="login-story">
+        <a class="brand brand--large" href="index.html" aria-label="Soul Mitra Abadi">
+          <span class="brand__mark">S</span>
+          <span><strong>Soul Mitra Abadi</strong><small>Client Portal</small></span>
+        </a>
+        <div class="login-story__content">
+          <span class="eyebrow">SATU TEMPAT UNTUK SEMUA PROSES</span>
+          <h1>Urus legalitas tanpa kehilangan arah.</h1>
+          <p>Pantau progress, lengkapi dokumen, dan periksa pembayaran dari satu portal yang sederhana.</p>
+          <div class="login-preview" aria-hidden="true">
+            <span class="login-preview__line"></span>
+            <div class="login-preview__steps">
+              <i class="is-done">1</i><b></b><i class="is-done">2</i><b></b><i class="is-active">3</i><b></b><i>4</i><b></b><i>5</i>
+            </div>
+            <div class="login-preview__labels"><span>Diterima</span><span>Verifikasi</span><span>Selesai</span></div>
+          </div>
+        </div>
+        <p class="login-story__foot">Akses khusus klien Soul Mitra Abadi</p>
+      </section>
+
+      <section class="login-panel">
+        <div class="login-card">
+          <span class="eyebrow">SELAMAT DATANG</span>
+          <h2>Masuk ke portal klien</h2>
+          <p>Masukkan email yang terdaftar. Kami akan mengirimkan tautan masuk tanpa password.</p>
+          <form id="login-form">
+            <label class="field">
+              <span>Email</span>
+              <input type="email" value="dimas@contoh.com" required aria-label="Email" />
+            </label>
+            <button class="button button--primary button--block" type="submit">Kirim tautan masuk <span>→</span></button>
+          </form>
+          <div class="login-demo">
+            <span>Prototype mode</span>
+            <p>Tombol di atas langsung membuka demo sebagai PT Artha Prima Sejahtera.</p>
+          </div>
+        </div>
+        <p class="login-help">Butuh bantuan? <a href="mailto:halo@soulmitra.id">Hubungi tim SMA</a></p>
+      </section>
+    </main>
+    <script>
+      document.querySelector('#login-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        window.location.href = 'portal.html#home';
+      });
+    </script>
+  </body>
+</html>
