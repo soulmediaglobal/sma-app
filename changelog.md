@@ -17,6 +17,24 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - Database
 
+### Added
+- **Sync otomatis `cases.status` dari `case_stages`**: keputusan final
+  PRD_Workflow_Layer_SMA-app.md §4 poin 3 — status lama TIDAK
+  digantikan, tapi dihitung ulang otomatis lewat trigger setiap kali
+  ada perubahan status di `case_stages`, berdasarkan kondisi SEKARANG
+  (bukan progress tertinggi yang pernah dicapai) — mendukung kasus
+  revisi/mundur stage yang sering terjadi. `status = 'Batal'` dilindungi,
+  tidak pernah ditimpa otomatis (murni keputusan manual).
+- Diverifikasi lewat transaction test langsung ke database (ROLLBACK,
+  tidak ada perubahan data production): insert stage PENDING -> Baru,
+  update ke COMPLETED -> Selesai, Batal manual tetap bertahan meski
+  stage diubah balik ke PENDING.
+- Supervisor untuk role management (belum ada aksi teknis — masih
+  1 user di sistem): Ray tetap `admin`, Tomy akan jadi `supervisor`
+  begitu ada mekanisme invite (roadmap #10 atau manual via SQL).
+
+## [2.3.0] - 2026-08-22
+
 ### Changed
 - **Revert & rebuild Workflow Layer**: Task #33 (generic workflow-engine:
   `workflow_templates`, `workflow_template_stages`, `workflow_instances`,
