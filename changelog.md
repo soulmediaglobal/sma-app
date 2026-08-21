@@ -17,6 +17,21 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - Database
 
+### Added
+- **Skema inti workflow engine** (`workflow_templates`,
+  `workflow_template_stages`, `workflow_instances`, `workflow_stages`) —
+  migration
+  [`20260822150000_create_workflow_engine_core_schema.sql`](supabase/migrations/20260822150000_create_workflow_engine_core_schema.sql).
+  `workflow_instances` di-link ke `cases` lewat `case_id`. RLS mengikuti
+  pola `cases`/`case_assignees` (admin ALL, supervisor/internal
+  select+write sesuai peran), plus policy client select-own tambahan pada
+  `workflow_instances`/`workflow_stages` (deviasi disengaja dari
+  `case_assignees` yang tidak punya policy client sama sekali) karena
+  arsitektur workflow mensyaratkan client bisa lihat progress project
+  mereka. Issue #33. **Schema-only** — belum ada `workflow_actions`/
+  `workflow_transitions` (task terpisah) dan belum disambungkan ke
+  frontend/`client-workflow.js` sama sekali.
+
 ### Fixed
 - **RLS `profiles`**: menutup celah self-role-escalation — sebelumnya
   policy `profiles_self_update` cuma membatasi baris (`auth.uid() = id`)
