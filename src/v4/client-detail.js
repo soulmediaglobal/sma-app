@@ -430,6 +430,16 @@ async function loadClient(root) {
     client = data;
     renderReadView(root);
     await loadProjects(root);
+    try {
+      const { initClientDocuments } = await import('./client-documents.js');
+      await initClientDocuments({ clientId, profile: currentProfile });
+    } catch {
+      const documentsRoot = root.querySelector('#client-documents-root');
+      if (documentsRoot) {
+        documentsRoot.textContent = 'Gagal memuat modul dokumen.';
+        documentsRoot.setAttribute('aria-busy', 'false');
+      }
+    }
   } catch {
     setStatus(root, 'Gagal memuat data client. Silakan coba lagi.', 'error');
   }
@@ -451,6 +461,10 @@ export async function initClientDetail() {
     return;
   }
 
-  currentProfile = await getProfile();
+  try {
+    currentProfile = await getProfile();
+  } catch {
+    currentProfile = null;
+  }
   await loadClient(root);
 }
