@@ -15,6 +15,12 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.1.0] - 2026-08-22
+
+### Added
+- **Tab Workflow** pada Client Detail — UI workflow per project dengan pemilihan project, progress 6 tahap, current responsibility, detail stage, completion conditions, dan ringkasan dokumen. Issue #27.
+- Workflow dibuat sebagai **UI prototype** dengan dummy data; belum terhubung ke Supabase atau melakukan database mutation.
+
 ## [2.0.0] - 2026-08-20
 
 **Milestone: Modul Client Management (roadmap item #2 dari 10) LENGKAP.**
