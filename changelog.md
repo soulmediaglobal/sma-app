@@ -17,6 +17,30 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - Database
 
+### Changed
+- **Revert & rebuild Workflow Layer**: Task #33 (generic workflow-engine:
+  `workflow_templates`, `workflow_template_stages`, `workflow_instances`,
+  `workflow_stages`) sudah di-drop. Ternyata `PRD_Workflow_Layer_SMA-app.md`
+  (v1.0, 21 Agustus 2026, dibuat setelah `SMA_APP_MASTER_ARCHITECTURE.js`,
+  hasil diskusi lanjutan) sudah menolak pendekatan generic-engine dan
+  memilih desain lebih ramping. File PRD ini sempat tidak terbaca sebelum
+  Task #33 dieksekusi.
+- Dibangun ulang sesuai PRD §2: tabel `case_stages` (daftar tahap per
+  case, bisa diedit bebas), kolom `cases.current_stage_id`, tabel
+  `document_versions` (riwayat versi dokumen, `rejection_reason` wajib
+  kalau status Ditolak), perluasan `payments` (kolom
+  `invoice_number`/`invoice_issued_at`/`receipt_number`/`receipt_issued_at`).
+- Ditambahkan trigger `payments_prevent_invoice_receipt_tampering` —
+  hanya admin/supervisor boleh mengubah kolom invoice/receipt (celah
+  sama seperti yang ditutup di `profiles` pagi ini, ditutup proaktif).
+- `cases.status` (Baru/Proses/Selesai/Batal) TIDAK diubah — hubungannya
+  dengan `case_stages` masih open question (PRD §4 poin 3).
+- Asumsi yang perlu dikonfirmasi: RLS `document_versions` untuk role
+  `supervisor` disamakan dengan `admin` (PRD tidak menyebutkan
+  `supervisor` secara eksplisit untuk tabel ini).
+
+## [2.1.2] - 2026-08-22
+
 ### Added
 - **Skema inti workflow engine** (`workflow_templates`,
   `workflow_template_stages`, `workflow_instances`, `workflow_stages`) —
