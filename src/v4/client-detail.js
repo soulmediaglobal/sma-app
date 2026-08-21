@@ -7,6 +7,7 @@ import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openMenu } from './menus.js';
 import { openAddCaseModal } from './case-form.js';
+import { initClientWorkflow } from './client-workflow.js';
 
 const CLIENT_FIELDS = [
   'id',
@@ -527,6 +528,7 @@ async function loadClient(root) {
 
     client = data;
     renderReadView(root);
+    initClientWorkflow();
     await loadProjects(root);
     try {
       const { initClientDocuments } = await import('./client-documents.js');
