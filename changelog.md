@@ -15,7 +15,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - UI
+## [Unreleased] - Database
+
+### Added
+- **PROJECT — Part IV: Seed Data Awal Document Templates**. 15
+  dokumen umum (KTP, NPWP, NIB, Akta, dll) di-seed ke
+  `document_templates` (tabel sudah ada dari Part I), dikelompokkan
+  per kategori (Identitas, Legalitas, Teknis, Keuangan), dengan
+  `default_service_types` untuk auto-suggest di form RAB (Part V).
+  Bukan halaman kelola master dokumen — itu fitur terpisah, ditunda.
+- Diverifikasi: 15 baris masuk (3 Identitas, 1 Keuangan, 9 Legalitas,
+  2 Teknis).
+
+## [2.7.0] - 2026-08-22
 
 ### Added
 - **PROJECT — Part III: Assign Tim (Multi-Internal) UI**. Tab Project
@@ -54,7 +66,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   tambah anggota berhasil (reload-nya diam-diam gagal dengan error
   yang sama, bukan bug rendering terpisah).
 
-## [Unreleased] - Database
+## [2.6.0] - 2026-08-22
 
 ### Added
 - **PROJECT — Part II: Rekonsiliasi Data Existing**. 42 case yang
