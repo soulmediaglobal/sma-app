@@ -18,6 +18,20 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ## [Unreleased] - Database
 
 ### Added
+- **PROJECT — Part II: Rekonsiliasi Data Existing**. 42 case yang
+  sudah punya `case_stages` (dari seeding sebelum alur intake/RAB
+  dibangun) direkonsiliasi retroaktif: `intake_status` diset
+  `ACCEPTED`, ditambahkan 1 `case_quotations` dummy (status ACCEPTED)
+  + 1 `case_quotation_items` generik (rincian termin asli tidak
+  tercatat di data lama, dicatat apa adanya sebagai keterbatasan).
+- 1 case ("Tau Bbanget" — SLF, hasil testing manual, tidak punya
+  `case_stages`) sengaja TIDAK direkonsiliasi, tetap `DRAFT` — sesuai
+  kriteria, bukan pengecualian khusus.
+- Diverifikasi: 42 ACCEPTED, 1 tetap DRAFT, 42 case_quotations dibuat.
+
+## [2.5.0] - 2026-08-22
+
+### Added
 - **PROJECT — Part I: Schema Foundation**. Fondasi untuk fitur besar
   "PROJECT — Intake & RAB Workflow" (7 part, lihat
   `PRD_Project_Intake_RAB_Workflow_SMA-app.md`):
