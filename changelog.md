@@ -18,6 +18,28 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ## [Unreleased] - Database
 
 ### Added
+- **PROJECT — Part I: Schema Foundation**. Fondasi untuk fitur besar
+  "PROJECT — Intake & RAB Workflow" (7 part, lihat
+  `PRD_Project_Intake_RAB_Workflow_SMA-app.md`):
+  - `document_templates` — master jenis dokumen (admin manage,
+    supervisor/internal select-only, tidak ada akses client)
+  - `case_quotations` — RAB/penawaran header, versioned
+    (DRAFT/SENT/ACCEPTED/REJECTED/NEGOTIATING/SUPERSEDED). Client
+    SELECT-only — akses tulis (Terima/Tolak/Nego) ditunda ke Part VI
+  - `case_quotation_items` — rincian termin per quotation
+  - Kolom baru `cases.intake_status`
+    (DRAFT/QUOTED/ACCEPTED/REJECTED, default DRAFT)
+- Seluruh 43 case existing dapat `intake_status = 'DRAFT'` dari
+  default kolom — akan direkonsiliasi ke `ACCEPTED` di Part II
+  (belum dikerjakan) karena sudah punya `case_stages`/sedang berjalan.
+- Catatan: ditemukan 1 case baru ("Tau Bbanget" — SLF) yang tidak
+  berasal dari seeding manapun, kemungkinan hasil testing manual —
+  perlu diklarifikasi sebelum Part II (apakah ikut direkonsiliasi
+  atau dihapus).
+
+## [2.4.0] - 2026-08-22
+
+### Added
 - **Sync otomatis `cases.status` dari `case_stages`**: keputusan final
   PRD_Workflow_Layer_SMA-app.md §4 poin 3 — status lama TIDAK
   digantikan, tapi dihitung ulang otomatis lewat trigger setiap kali
