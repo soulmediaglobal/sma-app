@@ -48,16 +48,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   Project sebelumnya butuh reload manual buat lihat project yang baru
   dibuat.
 
-### Known risk (belum diverifikasi manual)
+### Belum diverifikasi manual
 - Login OTP butuh akses email yang tidak tersedia buat AI agent (sama
   seperti blocker di Part III) — flow ini belum dicoba end-to-end di
   browser sungguhan, cuma direview lewat kode + `npm run lint`/`npm run
-  build`. Yang paling perlu dicek manual: (1) insert `cases` tanpa
-  `total_rab` — kolom ini tidak pernah dapat constraint eksplisit di
-  migration manapun yang tertelusuri, jadi kemungkinan besar nullable,
-  tapi belum dikonfirmasi langsung ke skema DB; (2) insert
-  `case_assignees` batch saat ada anggota tim dipilih sebelum project
-  disimpan.
+  build`. `cases.total_rab` dikonfirmasi nullable (dicek dari `\d+
+  cases` di sesi sebelumnya, tidak ada constraint NOT NULL), jadi
+  insert `cases` tanpa kolom itu aman. Yang masih perlu dicek manual di
+  browser: insert `case_assignees` batch saat ada anggota tim dipilih
+  sebelum project disimpan, dan verifikasi visual form secara umum.
 
 ## [Unreleased] - Database
 
