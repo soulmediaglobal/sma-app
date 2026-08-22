@@ -15,6 +15,45 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - UI
+
+### Added
+- **PROJECT — Part III: Assign Tim (Multi-Internal) UI**. Tab Project
+  di Client Detail (`client-detail.js`) sekarang menampilkan daftar
+  anggota tim internal per project dari `case_assignees` (tabel yang
+  sudah ada di database sejak sebelumnya tapi belum pernah dipakai
+  frontend).
+  - admin/supervisor: bisa tambah anggota (pilih dari profil
+    `internal`/`supervisor` yang belum jadi anggota project itu, lewat
+    menu popover) dan hapus anggota (tombol × pada tiap chip). Sesuai
+    RLS (tidak ada policy UPDATE di `case_assignees`), reassign berarti
+    hapus baris lama + insert baris baru, bukan update in-place.
+  - role `internal`: tampilan read-only, tanpa kontrol tambah/hapus
+    (selaras dengan RLS select-only untuk role ini).
+  - Setiap tambah/hapus anggota dicatat ke `activities` (mengikuti pola
+    `logActivity` yang sudah ada di file yang sama).
+- **Kolom `cases.created_by`** ("Project Creator") — migration
+  [`20260822230000_add_cases_created_by.sql`](supabase/migrations/20260822230000_add_cases_created_by.sql).
+  Tampilan PIC (`cases.assigned_to`) di card Project dihapus total dan
+  diganti field read-only "Dibuat oleh" yang membaca `created_by`.
+  `assigned_to`, trigger `cases_prevent_internal_pic_reassignment`, dan
+  kode lain yang menulis ke `assigned_to` (mis. `case-form.js` saat
+  bikin project baru) SENGAJA tidak disentuh — cuma berhenti
+  ditampilkan di tab ini. 43 case existing direkonsiliasi retroaktif
+  ke satu-satunya admin (Ray) di sistem selama data itu dibuat.
+
+### Fixed
+- **Query `case_assignees`/`cases` yang embed `profiles` gagal
+  (`Gagal memuat tim`)**: `case_assignees` punya dua FK ke `profiles`
+  (`user_id` dan `assigned_by`), begitu juga `cases` sekarang punya dua
+  (`assigned_to` dan `created_by`), jadi PostgREST menolak resolve
+  embed tanpa hint eksplisit ("more than one relationship was found").
+  Disambiguasi dengan hint kolom FK langsung, mis.
+  `profiles!user_id(...)` dan `profiles!created_by(...)`. Root cause
+  yang sama ini juga yang bikin chip tim tidak ter-update setelah
+  tambah anggota berhasil (reload-nya diam-diam gagal dengan error
+  yang sama, bukan bug rendering terpisah).
+
 ## [Unreleased] - Database
 
 ### Added
