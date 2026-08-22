@@ -199,7 +199,14 @@ async function saveClient(root, form) {
 
 function wireCaseActions(root) {
   root.querySelector('#client-add-case-btn')?.addEventListener('click', () => {
-    openAddCaseModal(clientId);
+    if (!currentProfile?.id) {
+      showToast('Gagal memuat profil pengguna. Muat ulang halaman.', { variant: 'error' });
+      return;
+    }
+    openAddCaseModal(clientId, {
+      profile: currentProfile,
+      onCreated: () => loadProjects(root)
+    });
   });
 }
 
