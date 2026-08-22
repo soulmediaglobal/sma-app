@@ -17,6 +17,53 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
+### Added
+- **PROJECT — Part V: RAB/Penawaran Builder UI**. Section baru "RAB &
+  Penawaran" di tiap kartu project pada tab Project (`client-detail.js`),
+  logikanya di file baru `client-quotations.js`. Sesuai
+  `PRD_Project_Intake_RAB_Workflow_SMA-app.md` §1/§2, independen dari
+  pembuatan project (Part VII).
+  - Badge status per project (Belum Dibuat / Draft / Menunggu
+    Persetujuan / Diterima / Ditolak / Nego / Digantikan), diambil dari
+    versi `case_quotations` terbaru (`order by version desc`).
+    "Digantikan" (SUPERSEDED) ditangani juga meski secara alur normal
+    seharusnya tidak pernah jadi versi terbaru.
+  - Modal "RAB & Penawaran" menampilkan riwayat SEMUA versi (bukan cuma
+    yang aktif — versi lama tetap bisa dibuka/dilihat rinciannya sesuai
+    PRD §7), form rincian termin (`case_quotation_items`) yang bisa
+    tambah/hapus/reorder baris dengan total berjalan dihitung di
+    client lalu disimpan ke `case_quotations.total_amount`, multi-select
+    dokumen wajib dari `document_templates`, dan tombol "Buat
+    Penawaran".
+  - "Buat RAB Baru" (bikin `case_quotations` versi baru, status DRAFT)
+    bisa dilakukan admin/supervisor/internal — cuma muncul kalau belum
+    ada draft yang terbuka untuk project itu.
+  - "Buat Penawaran" (`case_quotations.status` DRAFT -> SENT +
+    `cases.intake_status` -> QUOTED) hanya aktif untuk admin/supervisor,
+    sesuai RLS yang sudah diperketat (lihat entry Database di bawah) —
+    tombol disembunyikan/disabled untuk `internal` sebagai kejelasan UX
+    saja, bukan pengganti RLS. Diblokir juga kalau draft belum punya
+    rincian termin (`total_amount` masih 0).
+  - Mekanisme multi-select dokumen (dikonfirmasi ke Ray, bukan tebakan):
+    centang template -> langsung insert 1 baris ke `documents` (nama =
+    nama template, status "Belum"), sama seperti alur manual "+ Tambah
+    Dokumen" di `client-documents.js` — bukan ditunda sampai klik "Buat
+    Penawaran". Cek dulu supaya tidak duplikat nama dokumen yang sudah
+    ada untuk case itu. Uncheck cuma menghapus baris kalau statusnya
+    masih "Belum"; kalau sudah "Upload"/"Terverifikasi"/"Ditolak",
+    checkbox dikunci (disabled) + keterangan status supaya tidak ada
+    riwayat upload client yang kehapus tidak sengaja.
+  - Akses tulis ke `documents` dari checkbox ini disamakan dengan aturan
+    `client-documents.js` yang sudah ada: admin+internal saja,
+    `supervisor` sengaja TIDAK diikutkan (mengikuti pembatasan tabel
+    `documents` yang sudah ada, bukan pola "supervisor = admin" yang
+    berlaku di tabel lain).
+  - Log ke `activities`: pembuatan RAB baru ("Buat RAB") dan pengiriman
+    penawaran ("Kirim Penawaran"). Edit rincian termin & centang
+    dokumen sengaja TIDAK di-log (menyamakan pola `client-documents.js`
+    yang juga tidak log insert dokumen manual, cuma log perubahan
+    status).
+
 ### Changed
 - **PROJECT — Part VII: Wizard Tambah Project (versi ringan)**. Sesuai
   `PRD_Project_Intake_RAB_Workflow_SMA-app.md` §1/§2.1 — Project & RAB
@@ -57,8 +104,57 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   insert `cases` tanpa kolom itu aman. Yang masih perlu dicek manual di
   browser: insert `case_assignees` batch saat ada anggota tim dipilih
   sebelum project disimpan, dan verifikasi visual form secara umum.
+- **Part V (RAB/Penawaran Builder)**: login OTP masih blocker yang sama
+  persis, jadi seluruh flow di atas cuma direview lewat kode +
+  `npm run lint`/`npm run build` (keduanya PASS), belum diklik langsung
+  di browser. Yang paling perlu dicek manual duluan begitu login bisa
+  dicoba:
+  - Apakah `DELETE` ke `documents` benar-benar diizinkan RLS untuk
+    admin/internal — sepanjang codebase ini, `documents` cuma pernah
+    di-`insert`/`update` (`client-documents.js`), belum pernah
+    di-`delete` sama sekali, jadi ini request DELETE pertama ke tabel
+    itu dari frontend. Kalau RLS-nya ternyata belum mengizinkan, UI
+    sudah menangani dengan aman (toast error + checkbox di-uncheck
+    balik, tidak silent/crash), tapi fitur "uncheck buat hapus dokumen
+    Belum" itu sendiri tidak akan berfungsi sampai RLS-nya ditambahkan.
+  - Apakah `UPDATE cases.intake_status` benar-benar diizinkan RLS untuk
+    `supervisor` (bukan cuma `admin`/`internal` yang sudah terbukti
+    lewat fitur update status project yang sudah ada) — kalau tidak,
+    "Buat Penawaran" oleh supervisor akan tetap berhasil mengubah
+    `case_quotations.status` jadi SENT (RLS untuk tabel itu sudah pasti
+    mengizinkan) tapi gagal di update `cases.intake_status`, dan UI
+    sudah menampilkan toast peringatan terpisah untuk kasus ini
+    (bukan silent failure).
+  - Delete-then-insert saat "Simpan Rincian Termin" (bukan update
+    in-place per baris) — dipilih supaya tidak kena unique constraint
+    `(quotation_id, order_index)` saat reorder, tapi berarti ada jeda
+    singkat di mana baris lama sudah terhapus sebelum baris baru
+    ke-insert; kalau network putus persis di jeda itu, rincian termin
+    bisa hilang dari DB (form di browser tetap menyimpan datanya untuk
+    di-retry-simpan). Belum pernah teruji di kondisi network nyata.
+  - Query `case_quotations` yang embed `profiles!created_by` sudah
+    pakai hint FK eksplisit dari awal (mengikuti pola fix di v2.7.0),
+    tapi belum bisa dikonfirmasi jalan di browser sungguhan.
 
 ## [Unreleased] - Database
+
+### Fixed
+- **RLS `case_quotations`/`case_quotation_items` diperketat untuk
+  `internal`** — migration
+  [`20260823050000_project_part5_tighten_quotation_rls.sql`](supabase/migrations/20260823050000_project_part5_tighten_quotation_rls.sql).
+  Policy `internal_insert`/`internal_update` yang lama (dari Part I)
+  mengizinkan `internal` insert/update `case_quotations` tanpa batasan
+  status sama sekali — bertentangan dengan PRD §4 ("hanya
+  admin/supervisor yang boleh mengubah status jadi SENT"). Sekarang
+  `internal` cuma bisa insert/update baris yang statusnya (baik lama
+  maupun baru) tetap `DRAFT`; `case_quotation_items` ikut dibatasi
+  lewat `exists` join ke `case_quotations.status = 'DRAFT'` (termasuk
+  policy delete-nya, yang sebelumnya juga tidak dibatasi).
+  admin/supervisor tidak berubah (tetap tanpa batasan status, pola yang
+  sama dengan `payments_internal_insert`/`update` dan trigger
+  `profiles_prevent_privilege_escalation` yang sudah ada). Ditulis
+  sebelum UI builder (Part V) dibangun supaya proteksinya di level DB,
+  bukan cuma disembunyikan di tombol UI.
 
 ### Added
 - **PROJECT — Part IV: Seed Data Awal Document Templates**. 15

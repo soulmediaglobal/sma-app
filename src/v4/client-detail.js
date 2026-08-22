@@ -7,6 +7,7 @@ import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openMenu } from './menus.js';
 import { openAddCaseModal } from './case-form.js';
+import { loadQuotationsForCases, buildQuotationSection } from './client-quotations.js';
 
 const CLIENT_FIELDS = [
   'id',
@@ -527,6 +528,8 @@ async function loadProjects(root) {
     } catch {
       assigneesError = true;
     }
+
+    await loadQuotationsForCases(projects.map((project) => project.id));
   }
 
   const list = document.createElement('div');
@@ -591,7 +594,12 @@ async function loadProjects(root) {
       );
 
       const team = buildTeamSection(project, canManageTeam, assigneesError);
-      body.append(creator, rab, team);
+      const quotation = buildQuotationSection(project, {
+        profile: currentProfile,
+        clientId,
+        onRefresh: () => loadProjects(root)
+      });
+      body.append(creator, rab, team, quotation);
       card.append(header, body);
       list.appendChild(card);
     });
