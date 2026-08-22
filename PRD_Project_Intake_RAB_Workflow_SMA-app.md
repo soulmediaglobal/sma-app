@@ -1,207 +1,217 @@
-# PRD: Project Intake & RAB Workflow — SMA-app (DRAFT)
+# PRD: Project Intake & RAB Workflow — SMA-app
 
-**Status:** Draft, disetujui sementara oleh Ray (22 Agustus 2026) — "oke
-dulu, nanti sambil kita lihat hasilnya begitu ada visualnya". BELUM
-final, revisi diperkirakan terjadi setelah UI/prototype pertama
-kelihatan. Belum ada kode/migration yang dibuat dari dokumen ini.
-
-**Konteks:** Perluasan alur Project — dari sekadar isi service_type +
-RAB manual, jadi alur intake lengkap: pilih layanan → assign tim →
-tentukan dokumen awal → generate RAB → penawaran ke client →
-Terima/Tolak/Nego → baru masuk Workflow.
-
-**Catatan penting dari Ray:** semua 6 tab di Client Detail (Info,
-Project, Workflow, Dokumen, Pembayaran, Aktivitas) kemungkinan besar
-akan kena redesign visual & struktural begitu alur ini diimplementasi.
-Ini disengaja/diterima, bukan side-effect yang tidak diinginkan — tujuan
-akhirnya proses jadi jelas baik untuk internal maupun client.
+**Versi:** 3.0 (Draft — masih bisa direvisi begitu ada prototype visual)
+**Terakhir diupdate:** 23 Agustus 2026, 04:42
+**Konteks:** Turunan dari `SMA_APP_MASTER_ARCHITECTURE.js` (generic
+workflow-engine, DITOLAK — lihat catatan proses di bawah), lalu
+`PRD_Workflow_Layer_SMA-app.md` v1.0 (case_stages, versi ramping),
+sekarang diperluas jadi alur intake project lengkap: bikin project →
+generate RAB → kirim penawaran → client Terima/Tolak/Nego → Workflow
+mulai.
+**Pembagian kerja:** Ray = Admin side, Dimas = Client side, paralel.
 
 ---
 
 ## 1. Alur Besar
 
+Halaman Project itu **1 halaman, 2 section independen** — bukan 1
+wizard raksasa, bukan juga 2 alur yang benar-benar terpisah.
+
 ```
-[Buat Project Baru]
+[Buat Project — Section "Info Project"]
        |
-       +- Pilih jenis layanan (service_type)
-       +- Assign tim internal (1..N staff, pakai case_assignees yang
-       |  sudah ada di database, belum ada UI-nya)
-       +- Tentukan dokumen awal dibutuhkan (pilih dari master, bukan
-       |  ketik manual)
-       +- Catatan
-       +- Generate RAB (rincian biaya + termin + syarat tiap termin)
+       +- Project Creator     (cases.created_by — otomatis, read-only)
+       +- Project Type        (cases.service_type — pilih jenis layanan)
+       +- Tambah Team         (case_assignees — bisa 0 atau lebih, opsional)
+       +- Deskripsi           (cases.notes)
        |
        v
-[Klik "Buat Penawaran"]
+[Simpan] -> project langsung ada, intake_status = DRAFT
+            Section RAB & Penawaran kelihatan tapi statusnya
+            "Belum Dibuat" — TIDAK menghalangi save di atas
+       |
+       | (kapan saja siap, tidak harus langsung, tidak ada batas waktu)
+       v
+[Section "RAB & Penawaran" — independen, buka kapan saja]
+       |
+       +- Badge status: Belum Dibuat / Draft / Menunggu Persetujuan /
+       |  Diterima / Ditolak / Nego
+       +- Riwayat semua versi penawaran tetap terlihat (case_quotations
+       |  sudah versioned dari Part I — v1 ditolak, v2 revisi, dst,
+       |  semua tetap bisa dibuka, bukan cuma versi terakhir)
+       +- Tentukan dokumen yang harus di-upload client (multi-select
+       |  dari document_templates)
+       +- Rincian biaya + termin + syarat tiap termin
        |
        v
-status project: "Menunggu Persetujuan Client"
+[Klik "Buat Penawaran"] -> intake_status = QUOTED,
+                            case_quotations.status = SENT
+                            (hanya admin/supervisor yang bisa memicu
+                            aksi ini — lihat §4)
        |
        v
 [Client lihat penawaran di dashboard-nya]
        |
-       +- TERIMA --------> RAB di-lock, payments ter-generate dari
-       |                    termin, case_stages mulai (Workflow aktif)
+       +- TERIMA --------> intake_status = ACCEPTED, RAB di-lock,
+       |                    payments ter-generate dari termin,
+       |                    case_stages mulai (Workflow aktif)
        |
-       +- TOLAK ---------> project selesai di sini, Workflow tidak
+       +- TOLAK ---------> intake_status = REJECTED, Workflow tidak
        |                    diproses
        |
-       +- NEGO ----------> balik ke admin, RAB bisa diedit ulang, kirim
-                            ulang penawaran (looping ke atas)
+       +- NEGO ----------> versi lama jadi SUPERSEDED (tapi TETAP
+                            terlihat di riwayat, tidak disembunyikan),
+                            balik ke admin, RAB versi baru dibuat, kirim
+                            ulang penawaran (looping ke "RAB & Penawaran")
 ```
 
-**Titik penting:** `case_stages` (Workflow) TIDAK langsung ada begitu
-project dibuat — baru di-generate begitu client TERIMA. Ini beda dari
-kondisi sekarang (per 22 Agustus 2026), di mana `case_stages` baru saja
-di-seed untuk SEMUA project (42 project: 15 lama + 27 baru) langsung
-tanpa lewat tahap penawaran. Lihat §6 untuk rencana rekonsiliasi.
+**Prinsip kunci:** Project **tidak pernah nge-block** menunggu RAB.
+Project bisa dibuat, disimpan, tim di-assign, dikerjakan orangnya
+(secara administratif/koordinasi) — sambil RAB-nya masih digodok
+dengan hati-hati di section terpisah, kapan pun siap. Alasan Ray: RAB
+butuh waktu, harus dihitung hati-hati, tidak boleh jadi penghalang
+project untuk langsung dicatat dan mulai dikerjakan secara administratif.
 
 ---
 
-## 2. Skema Data Baru (usulan, belum dibuat)
+## 2. Skema Data — Kontrak Bersama
 
-### 2.1 `document_templates` — master jenis dokumen
+### 2.1 Field "Info Project" — semua sudah ada, TIDAK ada tabel/kolom baru
 
-| Kolom | Tipe | Keterangan |
+| Field UI | Sumber data | Status |
 |---|---|---|
-| id | uuid | PK |
-| name | text | "KTP Direktur", "NPWP Perusahaan", dst |
-| category | text, nullable | Pengelompokan (Identitas, Legalitas, Keuangan, dst) |
-| default_service_types | text[], nullable | Jenis layanan yang biasanya butuh dokumen ini (auto-suggest) |
-| is_active | boolean | Bisa dinonaktifkan tanpa hapus riwayat |
-| created_at | timestamptz | |
+| Project Creator | `cases.created_by` | Sudah ada (Part III) |
+| Project Type | `cases.service_type` | Sudah ada (dari awal) |
+| Tambah Team | `case_assignees` | Sudah ada (Part III) |
+| Deskripsi | `cases.notes` | Sudah ada (dari awal, perlu dicek apakah sudah dipakai di form manapun) |
+| Badge status RAB + riwayat versi | `cases.intake_status` + `case_quotations` (sudah versioned) | Sudah ada (Part I) |
 
-Saat admin pilih "dokumen awal dibutuhkan" di project, pilih dari sini
-(multi-select), bukan ketik nama sendiri. Baris `documents` untuk
-project itu ambil `name` dari template yang dipilih.
+### 2.2 `case_quotations` — RAB / penawaran header (sudah dibangun, Part I)
 
-### 2.2 `case_quotations` — RAB / penawaran (header)
+Versioned, status: `DRAFT / SENT / ACCEPTED / REJECTED / NEGOTIATING /
+SUPERSEDED`. Kolom lengkap sudah ada di
+`supabase/migrations/20260822200000_project_part1_schema_foundation.sql`.
 
-| Kolom | Tipe | Keterangan |
+### 2.3 `case_quotation_items` — rincian termin (sudah dibangun, Part I)
+
+### 2.4 `document_templates` — master jenis dokumen (sudah dibangun & di-seed, Part I & IV)
+
+15 dokumen umum sudah tersedia. Bukan bagian dari PRD ini untuk
+membuat UI kelola master — itu fitur terpisah, ditunda.
+
+---
+
+## 3. Dampak ke Pembagian Part
+
+| Part | Status | Catatan |
 |---|---|---|
-| id | uuid | PK |
-| case_id | uuid | FK ke `cases` |
-| version | int | Mulai dari 1, naik tiap kali Nego (riwayat semua versi tersimpan) |
-| status | text | DRAFT / SENT / ACCEPTED / REJECTED / NEGOTIATING / SUPERSEDED |
-| total_amount | numeric | Total keseluruhan (dihitung dari items) |
-| notes | text, nullable | Catatan/syarat umum penawaran |
-| sent_at | timestamptz, nullable | Kapan dikirim ke client |
-| responded_at | timestamptz, nullable | Kapan client Terima/Tolak/Nego |
-| client_response_notes | text, nullable | Kalau Nego, alasan/permintaan client |
-| created_by | uuid, FK profiles | |
-| created_at | timestamptz | |
-
-Versioned (bukan update in-place) supaya riwayat negosiasi kelihatan
-(v1 ditolak alasan X, v2 direvisi, v3 diterima).
-
-### 2.3 `case_quotation_items` — rincian termin dalam 1 RAB
-
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| id | uuid | PK |
-| quotation_id | uuid | FK ke `case_quotations` |
-| term_name | text | "DP", "Termin 2", "Pelunasan", dst |
-| amount | numeric | |
-| due_condition | text | Syarat pencairan termin ini |
-| order_index | int | Urutan tampil |
-
-Begitu `case_quotations.status = ACCEPTED`, sistem generate baris di
-`payments` (yang sudah ada) dari `case_quotation_items` ini — 1
-quotation item jadi 1 payment row berstatus `Pending`.
-
-### 2.4 Kolom baru di `cases`
-
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| intake_status | text | DRAFT / QUOTED / ACCEPTED / REJECTED — status di level intake, terpisah dari `status` (Baru/Proses/Selesai/Batal) yang menggambarkan progress operasional setelah diterima |
-
-Dipisah dari `cases.status` yang sudah ada supaya trigger
-`sync_case_status_from_stages` (Issue #38) yang sudah dibangun tidak
-perlu dirombak — `intake_status` jadi gerbang sebelum `case_stages`
-mulai ada isinya.
+| I — Schema Foundation | Selesai (v2.5.0) | document_templates, case_quotations, case_quotation_items, cases.intake_status |
+| II — Rekonsiliasi Data Existing | Selesai (v2.6.0) | 42/43 case → ACCEPTED |
+| III — Assign Tim UI | Selesai (v2.7.0), diverifikasi visual | Sekalian: PIC diganti "Dibuat oleh" (cases.created_by) |
+| IV — Seed Document Templates | Selesai (v2.8.0) | 15 dokumen, tervalidasi |
+| V — RAB/Penawaran Builder | Belum mulai | Tetap berat (kalkulasi termin, multi-select dokumen). Dipicu dari halaman project yang sudah ada. Riwayat versi harus tampil, bukan cuma versi aktif |
+| VI — Alur Terima/Tolak/Nego | Belum mulai | Approval RAB sisi internal butuh role admin/supervisor (lihat §4) |
+| VII — Wizard Tambah Project | Belum mulai | Jauh lebih ringan — 4 field, tanpa RAB, tanpa dokumen, murni info dasar + save |
 
 ---
 
-## 3. State Machine — Terima / Tolak / Nego
+## 4. Role — Siapa Bisa Apa (final)
 
-```
-DRAFT --(kirim)--> SENT --(client Terima)--> ACCEPTED
-                     |                          |
-                     |                          +--> trigger: generate
-                     |                               payments dari
-                     |                               quotation_items +
-                     |                               seed case_stages
-                     |
-                     +--(client Tolak)--> REJECTED (Workflow tidak
-                     |                     pernah dibuat)
-                     |
-                     +--(client Nego)--> NEGOTIATING --(admin revisi)-->
-                                          versi baru (v2), quotation
-                                          lama jadi SUPERSEDED
-```
+**Role tertinggi: Ray (`admin`) dan Tomy (`supervisor`)** — keduanya
+"owner-level", bisa approve/kirim RAB tanpa approval tambahan dari
+siapapun.
 
----
+**Prinsip pembatasan RAB (perlu direview presisi saat Part V/VI
+dikerjakan):**
+- `internal` boleh bikin/edit **draft** `case_quotations` (status DRAFT)
+- Hanya `admin`/`supervisor` yang boleh mengubah status jadi `SENT`
+  (memicu "Buat Penawaran" ke client)
+- RLS `case_quotations` yang sudah dibangun di Part I saat ini masih
+  memberi `internal` akses INSERT/UPDATE tanpa pembatasan status — ini
+  KEMUNGKINAN perlu diperketat (mirip pola `payments_internal_insert`
+  yang membatasi ke status Pending saja) saat Part V/VI dikerjakan,
+  belum final.
 
-## 4. Yang Perlu Disinkronkan ke Dimas
-
-- Client butuh halaman baru: "Penawaran Menunggu Persetujuan" — list
-  quotation berstatus SENT, tombol Terima/Tolak/Nego
-- RLS `case_quotations` perlu policy client_select_own + kemampuan
-  UPDATE status jadi ACCEPTED/REJECTED/NEGOTIATING — ini pertama
-  kalinya client butuh WRITE access ke sesuatu selain upload bukti
-  bayar
-- "Bisa di-trigger dari sisi client" (request layanan baru dari client
-  sendiri) kemungkinan besar tumpang tindih dengan Issue #25 (Client
-  Self-Service Portal) — perlu dibahas siapa bangun bagian mana
+**Catatan:** Tomy belum punya akun di sistem (masih 1 user: Ray).
+Assign role `supervisor` ke Tomy baru bisa dieksekusi begitu ada
+mekanisme invite staff (roadmap #10, belum dibangun) atau manual via
+SQL kalau perlu lebih cepat.
 
 ---
 
-## 5. Dampak ke Fitur yang Sudah Ada
+## 5. Yang Perlu Disinkronkan ke Dimas
 
-| Fitur existing | Dampak |
-|---|---|
-| Tab Project (`client-detail.js`) | Form "Tambah Project" jadi wizard multi-step (layanan -> tim -> dokumen -> RAB) |
-| Tab Pembayaran (`client-payments.js`) | Perlu bagian baru menampilkan RAB/quotation, bukan cuma payment yang sudah jalan |
-| Tab Workflow (baru selesai disambungkan ke data real per 22 Agustus 2026) | `case_stages` seharusnya baru muncul setelah `intake_status = ACCEPTED` — benturan dengan seed data yang sudah dimasukkan (lihat §6) |
-| Menu "Transaksi" (akan direvisi total menurut Ray) | Kemungkinan jadi tempat lihat semua `case_quotations` lintas client |
+- Client butuh halaman "Penawaran Menunggu Persetujuan" — tombol
+  Terima/Tolak/Nego
+- RLS `case_quotations`/`case_quotation_items` untuk client saat ini
+  SELECT-only (Part I) — akses tulis (Terima/Tolak/Nego) SENGAJA
+  ditunda ke Part VI, logic keamanan transisi statusnya belum dibangun
+- Kemungkinan tumpang tindih dengan Issue #25 (Client Self-Service
+  Portal) — perlu dibahas siapa bangun bagian mana
 
 ---
 
-## 6. Rekonsiliasi Data Existing
+## 6. Rekonsiliasi Data Existing — Selesai (Part II)
 
-42 project (15 lama + 27 seed baru per 22 Agustus 2026) sudah punya
-`case_stages` tanpa pernah lewat tahap penawaran. Opsi: treat semua 42
-sebagai `intake_status = ACCEPTED` secara retroaktif (generate 1
-`case_quotation` dummy per project, status ACCEPTED) — supaya data lama
-tetap valid di bawah model baru, tidak perlu dihapus/direset.
+42 dari 43 case sudah punya `case_stages` sebelum PRD ini ada,
+direkonsiliasi retroaktif ke `intake_status = ACCEPTED` + 1
+`case_quotations` dummy (status ACCEPTED) per case. 1 case ("Tau
+Bbanget" — SLF, hasil testing manual, tidak punya `case_stages`) tetap
+`DRAFT`, tidak direkonsiliasi — sesuai kriteria, bukan pengecualian
+khusus.
 
 ---
 
 ## 7. Open Questions
 
-1. Saat client NEGO, apakah RAB versi lama (v1) masih terlihat client
-   sambil menunggu revisi, atau disembunyikan sampai v2 siap?
-2. Apakah `document_templates` otomatis terkait ke `service_type`
-   (pilih PBG -> auto-suggest dokumen wajib), atau full manual tiap
-   kali?
-3. Kalau client belum respon lama — ada auto-reminder/expiry untuk
-   quotation yang SENT?
-4. `case_assignees` — assign tim terikat ke project (per case_id) saja,
-   atau bisa diubah di tengah jalan tanpa lewat proses intake ini?
-5. Siapa yang approve RAB dari sisi internal sebelum dikirim ke client
-   — butuh approval supervisor/admin, atau internal bisa kirim langsung?
+**Terjawab:**
+1. ~~Riwayat versi RAB lama masih terlihat saat Nego?~~ **Ya**, semua
+   versi tetap terlihat, tidak disembunyikan (lihat §1).
+2. ~~Auto-reminder/expiry quotation SENT lama?~~ **Ditunda**, tidak
+   masuk scope sekarang.
+3. ~~Siapa approve RAB dari sisi internal?~~ **Ray & Tomy** (lihat §4).
+
+**Masih terbuka:**
+4. Form "+ Tambah Project" yang sekarang (`case-form.js`) — apakah
+   field `notes` sudah dipakai di situ atau belum?
+5. Desain visual badge status RAB — belum dibahas, menyusul begitu ada
+   visual untuk direview.
+6. Detail teknis pembatasan RLS `case_quotations` untuk `internal`
+   (lihat §4) — perlu dirumuskan presisi saat Part V/VI dikerjakan.
 
 ---
 
-## Catatan proses (bukan bagian PRD, log diskusi)
+## Backlog Terpisah (di luar PRD ini, dicatat supaya tidak hilang)
 
-- 22 Agustus 2026, pagi: draft ditulis Claude berdasarkan penjelasan
-  lisan Ray soal alur intake -> RAB -> approval -> workflow.
-- Ray review: "harusnya udah sih... sementara gw oke dulu, nanti sambil
-  kita lihat hasilnya" — disetujui sebagai arah, BUKAN sebagai spec
-  final siap-implementasi. Revisi diperkirakan muncul begitu ada
-  visual/prototype pertama.
-- Belum ada Issue GitHub yang dibuat untuk PRD ini. Belum ada migration
-  yang dijalankan. Tab Workflow yang sudah disambungkan ke data real
-  (Issue #40) TETAP DIPERTAHANKAN apa adanya sampai ada keputusan
-  eksplisit untuk merombaknya sesuai PRD ini.
+- Halaman **"Project Setting"** di sidebar — atur relasi
+  `service_type` ↔ `document_templates` (dokumen wajib per jenis
+  layanan). Data source-nya `document_templates.default_service_types`
+  yang sudah di-seed di Part IV, tinggal dibuatkan UI-nya.
+
+## Housekeeping
+
+- Issue #35 (task lama "Actions, Transitions & current_owner" dari
+  pendekatan generic-engine yang sudah dibatalkan) masih berstatus
+  OPEN di GitHub — perlu ditutup manual dengan catatan "not planned".
+  Branch-nya sudah dihapus (kosong, tidak ada commit).
+- Dimas belum dikabari soal seluruh perubahan arah sesi 22 Agustus
+  2026 (revert generic-engine, PRD Project Intake baru, dst) — masih
+  pending sejak sesi sebelumnya.
+
+---
+
+## Catatan Proses (bukan bagian PRD, log diskusi)
+
+- 22 Agustus 2026, pagi: draft v1 ditulis berdasarkan penjelasan lisan
+  Ray soal alur intake → RAB → approval → workflow. Disetujui sementara
+  ("oke dulu, nanti sambil kita lihat hasilnya"), bukan spec final.
+- 22 Agustus 2026, malam: Part I-IV diimplementasi & merge (v2.5.0-
+  v2.8.0). Part III diverifikasi visual, ditemukan 2 bug + 1 perubahan
+  desain (PIC → Project Creator) di tengah jalan, sudah diperbaiki.
+- 22 Agustus 2026, malam: revisi v2 — Project & RAB dipisah jadi 2
+  section independen dalam 1 halaman (bukan 1 wizard sekaligus).
+- 23 Agustus 2026, 04:42: revisi v3 — role final ditetapkan (Ray=admin,
+  Tomy=supervisor/"owner"), 3 open question dari v2 dijawab.
+- Tab Workflow yang sudah disambungkan ke data real (Issue #40, di
+  luar PRD ini) TETAP DIPERTAHANKAN apa adanya — tidak dirombak ulang
+  untuk menyesuaikan PRD ini kecuali ada keputusan eksplisit.
