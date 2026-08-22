@@ -51,7 +51,6 @@ let initialized = false;
 let client = null;
 let clientId = '';
 let currentProfile = null;
-let internalUsers = null;
 let assignableProfiles = null;
 let projectsById = new Map();
 let assigneesByCaseId = new Map();
@@ -204,17 +203,6 @@ function wireCaseActions(root) {
   });
 }
 
-async function loadInternalUsers() {
-  if (internalUsers) {return internalUsers;}
-  const { data } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .in('role', ['admin', 'internal'])
-    .order('name', { ascending: true });
-  internalUsers = data || [];
-  return internalUsers;
-}
-
 async function loadAssignableProfiles() {
   if (assignableProfiles) {return assignableProfiles;}
   const { data } = await supabase
@@ -335,51 +323,6 @@ async function updateCaseStatus(root, control, newStatus) {
   }
 }
 
-async function reassignCasePic(root, caseId, newAssigneeId, newAssigneeName) {
-  const { error } = await supabase
-    .from('cases')
-    .update({ assigned_to: newAssigneeId || null })
-    .eq('id', caseId);
-
-  if (error) {
-    showToast('Gagal reassign PIC.', { variant: 'error' });
-    return;
-  }
-
-  await logActivity({
-    caseId,
-    type: 'Reassign PIC',
-    notes: `PIC diubah menjadi ${newAssigneeName}.`
-  });
-
-  showToast('PIC berhasil diperbarui.', { variant: 'success' });
-  await loadProjects(root);
-}
-
-async function openPicMenu(root, trigger) {
-  const caseId = trigger.dataset.caseId;
-  const currentAssigneeId = trigger.dataset.assigneeId || '';
-  const users = await loadInternalUsers();
-
-  const items = [
-    {
-      label: currentAssigneeId ? 'Belum di-assign' : 'Belum di-assign ✓',
-      action: () => {
-        if (currentAssigneeId) {reassignCasePic(root, caseId, '', 'Belum di-assign');}
-      }
-    },
-    '-',
-    ...users.map((user) => ({
-      label: user.id === currentAssigneeId ? `${user.name} ✓` : user.name,
-      action: () => {
-        if (user.id !== currentAssigneeId) {reassignCasePic(root, caseId, user.id, user.name);}
-      }
-    }))
-  ];
-
-  openMenu(trigger, items);
-}
-
 async function addAssignee(root, caseId, userId, userName) {
   const { error } = await supabase
     .from('case_assignees')
@@ -458,12 +401,6 @@ function wireProjectActions(root) {
     if (statusControl) {updateCaseStatus(root, statusControl, statusControl.value);}
   });
   panel.addEventListener('click', (event) => {
-    const picTrigger = event.target.closest('[data-case-pic-trigger]');
-    if (picTrigger) {
-      openPicMenu(root, picTrigger);
-      return;
-    }
-
     const addAssigneeTrigger = event.target.closest('[data-add-assignee-trigger]');
     if (addAssigneeTrigger) {
       openAddAssigneeMenu(root, addAssigneeTrigger);
@@ -529,7 +466,6 @@ async function loadProjects(root) {
   projectsById = new Map();
   assigneesByCaseId = new Map();
 
-  const isAdmin = currentProfile?.role === 'admin';
   const canUpdateStatus = canUpdateCaseStatus();
   const canManageTeam = canManageAssignees();
 
@@ -545,8 +481,8 @@ async function loadProjects(root) {
         status,
         total_rab,
         created_at,
-        assigned_to,
-        assignee:profiles(id, name)
+        created_by,
+        creator:profiles!created_by(id, name)
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false }));
@@ -568,7 +504,7 @@ async function loadProjects(root) {
     try {
       const { data: assigneeRows, error: assigneeErr } = await supabase
         .from('case_assignees')
-        .select('id, case_id, user_id, member:profiles(id, name, role)')
+        .select('id, case_id, user_id, member:profiles!user_id(id, name, role)')
         .in('case_id', projects.map((project) => project.id))
         .order('assigned_at', { ascending: true });
 
@@ -635,21 +571,11 @@ async function loadProjects(root) {
       }
 
       const body = element('div', 'client-project-card-body');
-      const pic = document.createElement('div');
-      pic.appendChild(element('span', 'client-project-label', 'PIC'));
-      const assigneeName = relatedRecord(project.assignee)?.name || 'Belum di-assign';
-      if (isAdmin) {
-        const picTrigger = element('button', 'client-project-pic-trigger', assigneeName);
-        picTrigger.type = 'button';
-        picTrigger.dataset.casePicTrigger = '';
-        picTrigger.dataset.caseId = project.id;
-        picTrigger.dataset.assigneeId = project.assigned_to || '';
-        picTrigger.setAttribute('aria-haspopup', 'true');
-        picTrigger.setAttribute('aria-expanded', 'false');
-        pic.appendChild(picTrigger);
-      } else {
-        pic.appendChild(element('span', '', assigneeName));
-      }
+      const creator = document.createElement('div');
+      creator.append(
+        element('span', 'client-project-label', 'Dibuat oleh'),
+        element('span', '', relatedRecord(project.creator)?.name || 'Tidak diketahui')
+      );
 
       const rab = document.createElement('div');
       rab.append(
@@ -658,7 +584,7 @@ async function loadProjects(root) {
       );
 
       const team = buildTeamSection(project, canManageTeam, assigneesError);
-      body.append(pic, rab, team);
+      body.append(creator, rab, team);
       card.append(header, body);
       list.appendChild(card);
     });

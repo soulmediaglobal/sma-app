@@ -153,8 +153,7 @@ body[data-page='client-detail'].modal-open .toast-host {
   color: var(--text-muted);
 }
 
-.client-project-card-body > div > span:last-child,
-.client-project-pic-trigger {
+.client-project-card-body > div > span:last-child {
   font-size: 13px;
   font-weight: var(--font-weight-medium);
   color: var(--text);
@@ -218,22 +217,6 @@ body[data-page='client-detail'].modal-open .toast-host {
 .client-project-status-select:disabled {
   cursor: wait;
   opacity: 0.65;
-}
-
-.client-project-pic-trigger {
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition: text-decoration-color 100ms;
-}
-
-.client-project-pic-trigger:hover,
-.client-project-pic-trigger:focus-visible {
-  text-decoration-color: currentColor;
 }
 
 .client-project-team-list {
