@@ -7,7 +7,6 @@ import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openMenu } from './menus.js';
 import { openAddCaseModal } from './case-form.js';
-import { initClientWorkflow } from './client-workflow.js';
 
 const CLIENT_FIELDS = [
   'id',
@@ -528,7 +527,16 @@ async function loadClient(root) {
 
     client = data;
     renderReadView(root);
-    initClientWorkflow();
+    try {
+      const { initClientWorkflow } = await import('./client-workflow.js');
+      await initClientWorkflow({ clientId, profile: currentProfile });
+    } catch {
+      const workflowRoot = root.querySelector('#client-workflow-root');
+      if (workflowRoot) {
+        workflowRoot.textContent = 'Gagal memuat modul workflow.';
+        workflowRoot.setAttribute('aria-busy', 'false');
+      }
+    }
     await loadProjects(root);
     try {
       const { initClientDocuments } = await import('./client-documents.js');
