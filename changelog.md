@@ -15,6 +15,50 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - App
+
+### Changed
+- **PROJECT — Part VII: Wizard Tambah Project (versi ringan)**. Sesuai
+  `PRD_Project_Intake_RAB_Workflow_SMA-app.md` §1/§2.1 — Project & RAB
+  sekarang 2 section independen, bukan 1 wizard. Modal "+ Tambah
+  Project" (`case-form.js`) dirombak jadi persis 4 field "Info
+  Project", tanpa field RAB/dokumen sama sekali:
+  - **Project Creator** — read-only, auto-terisi dari profil user yang
+    login, jadi `cases.created_by` saat simpan (kolomnya sudah ada
+    sejak Part III).
+  - **Jenis layanan** (`cases.service_type`) — tetap dropdown, tidak
+    diubah polanya.
+  - **Tambah Team** (`case_assignees`) — reuse pola chip
+    tambah/hapus dari tab Project (Part III). Kontrol tambah/hapus
+    cuma muncul untuk admin/supervisor, sama seperti aturan
+    post-creation — RLS `case_assignees` tidak beda perlakuan
+    "saat bikin baru" vs "project sudah ada", jadi aturannya memang
+    identik, bukan tebakan. Role `internal` lihat catatan bahwa tim
+    baru bisa ditambahkan setelah project dibuat.
+  - **Deskripsi** (`cases.notes`) — field ini ternyata sudah ada di
+    form lama (berlabel "Catatan"), tinggal di-relabel, tidak perlu
+    field baru.
+  - Dihapus dari form: field **RAB** (`total_rab`, keluar scope —
+    itu section "RAB & Penawaran" terpisah, Part V) dan field **PIC**
+    (`assigned_to`) yang sebelumnya sengaja belum disentuh saat Part
+    III (lihat catatan v2.7.0) — sekarang baru dihapus total dari form
+    pembuatan project sesuai keputusan final PRD.
+- Setelah project baru tersimpan, list project di tab Project sekarang
+  otomatis refresh tanpa reload halaman (`onCreated` callback) — tab
+  Project sebelumnya butuh reload manual buat lihat project yang baru
+  dibuat.
+
+### Known risk (belum diverifikasi manual)
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (sama
+  seperti blocker di Part III) — flow ini belum dicoba end-to-end di
+  browser sungguhan, cuma direview lewat kode + `npm run lint`/`npm run
+  build`. Yang paling perlu dicek manual: (1) insert `cases` tanpa
+  `total_rab` — kolom ini tidak pernah dapat constraint eksplisit di
+  migration manapun yang tertelusuri, jadi kemungkinan besar nullable,
+  tapi belum dikonfirmasi langsung ke skema DB; (2) insert
+  `case_assignees` batch saat ada anggota tim dipilih sebelum project
+  disimpan.
+
 ## [Unreleased] - Database
 
 ### Added
