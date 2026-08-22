@@ -15,6 +15,112 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - Database
+
+### Added
+- **Sync otomatis `cases.status` dari `case_stages`**: keputusan final
+  PRD_Workflow_Layer_SMA-app.md §4 poin 3 — status lama TIDAK
+  digantikan, tapi dihitung ulang otomatis lewat trigger setiap kali
+  ada perubahan status di `case_stages`, berdasarkan kondisi SEKARANG
+  (bukan progress tertinggi yang pernah dicapai) — mendukung kasus
+  revisi/mundur stage yang sering terjadi. `status = 'Batal'` dilindungi,
+  tidak pernah ditimpa otomatis (murni keputusan manual).
+- Diverifikasi lewat transaction test langsung ke database (ROLLBACK,
+  tidak ada perubahan data production): insert stage PENDING -> Baru,
+  update ke COMPLETED -> Selesai, Batal manual tetap bertahan meski
+  stage diubah balik ke PENDING.
+- Supervisor untuk role management (belum ada aksi teknis — masih
+  1 user di sistem): Ray tetap `admin`, Tomy akan jadi `supervisor`
+  begitu ada mekanisme invite (roadmap #10 atau manual via SQL).
+
+## [2.3.0] - 2026-08-22
+
+### Changed
+- **Revert & rebuild Workflow Layer**: Task #33 (generic workflow-engine:
+  `workflow_templates`, `workflow_template_stages`, `workflow_instances`,
+  `workflow_stages`) sudah di-drop. Ternyata `PRD_Workflow_Layer_SMA-app.md`
+  (v1.0, 21 Agustus 2026, dibuat setelah `SMA_APP_MASTER_ARCHITECTURE.js`,
+  hasil diskusi lanjutan) sudah menolak pendekatan generic-engine dan
+  memilih desain lebih ramping. File PRD ini sempat tidak terbaca sebelum
+  Task #33 dieksekusi.
+- Dibangun ulang sesuai PRD §2: tabel `case_stages` (daftar tahap per
+  case, bisa diedit bebas), kolom `cases.current_stage_id`, tabel
+  `document_versions` (riwayat versi dokumen, `rejection_reason` wajib
+  kalau status Ditolak), perluasan `payments` (kolom
+  `invoice_number`/`invoice_issued_at`/`receipt_number`/`receipt_issued_at`).
+- Ditambahkan trigger `payments_prevent_invoice_receipt_tampering` —
+  hanya admin/supervisor boleh mengubah kolom invoice/receipt (celah
+  sama seperti yang ditutup di `profiles` pagi ini, ditutup proaktif).
+- `cases.status` (Baru/Proses/Selesai/Batal) TIDAK diubah — hubungannya
+  dengan `case_stages` masih open question (PRD §4 poin 3).
+- Asumsi yang perlu dikonfirmasi: RLS `document_versions` untuk role
+  `supervisor` disamakan dengan `admin` (PRD tidak menyebutkan
+  `supervisor` secara eksplisit untuk tabel ini).
+
+## [2.1.2] - 2026-08-22
+
+### Added
+- **Skema inti workflow engine** (`workflow_templates`,
+  `workflow_template_stages`, `workflow_instances`, `workflow_stages`) —
+  migration
+  [`20260822150000_create_workflow_engine_core_schema.sql`](supabase/migrations/20260822150000_create_workflow_engine_core_schema.sql).
+  `workflow_instances` di-link ke `cases` lewat `case_id`. RLS mengikuti
+  pola `cases`/`case_assignees` (admin ALL, supervisor/internal
+  select+write sesuai peran), plus policy client select-own tambahan pada
+  `workflow_instances`/`workflow_stages` (deviasi disengaja dari
+  `case_assignees` yang tidak punya policy client sama sekali) karena
+  arsitektur workflow mensyaratkan client bisa lihat progress project
+  mereka. Issue #33. **Schema-only** — belum ada `workflow_actions`/
+  `workflow_transitions` (task terpisah) dan belum disambungkan ke
+  frontend/`client-workflow.js` sama sekali.
+
+### Fixed
+- **RLS `profiles`**: menutup celah self-role-escalation — sebelumnya
+  policy `profiles_self_update` cuma membatasi baris (`auth.uid() = id`)
+  tanpa membatasi kolom, sehingga user non-admin secara teknis bisa
+  mengubah `role`/`client_id` di profil sendiri lewat query langsung.
+  Ditambahkan trigger `profiles_prevent_privilege_escalation` yang
+  memblokir perubahan `role`/`client_id` kecuali oleh `admin`.
+- Perubahan dijalankan manual via psql (Session Pooler), bukan lewat
+  file migration/Issue/PR — didokumentasikan retroaktif lewat entry ini.
+
+### Notes (verifikasi manual terhadap skema real)
+- Tabel `case_assignees` (multi-assignee per project) dan role
+  `supervisor` di constraint `profiles.role` **sudah ada di database**
+  dari sesi kerja sebelumnya (belum sempat terdokumentasi resmi).
+  Sudah diverifikasi:
+  - Trigger `cases_prevent_internal_pic_reassignment` sudah membatasi
+    reassign PIC dari sisi `internal` di level DB, bukan cuma UI.
+  - RLS `documents`/`payments` sudah membedakan hak `internal` (dibatasi
+    status) vs `supervisor` (bebas verifikasi dokumen & tandai lunas),
+    sesuai PRD User & Role Management.
+  - `case_assignees` **belum dipakai di frontend sama sekali** — kode
+    (`case-form.js`, `client-detail.js`) masih murni pakai kolom lama
+    `cases.assigned_to` (single PIC). Backend sudah siap, UI belum
+    disambungkan — bukan tabel usang, tapi fitur yang belum dibangun.
+  - Role `supervisor` **belum ada satupun referensinya di frontend**
+    (dropdown role, menu, dsb).
+
+### Open questions
+- Siapa dari 5 staf internal yang naik jadi `supervisor` — belum
+  diputuskan, bukan blocker untuk merge dokumentasi ini.
+- Kapan `case_assignees` mulai disambungkan ke UI (multi-assignee per
+  project) — belum ada Issue-nya.
+
+## [2.1.1] - 2026-08-22
+
+### Fixed
+- Token CSS salah di tab Workflow (`--surface`, `--surface-muted`,
+  `--text-primary`, `--radius-md` tidak terdefinisi di `_tokens.scss`)
+  menyebabkan styling berpotensi tidak muncul di browser meski lint &
+  build PASS. Diganti ke token yang benar. Issue #29.
+
+## [2.1.0] - 2026-08-22
+
+### Added
+- **Tab Workflow** pada Client Detail — UI workflow per project dengan pemilihan project, progress 6 tahap, current responsibility, detail stage, completion conditions, dan ringkasan dokumen. Issue #27.
+- Workflow dibuat sebagai **UI prototype** dengan dummy data; belum terhubung ke Supabase atau melakukan database mutation.
+
 ## [2.0.0] - 2026-08-20
 
 **Milestone: Modul Client Management (roadmap item #2 dari 10) LENGKAP.**
