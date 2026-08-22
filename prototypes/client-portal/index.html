@@ -18,38 +18,66 @@
           <span><strong>Soul Mitra Abadi</strong><small>Client Portal</small></span>
         </a>
         <div class="login-story__content">
-          <span class="eyebrow">SATU TEMPAT UNTUK SEMUA PROSES</span>
-          <h1>Urus legalitas tanpa kehilangan arah.</h1>
-          <p>Pantau progress, lengkapi dokumen, dan periksa pembayaran dari satu portal yang sederhana.</p>
-          <div class="login-preview" aria-hidden="true">
-            <span class="login-preview__line"></span>
-            <div class="login-preview__steps">
-              <i class="is-done">1</i><b></b><i class="is-done">2</i><b></b><i class="is-active">3</i><b></b><i>4</i><b></b><i>5</i>
+          <span class="eyebrow">PORTAL KHUSUS KLIEN SMA</span>
+          <h1>Tak perlu lagi bertanya,<br /><span>“prosesnya sudah sampai mana?”</span></h1>
+          <p>Kami mengurus perizinannya. Anda tetap dapat melihat setiap progres, dokumen, keputusan, dan pembayaran—langsung dari satu tempat.</p>
+
+          <div class="login-activity-preview" aria-label="Ilustrasi aktivitas portal klien">
+            <div class="login-activity-preview__head">
+              <span>Aktivitas terbaru</span>
+              <small>Ilustrasi portal</small>
             </div>
-            <div class="login-preview__labels"><span>Diterima</span><span>Verifikasi</span><span>Selesai</span></div>
+            <div class="login-activity-list" role="list">
+              <article class="login-activity login-activity--success" role="listitem">
+                <span class="login-activity__icon" aria-hidden="true">✓</span>
+                <div><strong>Dokumen NIB berhasil diterima</strong><small>Dokumen</small></div>
+                <span class="login-activity__state">Selesai</span>
+              </article>
+              <article class="login-activity login-activity--progress" role="listitem">
+                <span class="login-activity__icon" aria-hidden="true">↻</span>
+                <div><strong>PBG sedang dalam proses verifikasi</strong><small>Progres layanan</small></div>
+                <span class="login-activity__state">Diproses</span>
+              </article>
+              <article class="login-activity login-activity--attention" role="listitem">
+                <span class="login-activity__icon" aria-hidden="true">!</span>
+                <div><strong>Persetujuan Anda dibutuhkan</strong><small>Tindakan diperlukan</small></div>
+                <span class="login-activity__state">Perlu respons</span>
+              </article>
+              <article class="login-activity login-activity--payment" role="listitem">
+                <span class="login-activity__icon" aria-hidden="true">✓</span>
+                <div><strong>Pembayaran DP telah dikonfirmasi</strong><small>Pembayaran</small></div>
+                <span class="login-activity__state">Terkonfirmasi</span>
+              </article>
+            </div>
           </div>
+
+          <ul class="login-values" aria-label="Manfaat portal klien">
+            <li><span aria-hidden="true">✓</span>Update tanpa harus mengejar lewat chat</li>
+            <li><span aria-hidden="true">✓</span>Dokumen tersimpan di satu tempat</li>
+            <li><span aria-hidden="true">✓</span>Setiap proses terlihat transparan</li>
+          </ul>
         </div>
         <p class="login-story__foot">Akses khusus klien Soul Mitra Abadi</p>
       </section>
 
       <section class="login-panel">
         <div class="login-card">
-          <span class="eyebrow">SELAMAT DATANG</span>
-          <h2>Masuk ke portal klien</h2>
-          <p>Masukkan email yang terdaftar. Kami akan mengirimkan tautan masuk tanpa password.</p>
+          <div class="login-card__topline">
+            <span class="eyebrow">SELAMAT DATANG KEMBALI</span>
+            <span class="login-demo-badge">Prototype Mode</span>
+          </div>
+          <h2>Masuk dan lihat progres Anda</h2>
+          <p>Gunakan email PIC yang terdaftar. Tautan aman untuk masuk akan dikirim ke email tersebut.</p>
           <form id="login-form">
             <label class="field">
-              <span>Email</span>
-              <input type="email" value="dimas@contoh.com" required aria-label="Email" />
+              <span>Email PIC</span>
+              <input type="email" value="dimas@contoh.com" required autocomplete="email" />
             </label>
-            <button class="button button--primary button--block" type="submit">Kirim tautan masuk <span>→</span></button>
+            <button class="button button--primary button--block" type="submit">Lihat progres saya <span aria-hidden="true">→</span></button>
           </form>
-          <div class="login-demo">
-            <span>Prototype mode</span>
-            <p>Tombol di atas langsung membuka demo sebagai PT Artha Prima Sejahtera.</p>
-          </div>
+          <p class="login-card__note">Pada prototype ini, tombol langsung membuka demo portal klien.</p>
         </div>
-        <p class="login-help">Butuh bantuan? <a href="mailto:halo@soulmitra.id">Hubungi tim SMA</a></p>
+        <p class="login-help">Belum mendapat akses? <a href="mailto:halo@soulmitra.id">Hubungi pendamping Anda</a></p>
       </section>
     </main>
     <script>
