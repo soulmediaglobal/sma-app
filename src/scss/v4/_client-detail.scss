@@ -236,6 +236,55 @@ body[data-page='client-detail'].modal-open .toast-host {
   text-decoration-color: currentColor;
 }
 
+.client-project-team-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.client-project-team-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-surface-secondary);
+  font-size: 12.5px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text);
+}
+
+.client-project-team-remove {
+  border: none;
+  background: transparent;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.client-project-team-remove:hover,
+.client-project-team-remove:focus-visible {
+  color: var(--red);
+}
+
+.client-project-team-remove:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.client-project-team-empty,
+.client-project-team-error {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.client-project-team-add {
+  flex: 0 0 auto;
+}
+
 .client-documents-state {
   padding: 36px 16px;
   color: var(--text-muted);

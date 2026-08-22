@@ -52,7 +52,9 @@ let client = null;
 let clientId = '';
 let currentProfile = null;
 let internalUsers = null;
+let assignableProfiles = null;
 let projectsById = new Map();
+let assigneesByCaseId = new Map();
 const updatingCaseIds = new Set();
 
 function element(tag, className, text) {
@@ -213,6 +215,17 @@ async function loadInternalUsers() {
   return internalUsers;
 }
 
+async function loadAssignableProfiles() {
+  if (assignableProfiles) {return assignableProfiles;}
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, name, role')
+    .in('role', ['internal', 'supervisor'])
+    .order('name', { ascending: true });
+  assignableProfiles = data || [];
+  return assignableProfiles;
+}
+
 async function logActivity({ caseId, type, notes }) {
   if (!currentProfile?.id) {return { error: new Error('Profil pengguna tidak tersedia') };}
   try {
@@ -232,6 +245,10 @@ async function logActivity({ caseId, type, notes }) {
 
 function canUpdateCaseStatus() {
   return Boolean(currentProfile?.id && ['admin', 'internal'].includes(currentProfile.role));
+}
+
+function canManageAssignees() {
+  return Boolean(currentProfile?.id && ['admin', 'supervisor'].includes(currentProfile.role));
 }
 
 async function rollbackCaseStatus(caseId, changedStatus, oldStatus) {
@@ -363,6 +380,77 @@ async function openPicMenu(root, trigger) {
   openMenu(trigger, items);
 }
 
+async function addAssignee(root, caseId, userId, userName) {
+  const { error } = await supabase
+    .from('case_assignees')
+    .insert({ case_id: caseId, user_id: userId, assigned_by: currentProfile?.id || null });
+
+  if (error) {
+    showToast('Gagal menambahkan anggota tim.', { variant: 'error' });
+    return;
+  }
+
+  await logActivity({
+    caseId,
+    type: 'Tambah Anggota Tim',
+    notes: `${userName} ditambahkan ke tim internal project.`
+  });
+
+  showToast('Anggota tim berhasil ditambahkan.', { variant: 'success' });
+  await loadProjects(root);
+}
+
+async function removeAssignee(root, trigger) {
+  if (trigger.disabled) {return;}
+  const assigneeRowId = trigger.dataset.assigneeId;
+  const caseId = trigger.dataset.caseId;
+  const memberName = trigger.dataset.memberName;
+  trigger.disabled = true;
+
+  try {
+    const { error } = await supabase
+      .from('case_assignees')
+      .delete()
+      .eq('id', assigneeRowId)
+      .eq('case_id', caseId);
+
+    if (error) {
+      showToast('Gagal menghapus anggota tim.', { variant: 'error' });
+      return;
+    }
+
+    await logActivity({
+      caseId,
+      type: 'Hapus Anggota Tim',
+      notes: `${memberName} dihapus dari tim internal project.`
+    });
+
+    showToast('Anggota tim berhasil dihapus.', { variant: 'success' });
+    await loadProjects(root);
+  } finally {
+    if (trigger.isConnected) {trigger.disabled = false;}
+  }
+}
+
+async function openAddAssigneeMenu(root, trigger) {
+  const caseId = trigger.dataset.caseId;
+  if (!projectsById.has(caseId)) {return;}
+
+  const candidates = await loadAssignableProfiles();
+  const assignedIds = new Set((assigneesByCaseId.get(caseId) || []).map((row) => row.user_id));
+  const available = candidates.filter((profile) => !assignedIds.has(profile.id));
+
+  if (available.length === 0) {
+    showToast('Semua staf yang tersedia sudah masuk tim project ini.', { variant: 'info' });
+    return;
+  }
+
+  openMenu(trigger, available.map((profile) => ({
+    label: profile.name,
+    action: () => {addAssignee(root, caseId, profile.id, profile.name);}
+  })));
+}
+
 function wireProjectActions(root) {
   const panel = root.querySelector('#client-panel-cases');
   panel.addEventListener('change', (event) => {
@@ -373,17 +461,77 @@ function wireProjectActions(root) {
     const picTrigger = event.target.closest('[data-case-pic-trigger]');
     if (picTrigger) {
       openPicMenu(root, picTrigger);
+      return;
+    }
+
+    const addAssigneeTrigger = event.target.closest('[data-add-assignee-trigger]');
+    if (addAssigneeTrigger) {
+      openAddAssigneeMenu(root, addAssigneeTrigger);
+      return;
+    }
+
+    const removeAssigneeTrigger = event.target.closest('[data-remove-assignee]');
+    if (removeAssigneeTrigger) {
+      removeAssignee(root, removeAssigneeTrigger);
     }
   });
+}
+
+function buildTeamSection(project, canManageTeam, assigneesError) {
+  const team = document.createElement('div');
+  team.appendChild(element('span', 'client-project-label', 'Tim Internal'));
+
+  const teamList = element('div', 'client-project-team-list');
+
+  if (assigneesError) {
+    teamList.appendChild(element('span', 'client-project-team-error', 'Gagal memuat tim.'));
+  } else {
+    const rows = assigneesByCaseId.get(project.id) || [];
+    if (rows.length === 0) {
+      teamList.appendChild(element('span', 'client-project-team-empty', 'Belum ada anggota tim'));
+    } else {
+      rows.forEach((row) => {
+        const memberName = relatedRecord(row.member)?.name || 'Pengguna tidak dikenal';
+        const chip = element('span', 'client-project-team-chip');
+        chip.appendChild(element('span', '', memberName));
+        if (canManageTeam) {
+          const removeBtn = element('button', 'client-project-team-remove', '×');
+          removeBtn.type = 'button';
+          removeBtn.dataset.removeAssignee = '';
+          removeBtn.dataset.assigneeId = row.id;
+          removeBtn.dataset.caseId = project.id;
+          removeBtn.dataset.memberName = memberName;
+          removeBtn.setAttribute('aria-label', `Hapus ${memberName} dari tim project`);
+          chip.appendChild(removeBtn);
+        }
+        teamList.appendChild(chip);
+      });
+    }
+  }
+
+  if (canManageTeam) {
+    const addBtn = element('button', 'btn btn-outline btn-sm client-project-team-add', '+ Tambah');
+    addBtn.type = 'button';
+    addBtn.dataset.addAssigneeTrigger = '';
+    addBtn.dataset.caseId = project.id;
+    addBtn.setAttribute('aria-haspopup', 'true');
+    addBtn.setAttribute('aria-expanded', 'false');
+    teamList.appendChild(addBtn);
+  }
+
+  team.appendChild(teamList);
+  return team;
 }
 
 async function loadProjects(root) {
   const panel = root.querySelector('#client-panel-cases');
   panel.querySelectorAll('.client-project-list, .client-detail-status').forEach((el) => el.remove());
   projectsById = new Map();
+  assigneesByCaseId = new Map();
 
   const isAdmin = currentProfile?.role === 'admin';
   const canUpdateStatus = canUpdateCaseStatus();
+  const canManageTeam = canManageAssignees();
 
   let data;
   let error;
@@ -414,6 +562,29 @@ async function loadProjects(root) {
 
   const projects = data || [];
   projectsById = new Map(projects.map((project) => [project.id, project]));
+
+  let assigneesError = false;
+  if (projects.length > 0) {
+    try {
+      const { data: assigneeRows, error: assigneeErr } = await supabase
+        .from('case_assignees')
+        .select('id, case_id, user_id, member:profiles(id, name, role)')
+        .in('case_id', projects.map((project) => project.id))
+        .order('assigned_at', { ascending: true });
+
+      if (assigneeErr) {
+        assigneesError = true;
+      } else {
+        (assigneeRows || []).forEach((row) => {
+          const rows = assigneesByCaseId.get(row.case_id) || [];
+          rows.push(row);
+          assigneesByCaseId.set(row.case_id, rows);
+        });
+      }
+    } catch {
+      assigneesError = true;
+    }
+  }
 
   const list = document.createElement('div');
   list.className = 'client-project-list';
@@ -485,7 +656,9 @@ async function loadProjects(root) {
         element('span', 'client-project-label', 'RAB'),
         element('span', '', project.total_rab ? rupiah.format(project.total_rab) : '—')
       );
-      body.append(pic, rab);
+
+      const team = buildTeamSection(project, canManageTeam, assigneesError);
+      body.append(pic, rab, team);
       card.append(header, body);
       list.appendChild(card);
     });

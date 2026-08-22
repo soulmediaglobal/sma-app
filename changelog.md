@@ -15,6 +15,25 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - UI
+
+### Added
+- **PROJECT — Part III: Assign Tim (Multi-Internal) UI**. Tab Project
+  di Client Detail (`client-detail.js`) sekarang menampilkan daftar
+  anggota tim internal per project dari `case_assignees` (tabel yang
+  sudah ada di database sejak sebelumnya tapi belum pernah dipakai
+  frontend) — berdampingan dengan PIC tunggal (`cases.assigned_to`)
+  yang sudah ada, bukan pengganti.
+  - admin/supervisor: bisa tambah anggota (pilih dari profil
+    `internal`/`supervisor` yang belum jadi anggota project itu, lewat
+    menu popover) dan hapus anggota (tombol × pada tiap chip). Sesuai
+    RLS (tidak ada policy UPDATE di `case_assignees`), reassign berarti
+    hapus baris lama + insert baris baru, bukan update in-place.
+  - role `internal`: tampilan read-only, tanpa kontrol tambah/hapus
+    (selaras dengan RLS select-only untuk role ini).
+  - Setiap tambah/hapus anggota dicatat ke `activities` (mengikuti pola
+    `logActivity` yang sudah ada di file yang sama).
+
 ## [Unreleased] - Database
 
 ### Added
