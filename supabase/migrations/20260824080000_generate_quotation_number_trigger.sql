@@ -48,12 +48,16 @@ declare
   current_year int;
   next_seq int;
 begin
-  -- 1. Kalau case_id ini SUDAH punya quotation sebelumnya, warisi
-  --    nomornya — jangan generate baru (ini versi ke-2+ dari rangkaian
-  --    negosiasi yang sama).
+  -- 1. Kalau case_id ini SUDAH punya quotation dengan nomor (bukan
+  --    NULL — beberapa quotation lama hasil rekonsiliasi Part II
+  --    punya quotation_number kosong karena kolom ini baru ditambah
+  --    setelahnya), warisi nomor itu. Ambil yang version paling kecil
+  --    supaya konsisten walau ada banyak versi.
   select quotation_number into existing_number
   from public.case_quotations
   where case_id = new.case_id
+    and quotation_number is not null
+  order by version asc
   limit 1;
 
   if existing_number is not null then
