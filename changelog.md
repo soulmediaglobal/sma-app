@@ -15,7 +15,9 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - App
+## [2.9.0] & [2.10.0] - 2026-08-23
+
+_Catatan: entry ini mencakup 2 tag (Part VII dirilis sebagai v2.9.0, Part V sebagai v2.10.0) karena header sempat tidak di-rename di antara keduanya._
 
 ### Added
 - **PROJECT — Part V: RAB/Penawaran Builder UI**. Section baru "RAB &
@@ -137,6 +139,31 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
     tapi belum bisa dikonfirmasi jalan di browser sungguhan.
 
 ## [Unreleased] - Database
+
+### Added
+- **PROJECT — Part V.2: RAB Formal (schema)**. Lampiran PRD
+  (`SPEC_PROJECT_Part_V2_RAB_Formal.md`), bukan revisi Part V —
+  penambahan. `case_quotation_items` (termin pembayaran, Part V) tetap
+  dipakai, tidak diubah.
+  - Tabel baru `service_type_codes` — mapping `service_type` ke kode
+    3 huruf untuk nomor RAB (format `SMA/YYYY-MM/{kode}/{urutan}`),
+    di-seed 21 kode. Admin manage, supervisor/internal select-only,
+    tidak ada akses client (tabel konfigurasi internal).
+  - Tabel baru `case_quotation_line_items` — rincian pekerjaan
+    (description, detail, qty, rate, amount, order_index) — BEDA dari
+    `case_quotation_items` (termin pembayaran). RLS identik dengan
+    `case_quotation_items`: admin ALL, supervisor setara, internal
+    dibatasi ke quotation berstatus DRAFT, client SELECT-only.
+  - Kolom baru `case_quotations.quotation_number` dan
+    `case_quotations.description`.
+  - Belum ada logic generate nomor RAB (trigger/function) atau
+    perubahan frontend — task terpisah setelah ini.
+- Diverifikasi ke database: 21 kode layanan masuk, tabel
+  `case_quotation_line_items` ada, 2 kolom baru ada di `case_quotations`.
+
+## [2.8.0] - 2026-08-22
+
+_Catatan: section "Fixed" di bawah (RLS case_quotations) sebenarnya bagian dari pekerjaan v2.10.0/Part V, tercampur di sini karena header sempat tidak di-rename. Section "Added" (Part IV) adalah isi asli v2.8.0._
 
 ### Fixed
 - **RLS `case_quotations`/`case_quotation_items` diperketat untuk
