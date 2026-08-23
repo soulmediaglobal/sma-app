@@ -597,6 +597,7 @@ async function loadProjects(root) {
       const quotation = buildQuotationSection(project, {
         profile: currentProfile,
         clientId,
+        client,
         onRefresh: () => loadProjects(root)
       });
       body.append(creator, rab, team, quotation);
