@@ -19,52 +19,93 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Project Setting — restrukturisasi Jenis Dokumen vs Jenis Layanan**
-  (Issue #91). Reorganisasi UI 3 tab di `project_setting.html`, tanpa
-  migrasi baru — kolom `document_templates.default_service_types` dan
-  `service_type_codes` yang dipakai persis sama seperti sebelumnya, cuma
-  arah tulisnya yang dibalik.
-  - **Tab 1 "Kelola Dokumen" → "Jenis Dokumen"**: multi-select
-    `default_service_types` per dokumen (v2.x sebelumnya) dihapus total
-    dari tab ini. Sekarang murni list read-only nama + kategori dokumen —
-    tidak ada kontrol edit sama sekali di tab ini (termasuk buat admin).
-    Add/edit nama & kategori dokumen sendiri tetap di luar scope, sengaja
-    ditunda ke Issue #72 terpisah (dikonfirmasi ke Ray sebelum
-    implementasi, karena brief awal menyebut "keep add/edit" padahal
-    fungsi itu memang belum pernah ada di kode).
-  - **Tab 2 "Kode Layanan" → "Jenis Layanan"** (posisi pindah dari tab
-    ke-3 ke ke-2): gabungan edit kode 3-huruf (persis perilaku lama, tidak
-    diubah) + checklist dokumen wajib per jenis layanan yang baru. Per
-    baris `service_type_codes`, ada accordion (`.accordion-item`, style
-    sudah ada di `_components.scss`, di-reuse bukan bikin baru) berisi
-    checkbox tiap `document_templates`, dikelompokkan per kategori sama
-    kayak tab 1. Centang/hilangkan centang → `update` langsung ke
-    `document_templates.default_service_types` (tambah/buang
-    `service_type` itu dari array), arah kebalikan dari tab lama tapi
-    kolom DB-nya sama — `client-quotations.js` (RAB document multi-select)
-    baca kolom yang sama, tidak disentuh, tetap konsisten otomatis. Label
-    accordion nampilin jumlah dokumen wajib live-update pas dicentang
-    (tanpa reload).
-  - **Tab 3 "Kelola Rekening Bank" → "Rekening Bank"** (posisi pindah ke
-    tab terakhir): fungsi & kode 100% tidak disentuh, cuma pindah posisi
-    tab + rename label (diverifikasi dengan diff literal terhadap fungsi
-    lama — identik).
-  - Admin-only (`canEdit = profile.role === 'admin'`) tetap sama pattern-nya
-    di tab 2: supervisor/internal lihat kode + checklist read-only
-    (checkbox disabled), tidak ada tombol "+ Tambah Kode". RLS tidak
-    diubah/dibuat ulang.
+  (Issue #91, revisi setelah Issue #94/schema landed). Reorganisasi UI 3
+  tab di `project_setting.html`. Scope awalnya read-only/lebih sederhana
+  (lihat commit sebelumnya di branch ini), direvisi Ray setelah
+  `document_categories` + `document_templates.category_id` +
+  `service_type_codes.code` UNIQUE (Issue #94) landed di `main` — scope
+  Tab 1 melebar dari read-only jadi full CRUD, dan Tab 2 dapat 3
+  perubahan tambahan.
+  - **Tab "Jenis Dokumen"** — sekarang full CRUD, bukan read-only lagi:
+    - **Kategori**: list `document_categories` (urut `order_index`),
+      "+ Tambah Kategori", edit nama (rename), reorder pakai tombol
+      ↑/↓ per kategori (swap `order_index` antara 2 baris bertetangga —
+      2 `update` biasa, bukan RPC/transaction, karena `order_index` tidak
+      unique jadi collision sementara saat swap aman, dan tab selalu
+      reload dari DB lagi sesudahnya baik sukses maupun gagal sebagian).
+    - **Dokumen per kategori**: list `document_templates` dikelompokkan
+      per kategori, "+ Tambah Dokumen" (nama + pilih kategori) dan "Edit"
+      per dokumen (ubah nama dan/atau pindah ke kategori lain lewat
+      dropdown `category_id`).
+    - Nama kategori dobel (constraint UNIQUE) ditangkap dan ditampilkan
+      sebagai toast error yang ramah ("Nama kategori sudah dipakai."),
+      bukan error mentah dari Postgres.
+    - Form pakai pola modal yang sama dengan tab Rekening Bank
+      (`showModal()` + form `reportValidity()` + submit button
+      disable/reset), bukan bikin pola baru.
+  - **Tab "Jenis Layanan"** — 3 perubahan dari versi commit sebelumnya:
+    1. **"+ Tambah Layanan"** sekarang bikin jenis layanan yang benar-benar
+       baru (input bebas nama + kode), bukan cuma pilih dari
+       `cases.service_type` yang sudah ada seperti sebelumnya — arah lama
+       itu terbalik menurut Ray, karena project baru sering butuh jenis
+       layanan yang belum pernah dipakai di project manapun.
+       Constraint UNIQUE baru di `service_type_codes.code` (dan PK
+       `service_type` yang sudah ada dari awal) ditangkap sebagai toast
+       ramah ("Kode ... sudah dipakai jenis layanan lain." / "Jenis
+       layanan ... sudah ada."), bukan raw DB error.
+    2. **Checklist dokumen pakai search per kategori**, bukan checkbox
+       polos digelontor semua sekaligus seperti sebelumnya — tiap
+       kategori dari `document_categories` jadi section sendiri dengan
+       search box (`.search-box`, komponen yang sudah ada di
+       `_layout.scss`, dipakai ulang bukan bikin baru) yang filter live
+       (`input` event, cocokkan substring nama dokumen, case-insensitive)
+       tanpa query DB tambahan — filter di data yang sudah di-load.
+       Feedback UX langsung dari Ray: checkbox-dump per kategori kurang
+       jelas.
+    3. **Edit kode existing juga sadar constraint UNIQUE** — kalau ganti
+       kode ke nilai yang sudah dipakai jenis layanan lain, toast ramah
+       muncul dan input dikembalikan ke nilai lama (sama seperti
+       constraint gagal saat "+ Tambah Layanan", helper error message
+       yang sama dipakai di dua tempat).
+    - Checklist per dokumen & toggle `default_service_types` tetap logic
+      yang sama dari commit sebelumnya (arah tulis dari sisi service,
+      kolom DB tidak berubah, `client-quotations.js` tetap baca kolom
+      yang sama tanpa disentuh).
+  - **Tab "Rekening Bank"**: tidak disentuh sama sekali (diverifikasi
+    diff literal terhadap versi sebelumnya — identik).
+  - Admin-only (`canEdit = profile.role === 'admin'`) tetap sama
+    pattern-nya di semua tab — supervisor/internal lihat versi read-only
+    (checklist/checkbox disabled, tanpa tombol tambah/edit). RLS
+    `document_categories_admin_all` / `document_templates_admin_all`
+    tidak diubah/dibuat ulang.
   - `npm run lint` dan `npm run build` PASS.
+- **Bug ditemukan (di luar scope, di-flag terpisah, tidak diperbaiki di
+  sini)**: `client-quotations.js` (modal RAB/Quotation di Client Detail)
+  masih query kolom `document_templates.category` yang sudah dihapus
+  migrasi Issue #94 (`20260824120000_...sql`) — bikin modal RAB gagal
+  load ("Gagal memuat data RAB & Penawaran.") untuk semua case begitu
+  perubahan schema itu sampai ke `main`. Bukan regresi dari sesi ini
+  (schema sudah begini sebelum sesi ini mulai, file ini di luar scope
+  Issue #91 per AGENTS.md ownership rules), tapi perlu issue/branch
+  terpisah untuk fix query-nya (join ke `document_categories` seperti
+  yang dipakai tab Jenis Dokumen/Jenis Layanan di atas).
 
 ### Belum diverifikasi manual
 - Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
-  sama seperti part-part sebelumnya, lihat v2.16.0/v2.18.0/v2.19.0) —
-  belum dicoba end-to-end di browser sungguhan. Sudah direview lewat kode
-  saja (lint+build PASS, diff literal buat pastikan tab Rekening Bank
-  benar-benar tidak berubah, trace manual logic toggle checklist). Yang
-  masih perlu dicek manual: tab Jenis Dokumen benar-benar tanpa kontrol
-  edit, centang/hilangkan centang di tab Jenis Layanan beneran update
-  `default_service_types` di DB (query langsung buat verifikasi), label
-  jumlah dokumen di accordion update benar, revert checkbox saat gagal
-  simpan, dan tab Rekening Bank masih jalan normal setelah pindah posisi.
+  sama seperti part-part sebelumnya, lihat v2.16.0/v2.18.0/v2.19.0/
+  v2.20.0) — belum dicoba end-to-end di browser sungguhan. RLS juga
+  memblokir verifikasi via anon key langsung (tidak ada policy select
+  untuk role anon/publik di `document_categories` /
+  `document_templates` / `service_type_codes`), jadi query manual pun
+  tidak bisa tanpa login. Sudah direview lewat kode saja (lint+build
+  PASS, diff literal buat pastikan tab Rekening Bank benar-benar tidak
+  berubah, trace manual semua alur CRUD + error handling constraint
+  UNIQUE). Yang masih perlu dicek manual: tambah/edit/reorder kategori
+  di tab Jenis Dokumen, tambah/edit/pindah-kategori dokumen, "+ Tambah
+  Layanan" dengan kode/nama dobel (pastikan toast ramah bukan raw DB
+  error), search box per kategori di checklist tab Jenis Layanan
+  benar-benar filter tanpa reload, dan edit kode existing ke nilai yang
+  sudah dipakai jenis layanan lain.
 
 ## [2.20.1] - 2026-08-24
 

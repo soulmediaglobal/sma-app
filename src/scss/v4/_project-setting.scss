@@ -35,34 +35,82 @@
   font-size: 13px;
 }
 
+// Jenis Dokumen tab (Issues #91 + #94) — category + document CRUD.
+
+.project-setting-category-add {
+  margin-bottom: var(--space-3);
+}
+
 .project-setting-category-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-4);
 }
 
-.project-setting-category-heading {
-  margin-top: var(--space-4);
+.project-setting-doc-category-block {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color-light);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.project-setting-doc-category-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.project-setting-doc-category-name {
   color: var(--text-muted);
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
 
-  &:first-child {
-    margin-top: 0;
-  }
+.project-setting-doc-category-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+.project-setting-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .project-setting-doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--border-color-light);
-  color: var(--text);
-  font-size: 13px;
 
   &:last-child {
     border-bottom: none;
   }
+}
+
+.project-setting-doc-row-name {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.project-setting-doc-add {
+  margin-top: var(--space-2);
+}
+
+.project-setting-doc-empty {
+  padding: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
 }
 
 // Rekening Bank section (Issue #78).
@@ -121,14 +169,23 @@
 }
 
 @media (max-width: 720px) {
-  .project-setting-bank-row {
+  .project-setting-bank-row,
+  .project-setting-doc-category-block-header,
+  .project-setting-doc-row,
+  .project-setting-doc-checklist-section-header {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-setting-doc-checklist-search {
+    width: 100%;
   }
 }
 
-// Jenis Layanan section (Issues #85 + #91) — service code + per-service
+// Jenis Layanan section (Issues #85 + #91 + #94) — service code + per-service
 // required-document checklist (accordion, .accordion-item/-summary/-content
-// styling lives in _components.scss).
+// styling lives in _components.scss), grouped by category with a
+// per-category search filter (.search-box, base styling in _layout.scss).
 
 .project-setting-service-code-add {
   margin-bottom: var(--space-3);
@@ -185,18 +242,38 @@
 .project-setting-service-doc-checklist {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3);
 }
 
-.project-setting-doc-category-heading {
-  margin-top: var(--space-2);
+.project-setting-doc-checklist-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.project-setting-doc-checklist-section-title {
   color: var(--text-muted);
   font-size: 10.5px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
 
-  &:first-child {
-    margin-top: 0;
-  }
+.project-setting-doc-checklist-search {
+  width: 170px;
+  flex: 0 0 auto;
+}
+
+.project-setting-doc-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-setting-doc-checklist-empty {
+  padding: var(--space-1) 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
