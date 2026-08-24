@@ -45,6 +45,16 @@
 // screen — that join is the RAB's *author*, not the case's, a different
 // person. company_settings/profiles.phone came from migration
 // 20260824090000_company_settings_and_profile_phone.sql.
+//
+// Issue #78 — multi rekening bank. The Rekening Pembayaran section of the
+// preview no longer reads company_settings (left in place, unused legacy
+// per that table's own migration comment); it reads the bank_accounts row
+// the draft explicitly picked (case_quotations.bank_account_id, managed
+// admin-only in Project Setting — see project-setting.js). No default/auto
+// selection: an admin picks manually per RAB. Older quotations from before
+// this feature (and a draft that hasn't picked one yet) have a null
+// bank_account_id — the preview shows a placeholder line instead of
+// erroring or printing "undefined".
 
 import { supabase } from '../lib/supabaseClient.js';
 import { showModal } from './modal.js';
@@ -142,6 +152,15 @@ async function logActivity({ clientId, caseId, type, notes, profile }) {
   } catch (error) {
     return { error };
   }
+}
+
+async function fetchActiveBankAccounts() {
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('id, bank_name, account_holder_name, account_number, bank_code, is_active')
+    .order('bank_name', { ascending: true });
+  if (error) {return [];}
+  return data || [];
 }
 
 async function fetchQuotationItems(quotationId) {
@@ -590,6 +609,69 @@ function buildDescriptionEditor(draft) {
   return { wrap, save: persist };
 }
 
+// Options list is active accounts plus the draft's currently-selected
+// account even if it has since been deactivated in Project Setting — so
+// picking a bank never has to disappear from an already-saved draft, and
+// changing it still only ever offers active accounts as new choices.
+function buildBankAccountEditor(draft, bankAccounts) {
+  const wrap = element('div', 'client-quotation-bank-editor');
+  const fieldId = `client-quotation-bank-account-${draft.id}`;
+  const label = element('label', 'client-quotation-description-label', 'Rekening Bank');
+  label.htmlFor = fieldId;
+  wrap.appendChild(label);
+
+  const select = element('select', 'form-control');
+  select.id = fieldId;
+
+  const placeholder = element('option', '', 'Pilih rekening bank…');
+  placeholder.value = '';
+  select.appendChild(placeholder);
+
+  const options = bankAccounts.filter((account) => account.is_active || account.id === draft.bank_account_id);
+  options.forEach((account) => {
+    const optionLabel = `${account.bank_name} — ${account.account_number} (${account.account_holder_name})${account.is_active ? '' : ' — nonaktif'}`;
+    const option = element('option', '', optionLabel);
+    option.value = account.id;
+    select.appendChild(option);
+  });
+  select.value = draft.bank_account_id || '';
+
+  async function persist() {
+    const value = select.value || null;
+    const { error, count } = await supabase
+      .from('case_quotations')
+      .update({ bank_account_id: value }, { count: 'exact' })
+      .eq('id', draft.id)
+      .eq('status', 'DRAFT');
+    if (error || count !== 1) {return { error: error || new Error('Gagal menyimpan rekening bank.') };}
+    draft.bank_account_id = value;
+    return { error: null };
+  }
+
+  const saveBtn = element('button', 'btn btn-outline btn-sm', 'Simpan Rekening');
+  saveBtn.type = 'button';
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Menyimpan…';
+    const { error } = await persist();
+    if (error) {
+      showToast('Gagal menyimpan rekening bank.', { variant: 'error' });
+    } else {
+      showToast('Rekening bank berhasil disimpan.', { variant: 'success' });
+    }
+    if (saveBtn.isConnected) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Simpan Rekening';
+    }
+  });
+
+  const actions = element('div', 'client-quotation-description-actions');
+  actions.appendChild(saveBtn);
+
+  wrap.append(select, actions);
+  return { wrap, save: persist };
+}
+
 function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
   const wrap = element('div', 'client-quotation-line-items-block');
   const itemsContainer = element('div', 'client-quotation-line-items-editor');
@@ -758,7 +840,7 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
   return { wrap, refreshTotals, save: persist };
 }
 
-function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx) {
+function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) {
   const wrap = element('div', 'client-quotation-draft-editor');
 
   const numberClass = draft.quotation_number
@@ -793,6 +875,10 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx) {
   terminSectionRef = terminSection;
   wrap.appendChild(terminSection.wrap);
 
+  wrap.appendChild(element('h3', 'client-quotation-draft-title', 'Rekening Bank'));
+  const bankAccountEditor = buildBankAccountEditor(draft, bankAccounts);
+  wrap.appendChild(bankAccountEditor.wrap);
+
   // Aggregate "Simpan" for the action row — runs the same persistence each
   // section's own save button already offers, so the draft can be saved in
   // one explicit click instead of three scattered ones. Stops at the first
@@ -801,7 +887,8 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx) {
     const sections = [
       ['Deskripsi', descriptionEditor.save],
       ['Detail Pekerjaan', lineItemsEditor.save],
-      ['Termin Pembayaran', terminSection.save]
+      ['Termin Pembayaran', terminSection.save],
+      ['Rekening Bank', bankAccountEditor.save]
     ];
     for (const [section, save] of sections) {
       const { error } = await save();
@@ -905,12 +992,20 @@ async function sendQuotation(draft, ctx) {
 
 const previewDateFmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-async function fetchCompanySettings() {
-  const { data, error } = await supabase.from('company_settings').select('key, value');
-  if (error) {return {};}
-  const settings = {};
-  (data || []).forEach((row) => { settings[row.key] = row.value; });
-  return settings;
+// Bank account shown in the preview is the one picked per-RAB
+// (case_quotations.bank_account_id), not the old single company_settings
+// key/value rows — those stay in the DB unused (legacy). Returns null for
+// quotations that predate this feature or a draft that hasn't picked one
+// yet; the caller renders a placeholder instead of crashing on it.
+async function fetchBankAccount(bankAccountId) {
+  if (!bankAccountId) {return null;}
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('bank_name, account_holder_name, account_number, bank_code')
+    .eq('id', bankAccountId)
+    .single();
+  if (error || !data) {return null;}
+  return data;
 }
 
 async function fetchCaseCreatorContact(caseId) {
@@ -1082,7 +1177,7 @@ function buildPreviewDocumentsList(doc, documents) {
 }
 
 function buildPreviewContent(doc, data) {
-  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, terminItems, documents, company, contact } = data;
+  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, terminItems, documents, bankAccount, contact } = data;
 
   const root = docEl(doc, 'div', 'preview-doc');
 
@@ -1121,11 +1216,15 @@ function buildPreviewContent(doc, data) {
   root.appendChild(buildPreviewTerminTable(doc, terminItems));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rekening Pembayaran'));
-  const rek = docEl(doc, 'div', 'preview-rekening');
-  rek.appendChild(docEl(doc, 'p', '', `Bank: ${company?.bank_name || '—'}`));
-  rek.appendChild(docEl(doc, 'p', '', `No. Rekening: ${company?.bank_account_number || '—'}`));
-  rek.appendChild(docEl(doc, 'p', '', `Atas Nama: ${company?.bank_account_holder || '—'}`));
-  root.appendChild(rek);
+  if (bankAccount) {
+    const rek = docEl(doc, 'div', 'preview-rekening');
+    rek.appendChild(docEl(doc, 'p', '', `Bank: ${bankAccount.bank_name}`));
+    rek.appendChild(docEl(doc, 'p', '', `No. Rekening: ${bankAccount.account_number}`));
+    rek.appendChild(docEl(doc, 'p', '', `Atas Nama: ${bankAccount.account_holder_name}`));
+    root.appendChild(rek);
+  } else {
+    root.appendChild(docEl(doc, 'p', 'preview-empty', 'Rekening bank belum dipilih untuk penawaran ini.'));
+  }
 
   if (contact?.name) {
     root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Kontak'));
@@ -1194,10 +1293,10 @@ async function openQuotationPreview(quotation, ctx, documents) {
   loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
   win.document.body.appendChild(loading);
 
-  const [lineItems, terminItems, company, contact] = await Promise.all([
+  const [lineItems, terminItems, bankAccount, contact] = await Promise.all([
     fetchQuotationLineItems(quotation.id),
     fetchQuotationItems(quotation.id),
-    fetchCompanySettings(),
+    fetchBankAccount(quotation.bank_account_id),
     fetchCaseCreatorContact(ctx.caseId)
   ]);
 
@@ -1218,7 +1317,7 @@ async function openQuotationPreview(quotation, ctx, documents) {
     lineItems: lineItems || [],
     terminItems: terminItems || [],
     documents: documents || [],
-    company,
+    bankAccount,
     contact
   });
 }
@@ -1273,10 +1372,10 @@ async function renderModalBody(bodyEl, ctx) {
   bodyEl.replaceChildren();
   bodyEl.appendChild(element('div', 'client-quotation-empty', 'Memuat data RAB…'));
 
-  const [quotationsResult, templatesResult, documentsResult] = await Promise.all([
+  const [quotationsResult, templatesResult, documentsResult, bankAccounts] = await Promise.all([
     supabase
       .from('case_quotations')
-      .select('id, case_id, version, status, total_amount, notes, quotation_number, description, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name)')
+      .select('id, case_id, version, status, total_amount, notes, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name)')
       .eq('case_id', ctx.caseId)
       .order('version', { ascending: false }),
     supabase
@@ -1288,7 +1387,8 @@ async function renderModalBody(bodyEl, ctx) {
     supabase
       .from('documents')
       .select('id, name, status')
-      .eq('case_id', ctx.caseId)
+      .eq('case_id', ctx.caseId),
+    fetchActiveBankAccounts()
   ]);
 
   if (quotationsResult.error || templatesResult.error || documentsResult.error) {
@@ -1323,7 +1423,7 @@ async function renderModalBody(bodyEl, ctx) {
       bodyEl.appendChild(createBtn);
     }
   } else {
-    draftEditor = buildDraftEditor(draft, itemsCache, lineItemsCache, ctx);
+    draftEditor = buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts);
     bodyEl.appendChild(draftEditor.wrap);
   }
 

@@ -15,6 +15,68 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.0] - 2026-08-24
+
+### Added
+- **Project Setting — Multi Rekening Bank (UI)** (Issue #78). Melengkapi
+  schema-only dari v2.17.0 dengan UI kelola + pemilihan rekening.
+  - **`project_setting.html` direstruktur jadi 2 tab** — "Kelola Dokumen"
+    (section `document_templates` yang sudah ada dari v2.16.0) dan
+    "Kelola Rekening Bank" (section baru). Pola tab di-reuse PERSIS dari
+    `client-detail.html`/`client-detail.js` (`.tabs-underline`/`.tab`,
+    `activateTab`/`wireTabs` — di sini `activateProjectSettingTab`/
+    `wireProjectSettingTabs` dengan atribut senama tapi dinamai ulang
+    `data-project-setting-tab`/`data-project-setting-panel` biar tidak
+    tabrakan sama punya client-detail), bukan mekanisme tab baru. Konten
+    tiap tab fungsinya identik dengan sebelumnya (cuma dipindah dari 2
+    card bertumpuk jadi 2 tab panel), `initProjectSetting()` yang sama
+    tetap menginisialisasi keduanya lewat `Promise.all` begitu section
+    tab-nya dipasang.
+  - **Tab "Kelola Rekening Bank"**: list semua `bank_accounts` (bank_name,
+    account_holder_name, account_number, bank_code, badge Aktif/Nonaktif),
+    tambah rekening baru, edit semua field lewat `showModal()` (pola form
+    sama seperti "+ Tambah Termin" di `client-payments.js`). Admin-only
+    (`canEdit = profile.role === 'admin'`) — supervisor/internal lihat
+    versi read-only tanpa tombol kontrol, RLS `bank_accounts_admin_all`/
+    `_supervisor_select`/`_internal_select` dari migrasi v2.17.0 tidak
+    diubah/dibuat ulang.
+  - **Toggle `is_active`, bukan hapus baris** — rekening lama yang sudah
+    dipakai RAB (via `case_quotations.bank_account_id`) tetap harus bisa
+    dibuka; hard-delete akan membuat FK itu orphan/error. Tombol
+    "Nonaktifkan"/"Aktifkan" cuma `UPDATE ... SET is_active = ...`.
+  - **Dropdown rekening bank di draft editor RAB** (`client-quotations.js`,
+    `buildDraftEditor`) — section baru "Rekening Bank" sejajar dengan
+    Detail Pekerjaan/Termin, pola sama seperti `buildDescriptionEditor`
+    (select + tombol "Simpan Rekening" sendiri, ikut juga di aggregate
+    "Simpan" lewat `saveAll()`). Opsi dropdown = `bank_accounts` yang
+    `is_active = true`, DITAMBAH rekening yang sedang terpilih di draft
+    itu kalau sudah dinonaktifkan sejak dipilih (supaya pilihan yang
+    sudah tersimpan tidak hilang dari tampilan, tanpa menambah pilihan
+    baru selain yang aktif). Tidak ada logic auto-pilih rekening default
+    — sesuai scope Issue, admin pilih manual tiap kali.
+  - **Preview dokumen formal** (`openQuotationPreview` /
+    `buildPreviewContent`) — section "Rekening Pembayaran" sekarang baca
+    `bank_accounts` lewat `case_quotations.bank_account_id` milik
+    quotation yang di-preview (`fetchBankAccount`), bukan lagi
+    `company_settings` (satu rekening hardcoded). `company_settings`
+    TIDAK disentuh (tetap ada, tidak dipakai — legacy sesuai instruksi).
+    Kalau `bank_account_id` null (quotation lama dari sebelum fitur ini,
+    atau draft yang belum pilih rekening), section ini menampilkan baris
+    placeholder ("Rekening bank belum dipilih untuk penawaran ini.")
+    alih-alih error atau menampilkan "undefined".
+  - `npm run lint` dan `npm run build` PASS.
+
+### Belum diverifikasi manual
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
+  yang sama seperti part-part sebelumnya, lihat v2.16.0) — belum dicoba
+  end-to-end di browser sungguhan. Sudah direview lewat kode saja
+  (lint+build PASS). Yang masih perlu dicek manual: tambah/edit rekening
+  di Project Setting beneran ke-update di `bank_accounts` dan toast
+  sukses/error muncul benar, toggle Aktif/Nonaktif, dropdown rekening di
+  draft editor RAB muncul & tersimpan ke `case_quotations.bank_account_id`,
+  dan Preview menampilkan rekening yang benar (termasuk kasus
+  `bank_account_id` null menampilkan placeholder, bukan error).
+
 ## [2.15.0] - 2026-08-24
 
 ### Added

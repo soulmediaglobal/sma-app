@@ -607,6 +607,12 @@ body[data-page='client-detail'].modal-open .toast-host {
   justify-content: flex-end;
 }
 
+.client-quotation-bank-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .client-quotation-line-items-editor {
   display: flex;
   flex-direction: column;

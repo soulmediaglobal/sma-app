@@ -24,17 +24,28 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Kelola Dokumen Wajib per Jenis Layanan</div>
-        <div class="card-subtitle">
-          Atur jenis layanan mana saja yang otomatis mewajibkan tiap dokumen ini
-          saat project dibuat.
-        </div>
-      </div>
+  <div class="card project-setting-card">
+    <div class="project-setting-tabs tabs-underline" role="tablist" aria-label="Project Setting" aria-orientation="horizontal">
+      <button class="tab active" id="project-setting-tab-documents" type="button" role="tab" aria-selected="true" aria-controls="project-setting-panel-documents" tabindex="0" data-project-setting-tab="documents">Kelola Dokumen</button>
+      <button class="tab" id="project-setting-tab-bank" type="button" role="tab" aria-selected="false" aria-controls="project-setting-panel-bank" tabindex="-1" data-project-setting-tab="bank">Kelola Rekening Bank</button>
     </div>
-    <div class="card-body" id="project-setting-root" aria-busy="true"></div>
+
+    <section class="project-setting-tab-panel" id="project-setting-panel-documents" role="tabpanel" aria-labelledby="project-setting-tab-documents" data-project-setting-panel="documents">
+      <div class="project-setting-panel-desc">
+        Atur jenis layanan mana saja yang otomatis mewajibkan tiap dokumen ini
+        saat project dibuat.
+      </div>
+      <div id="project-setting-root" aria-busy="true"></div>
+    </section>
+
+    <section class="project-setting-tab-panel" id="project-setting-panel-bank" role="tabpanel" aria-labelledby="project-setting-tab-bank" data-project-setting-panel="bank" hidden>
+      <div class="project-setting-panel-desc">
+        Kelola rekening bank yang bisa dipilih saat membuat RAB. Nonaktifkan
+        rekening lama alih-alih menghapusnya — RAB yang sudah memakai
+        rekening tersebut tetap harus bisa dibuka.
+      </div>
+      <div id="bank-accounts-root" aria-busy="true"></div>
+    </section>
   </div>
 
 </div>
