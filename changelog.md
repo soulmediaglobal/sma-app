@@ -15,7 +15,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - Database
+## [2.15.0] - 2026-08-24
 
 ### Added
 - **PROJECT — Part VI: Alur Terima/Tolak/Nego**. Menutup lingkaran
@@ -43,7 +43,28 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
   sebelum & sesudah).
 
-## [2.15.0] - 2026-08-24
+## [Unreleased] - Database
+
+### Added
+- **Project Setting — Multi Rekening Bank (schema)**. Perluasan dari
+  `company_settings` (v2.13.0, single rekening key-value) jadi tabel
+  `bank_accounts` yang bisa menampung banyak rekening, dipilih per-RAB.
+  - Tabel baru `bank_accounts`: bank_name, account_holder_name,
+    account_number, bank_code, is_active. RLS pola sama seperti
+    `document_templates`/`service_type_codes` (admin manage,
+    supervisor/internal select-only, tidak ada akses client).
+  - Data lama dari `company_settings` (BCA) dimigrasi jadi baris
+    pertama (kode bank 014).
+  - Kolom baru `case_quotations.bank_account_id` — rekening yang
+    dipilih per-RAB.
+  - `company_settings` TIDAK dihapus, tapi tidak dipakai lagi untuk
+    info rekening ke depannya.
+  - UI (Project Setting + dropdown di RAB builder) belum dibangun —
+    task terpisah setelah ini.
+- Diverifikasi ke database: 1 baris bank_accounts (data BCA lama)
+  berhasil dimigrasi lengkap.
+
+## [2.16.0] - 2026-08-24
 
 ### Added
 - **Project Setting — Kelola Dokumen Wajib per Jenis Layanan** (Issue #72).
