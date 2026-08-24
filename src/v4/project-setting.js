@@ -25,6 +25,7 @@
 
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
+import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 
 function element(tag, className, text) {
@@ -166,14 +167,273 @@ async function loadTemplates(root, canEdit) {
   }
 }
 
+// ============================================================================
+// Rekening Bank (Issue #78) — second section on the same page. Same RLS
+// pattern as document_templates above: admin ALL, supervisor/internal
+// SELECT-only, no client access (bank_accounts_admin_all /
+// bank_accounts_supervisor_select / bank_accounts_internal_select in
+// 20260824110000_bank_accounts_multi.sql — not recreated here). Rows are
+// never hard-deleted: case_quotations.bank_account_id references this table
+// (on delete set null), and RAB documents that already picked an old
+// account must keep rendering it, so "delete" is a toggle to is_active =
+// false instead.
+// ============================================================================
+
+const BANK_FIELDS = [
+  { name: 'bank_name', label: 'Nama Bank', required: true },
+  { name: 'account_holder_name', label: 'Nama Pemilik Rekening', required: true },
+  { name: 'account_number', label: 'Nomor Rekening', required: true },
+  { name: 'bank_code', label: 'Kode Bank (opsional)', required: false }
+];
+
+function buildBankAccountForm(existing) {
+  const form = document.createElement('form');
+  form.id = 'bank-account-form';
+  form.noValidate = true;
+
+  BANK_FIELDS.forEach((field) => {
+    const group = element('div', 'form-group');
+    const fieldId = `bank-account-${field.name}`;
+    const label = element('label', 'form-label', field.label);
+    label.htmlFor = fieldId;
+    const input = element('input', 'form-control');
+    input.id = fieldId;
+    input.name = field.name;
+    input.type = 'text';
+    input.required = field.required;
+    input.value = existing?.[field.name] || '';
+    group.append(label, input);
+    form.appendChild(group);
+  });
+
+  return form;
+}
+
+function readBankAccountForm(form) {
+  const values = {};
+  BANK_FIELDS.forEach((field) => {
+    values[field.name] = form.elements.namedItem(field.name).value.trim();
+  });
+  return values;
+}
+
+async function submitBankAccount(ctx, form, root, existing) {
+  if (!form.reportValidity()) {return;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
+
+  const values = readBankAccountForm(form);
+  if (!values.bank_name || !values.account_holder_name || !values.account_number) {
+    showToast('Nama bank, pemilik rekening, dan nomor rekening wajib diisi.', { variant: 'error' });
+    return;
+  }
+
+  const payload = {
+    bank_name: values.bank_name,
+    account_holder_name: values.account_holder_name,
+    account_number: values.account_number,
+    bank_code: values.bank_code || null
+  };
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+  try {
+    const { error } = existing
+      ? await supabase.from('bank_accounts').update(payload).eq('id', existing.id)
+      : await supabase.from('bank_accounts').insert(payload);
+
+    if (error) {
+      showToast(existing ? 'Gagal menyimpan perubahan rekening.' : 'Gagal menambahkan rekening.', { variant: 'error' });
+      return;
+    }
+
+    ctx.close();
+    showToast(existing ? 'Rekening berhasil diperbarui.' : 'Rekening berhasil ditambahkan.', { variant: 'success' });
+    await loadBankAccounts(root, true);
+  } catch {
+    showToast(existing ? 'Gagal menyimpan perubahan rekening.' : 'Gagal menambahkan rekening.', { variant: 'error' });
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = existing ? 'Simpan' : 'Tambah Rekening';
+  }
+}
+
+function openBankAccountModal(root, existing) {
+  const form = buildBankAccountForm(existing);
+  const ctx = showModal({
+    title: existing ? 'Edit Rekening Bank' : 'Tambah Rekening Bank',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: existing ? 'Simpan' : 'Tambah Rekening',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {submitBankAccount(ctx, form, root, existing);}
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitBankAccount(ctx, form, root, existing);
+  });
+}
+
+async function toggleBankAccountActive(root, account, trigger) {
+  if (trigger.disabled) {return;}
+  trigger.disabled = true;
+  try {
+    const { error } = await supabase
+      .from('bank_accounts')
+      .update({ is_active: !account.is_active })
+      .eq('id', account.id);
+
+    if (error) {
+      showToast('Gagal mengubah status rekening.', { variant: 'error' });
+      return;
+    }
+    showToast(account.is_active ? 'Rekening dinonaktifkan.' : 'Rekening diaktifkan.', { variant: 'success' });
+    await loadBankAccounts(root, true);
+  } catch {
+    showToast('Gagal mengubah status rekening.', { variant: 'error' });
+  } finally {
+    if (trigger.isConnected) {trigger.disabled = false;}
+  }
+}
+
+function buildBankAccountRow(root, account, canEdit) {
+  const row = element('div', 'project-setting-bank-row');
+
+  const info = element('div', 'project-setting-bank-info');
+  const nameLine = element('div', 'project-setting-bank-name-line');
+  nameLine.append(
+    element('span', 'project-setting-bank-name', account.bank_name),
+    element('span', `status ${account.is_active ? 'status-green' : 'status-red'}`, account.is_active ? 'Aktif' : 'Nonaktif')
+  );
+  info.appendChild(nameLine);
+
+  const metaParts = [account.account_holder_name, account.account_number];
+  if (account.bank_code) {metaParts.push(`Kode ${account.bank_code}`);}
+  info.appendChild(element('div', 'project-setting-bank-meta', metaParts.filter(Boolean).join(' · ')));
+
+  row.appendChild(info);
+
+  if (canEdit) {
+    const actions = element('div', 'project-setting-bank-actions');
+
+    const editBtn = element('button', 'btn btn-outline btn-sm', 'Edit');
+    editBtn.type = 'button';
+    editBtn.addEventListener('click', () => openBankAccountModal(root, account));
+    actions.appendChild(editBtn);
+
+    const toggleBtn = element('button', 'btn btn-outline btn-sm', account.is_active ? 'Nonaktifkan' : 'Aktifkan');
+    toggleBtn.type = 'button';
+    toggleBtn.addEventListener('click', () => toggleBankAccountActive(root, account, toggleBtn));
+    actions.appendChild(toggleBtn);
+
+    row.appendChild(actions);
+  }
+
+  return row;
+}
+
+function renderBankAccounts(root, accounts, canEdit) {
+  root.replaceChildren();
+
+  if (canEdit) {
+    const addBtn = element('button', 'btn btn-primary btn-sm project-setting-bank-add', '+ Tambah Rekening');
+    addBtn.type = 'button';
+    addBtn.addEventListener('click', () => openBankAccountModal(root, null));
+    root.appendChild(addBtn);
+  }
+
+  if (accounts.length === 0) {
+    const empty = element('div', 'project-setting-state project-setting-state-empty', 'Belum ada rekening bank.');
+    empty.setAttribute('role', 'status');
+    root.appendChild(empty);
+    root.setAttribute('aria-busy', 'false');
+    return;
+  }
+
+  const list = element('div', 'project-setting-bank-list');
+  accounts.forEach((account) => list.appendChild(buildBankAccountRow(root, account, canEdit)));
+  root.appendChild(list);
+  root.setAttribute('aria-busy', 'false');
+}
+
+async function loadBankAccounts(root, canEdit) {
+  setPanelState(root, 'Memuat rekening bank…', 'loading');
+
+  try {
+    const { data, error } = await supabase
+      .from('bank_accounts')
+      .select('id, bank_name, account_holder_name, account_number, bank_code, is_active')
+      .order('is_active', { ascending: false })
+      .order('bank_name', { ascending: true });
+
+    if (error) {
+      setPanelState(root, 'Gagal memuat daftar rekening bank.', 'error');
+      return;
+    }
+
+    renderBankAccounts(root, data || [], canEdit);
+  } catch {
+    setPanelState(root, 'Gagal memuat daftar rekening bank.', 'error');
+  }
+}
+
+// Tabs ("Kelola Dokumen" / "Kelola Rekening Bank") — same tabs-underline
+// markup + activate/wire pattern as client-detail.js's data-client-tab /
+// data-client-panel, just namespaced data-project-setting-tab /
+// data-project-setting-panel for this page.
+function activateProjectSettingTab(tab) {
+  const name = tab.dataset.projectSettingTab;
+  document.querySelectorAll('[data-project-setting-tab]').forEach((candidate) => {
+    const active = candidate === tab;
+    candidate.classList.toggle('active', active);
+    candidate.setAttribute('aria-selected', String(active));
+    candidate.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('[data-project-setting-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.projectSettingPanel !== name;
+  });
+}
+
+function wireProjectSettingTabs() {
+  const tabs = Array.from(document.querySelectorAll('[data-project-setting-tab]'));
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => activateProjectSettingTab(tab));
+    tab.addEventListener('keydown', (event) => {
+      let nextIndex;
+      if (event.key === 'ArrowRight') {nextIndex = (index + 1) % tabs.length;}
+      if (event.key === 'ArrowLeft') {nextIndex = (index - 1 + tabs.length) % tabs.length;}
+      if (event.key === 'Home') {nextIndex = 0;}
+      if (event.key === 'End') {nextIndex = tabs.length - 1;}
+      if (nextIndex === undefined) {return;}
+      event.preventDefault();
+      activateProjectSettingTab(tabs[nextIndex]);
+      tabs[nextIndex].focus();
+    });
+  });
+}
+
 let initialized = false;
 
 export async function initProjectSetting() {
   const root = document.getElementById('project-setting-root');
-  if (!root || initialized) {return;}
+  const bankRoot = document.getElementById('bank-accounts-root');
+  if ((!root && !bankRoot) || initialized) {return;}
   initialized = true;
+
+  wireProjectSettingTabs();
 
   const profile = await getProfile();
   const canEdit = profile?.role === 'admin';
-  await loadTemplates(root, canEdit);
+  await Promise.all([
+    root ? loadTemplates(root, canEdit) : Promise.resolve(),
+    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve()
+  ]);
 }
