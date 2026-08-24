@@ -8,6 +8,130 @@ const navItems = [
 
 const stages = ['Diterima', 'Siapkan dokumen', 'Verifikasi', 'Diproses', 'Selesai'];
 
+const clientMilestones = [
+  'Pengajuan Diterima',
+  'Persiapan Dokumen',
+  'Verifikasi Dokumen',
+  'Proses Perizinan',
+  'Selesai'
+];
+
+const waitingLabels = {
+  team: ['Tim SMA', 'team', 'SMA'],
+  client: ['Anda', 'client', 'Anda'],
+  agency: ['Instansi', 'agency', 'Instansi'],
+  none: ['Tidak ada', 'none', '✓']
+};
+
+const sharedUpdates = [
+  { icon: '✓', title: 'Dokumen Akta Pendirian disetujui', note: 'Dokumen telah selesai diperiksa oleh Tim SMA.', time: 'Kemarin' },
+  { icon: '↗', title: 'Pengajuan masuk tahap verifikasi', note: 'Kelengkapan dokumen perusahaan mulai diperiksa.', time: '20 Agu' },
+  { icon: '✓', title: 'Pengajuan PBG diterima', note: 'Layanan berhasil dibuat dan tercatat di portal.', time: '18 Agu' }
+];
+
+const homeScenarios = {
+  normal: {
+    label: 'Proses normal tanpa tindakan',
+    milestone: 3,
+    condition: 'Dokumen lengkap dan sedang diverifikasi oleh Tim SMA.',
+    waiting: 'team',
+    nextStep: 'Kami akan memberi kabar setelah pemeriksaan selesai.',
+    documentSummary: '5 dari 6 disetujui',
+    paymentSummary: 'DP sudah diterima',
+    actions: [],
+    updates: [
+      { icon: '↻', title: 'Dokumen terakhir sedang diperiksa', note: 'Tidak ada tindakan yang perlu Anda lakukan saat ini.', time: '10 menit lalu' },
+      ...sharedUpdates
+    ]
+  },
+  revision: {
+    label: 'Client perlu memperbaiki dokumen',
+    milestone: 4,
+    condition: 'Diperlukan penyesuaian NIB berdasarkan hasil pemeriksaan.',
+    waiting: 'client',
+    nextStep: 'Unggah versi NIB yang menampilkan seluruh nomor dokumen.',
+    documentSummary: '1 dokumen perlu diperbaiki',
+    paymentSummary: 'DP sudah diterima',
+    actions: [
+      { type: 'revision', icon: '▤', urgency: 0, dueAt: '2026-08-23', due: 'Besok, 23 Agu', eyebrow: 'DOKUMEN · PBG', title: 'Perbaiki dokumen NIB', description: 'Nomor NIB pada file sebelumnya terpotong.', cta: 'Perbaiki dokumen' }
+    ],
+    updates: [
+      { icon: '!', title: 'Perbaikan dokumen NIB diminta', note: 'Tim SMA menambahkan instruksi perbaikan untuk dokumen Anda.', time: '12 menit lalu', tone: 'warning' },
+      ...sharedUpdates
+    ]
+  },
+  team: {
+    label: 'Menunggu tindakan Tim SMA',
+    milestone: 3,
+    condition: 'NIB pengganti telah diterima dan sedang diperiksa.',
+    waiting: 'team',
+    nextStep: 'Tim SMA sedang memeriksa dokumen terbaru Anda.',
+    documentSummary: '1 dokumen sedang diperiksa',
+    paymentSummary: 'DP sudah diterima',
+    actions: [],
+    updates: [
+      { icon: '✓', title: 'Dokumen NIB pengganti diterima', note: 'Versi terbaru berhasil masuk antrean pemeriksaan.', time: '8 menit lalu' },
+      ...sharedUpdates
+    ]
+  },
+  agency: {
+    label: 'Menunggu instansi',
+    milestone: 4,
+    condition: 'Berkas PBG telah disampaikan dan menunggu pemeriksaan instansi.',
+    waiting: 'agency',
+    nextStep: 'Kami akan memperbarui portal setelah ada tanggapan instansi.',
+    documentSummary: '6 dari 6 disetujui',
+    paymentSummary: 'DP sudah diterima',
+    actions: [],
+    updates: [
+      { icon: '↗', title: 'Berkas disampaikan ke instansi', note: 'Pengajuan PBG telah masuk ke tahap pemeriksaan instansi.', time: 'Hari ini, 09.10' },
+      ...sharedUpdates
+    ]
+  },
+  dp: {
+    label: 'Menunggu pembayaran DP',
+    milestone: 1,
+    condition: 'Layanan siap dimulai setelah pembayaran DP dikonfirmasi.',
+    waiting: 'client',
+    nextStep: 'Lihat invoice DP dan ikuti petunjuk pembayaran.',
+    documentSummary: 'Checklist belum dimulai',
+    paymentSummary: 'DP menunggu pembayaran',
+    actions: [
+      { type: 'payment', icon: 'Rp', urgency: 1, dueAt: '2026-08-24', due: 'Jatuh tempo 24 Agu', eyebrow: 'PEMBAYARAN · PBG', title: 'Pembayaran DP diperlukan', description: 'Pembayaran DP diperlukan sebelum persiapan dokumen dimulai.', cta: 'Lihat pembayaran' }
+    ],
+    updates: [
+      { icon: 'Rp', title: 'Invoice DP diterbitkan', note: 'Invoice tersedia pada halaman Pembayaran.', time: 'Hari ini, 08.30', tone: 'payment' },
+      { icon: '✓', title: 'Pengajuan PBG diterima', note: 'Layanan berhasil dibuat dan menunggu aktivasi.', time: 'Kemarin' },
+      ...sharedUpdates.slice(2)
+    ]
+  },
+  multiple: {
+    label: 'Beberapa tindakan sekaligus',
+    milestone: 4,
+    condition: 'Proses perizinan berjalan dengan beberapa kelengkapan menunggu respons Anda.',
+    waiting: 'client',
+    nextStep: 'Selesaikan tindakan berdasarkan urutan urgensi di bawah.',
+    documentSummary: '2 dokumen perlu tindakan',
+    paymentSummary: '1 termin menunggu pembayaran',
+    actions: [
+      { type: 'revision', icon: '▤', urgency: 0, dueAt: '2026-08-22', due: 'Tenggat hari ini', eyebrow: 'DOKUMEN · PBG', title: 'Perbaiki dokumen NIB', description: 'Nomor dokumen pada unggahan sebelumnya terpotong.', cta: 'Perbaiki dokumen' },
+      { type: 'approval', icon: '✓', urgency: 1, dueAt: '2026-08-23', due: 'Besok, 23 Agu', eyebrow: 'PERSETUJUAN · PBG', title: 'Konfirmasi perubahan layanan', description: 'Tim SMA membutuhkan persetujuan sebelum proses dilanjutkan.', cta: 'Berikan persetujuan' },
+      { type: 'payment', icon: 'Rp', urgency: 1, dueAt: '2026-08-25', due: '25 Agu', eyebrow: 'PEMBAYARAN · NIB', title: 'Termin berikutnya tersedia', description: 'Lihat rincian termin sebelum batas pembayaran.', cta: 'Lihat pembayaran' },
+      { type: 'document', icon: '↑', urgency: 2, dueAt: '2026-08-28', due: '28 Agu', eyebrow: 'DOKUMEN · NIB', title: 'Unggah surat kuasa', description: 'Surat kuasa diperlukan untuk melengkapi pengajuan.', cta: 'Unggah dokumen' }
+    ],
+    updates: [
+      { icon: '!', title: 'Tiga tindakan perlu diperhatikan', note: 'Tindakan dengan tenggat terdekat ditampilkan lebih dahulu.', time: 'Baru saja', tone: 'warning' },
+      { icon: '↗', title: 'Proses PBG tetap berjalan', note: 'Milestone tertinggi tidak berubah saat ada penyesuaian.', time: '1 jam lalu' },
+      ...sharedUpdates
+    ]
+  }
+};
+
+function selectedScenarioKey() {
+  const key = new URLSearchParams(window.location.search).get('scenario');
+  return Object.hasOwn(homeScenarios, key) ? key : 'revision';
+}
+
 function route() {
   const current = window.location.hash.replace('#', '') || 'home';
   return ['home', 'services', 'service-detail', 'documents', 'payments', 'profile'].includes(current) ? current : 'home';
@@ -67,25 +191,108 @@ function pageHead(eyebrow, title, description, extra = '') {
   return `<header class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div>${extra || '<span class="page-head__date">Jumat, 21 Agustus 2026</span>'}</header>`;
 }
 
+function homeProgress(highestMilestone) {
+  return `<div class="client-progress" aria-label="Progress layanan: tahap ${highestMilestone} dari ${clientMilestones.length}">
+    ${clientMilestones.map((milestone, index) => {
+      const number = index + 1;
+      const state = number < highestMilestone ? 'is-done' : number === highestMilestone ? 'is-active' : '';
+      return `<div class="client-progress__step ${state}">
+        <div class="client-progress__marker">${number < highestMilestone ? '✓' : number}</div>
+        <span>${milestone}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function scenarioTool(activeKey) {
+  return `<aside class="scenario-tool" aria-label="Alat demo prototype">
+    <div><span>ALAT DEMO</span><strong>Ganti skenario Beranda</strong></div>
+    <label><span class="sr-only">Skenario prototype</span><select data-scenario-select>
+      ${Object.entries(homeScenarios).map(([key, scenario]) => `<option value="${key}" ${key === activeKey ? 'selected' : ''}>${scenario.label}</option>`).join('')}
+    </select></label>
+  </aside>`;
+}
+
+function waitingIndicator(waiting) {
+  const [label, className, icon] = waitingLabels[waiting] || waitingLabels.none;
+  return `<div class="waiting-indicator waiting-indicator--${className}">
+    <span class="waiting-indicator__icon" aria-hidden="true">${icon}</span>
+    <span><small>SEDANG MENUNGGU</small><strong>${label}</strong></span>
+  </div>`;
+}
+
+function actionCard(action) {
+  return `<article class="home-action home-action--${action.type}">
+    <div class="home-action__top">
+      <span class="home-action__icon" aria-hidden="true">${action.icon}</span>
+      <span class="home-action__due">${action.due}</span>
+    </div>
+    <span class="home-action__eyebrow">${action.eyebrow}</span>
+    <h3>${action.title}</h3>
+    <p>${action.description}</p>
+    <button class="button button--warning button--block" type="button" data-home-action="${action.type}" data-home-action-title="${action.title}">${action.cta} →</button>
+  </article>`;
+}
+
+function homeActions(actions) {
+  const prioritized = [...actions]
+    .sort((a, b) => a.urgency - b.urgency || new Date(a.dueAt) - new Date(b.dueAt));
+  const visible = prioritized.slice(0, 3);
+
+  if (visible.length === 0) {
+    return `<section class="home-section" aria-labelledby="home-actions-title">
+      <div class="home-section__head"><div><span class="eyebrow">TINDAKAN</span><h2 id="home-actions-title">Perlu Tindakan Anda</h2></div></div>
+      <div class="home-action-empty"><span aria-hidden="true">✓</span><div><strong>Tidak ada tindakan untuk saat ini</strong><p>Proses sedang berjalan. Kami akan memberi tahu jika ada yang perlu Anda lakukan.</p></div></div>
+    </section>`;
+  }
+
+  return `<section class="home-section" aria-labelledby="home-actions-title">
+    <div class="home-section__head"><div><span class="eyebrow">TINDAKAN</span><h2 id="home-actions-title">Perlu Tindakan Anda</h2><p>Diurutkan berdasarkan urgensi dan tenggat terdekat.</p></div>
+      ${prioritized.length > visible.length ? `<button class="home-section__link" type="button" data-view-all-actions>Lihat Semua Tindakan (${prioritized.length}) →</button>` : ''}
+    </div>
+    <div class="home-actions-grid">${visible.map(actionCard).join('')}</div>
+  </section>`;
+}
+
+function updatesTimeline(updates) {
+  return updates.slice(0, 5).map((update) => `<div class="timeline-item ${update.tone ? `timeline-item--${update.tone}` : ''}">
+    <span class="timeline-item__dot" aria-hidden="true">${update.icon}</span>
+    <div><h4>${update.title}</h4><p>${update.note}</p></div>
+    <time>${update.time}</time>
+  </div>`).join('');
+}
+
 function homePage() {
-  return `<section class="page">
-    ${pageHead('SELAMAT DATANG KEMBALI', 'Halo, Dimas 👋', 'Berikut ringkasan proses legalitas PT Artha Prima Sejahtera hari ini.')}
-    <div class="grid grid--two">
-      <article class="card hero-service"><div class="card__body">
-        <div class="hero-service__top"><div class="service-name"><span class="service-icon">P</span><div><h2>Layanan PBG</h2><p>Dibuat 20 Agustus 2026 · PIC Ray</p></div></div><span class="status">Sedang diverifikasi</span></div>
-        ${progressSteps(2)}
-        <div class="service-foot"><p><strong>Estimasi tahap berikutnya</strong>2–3 hari kerja setelah dokumen lengkap</p><a class="button button--ghost button--small" href="#service-detail">Lihat detail →</a></div>
-      </div></article>
-      <article class="card action-card"><div class="card__body"><span class="action-card__icon">!</span><small>PERLU TINDAKAN ANDA</small><h3>Unggah ulang NIB</h3><p>Dokumen sebelumnya belum terbaca dengan jelas. Unggah versi baru sebelum 24 Agustus.</p><button class="button button--warning button--block" data-action="upload">Unggah dokumen</button></div></article>
+  const scenarioKey = selectedScenarioKey();
+  const scenario = homeScenarios[scenarioKey];
+
+  return `<section class="page home-page">
+    ${scenarioTool(scenarioKey)}
+    ${pageHead('SELAMAT DATANG KEMBALI', 'Halo, Dimas 👋', 'Berikut hal terpenting dari proses legalitas PT Artha Prima Sejahtera hari ini.')}
+    <article class="card home-progress-card">
+      <div class="home-progress-card__head">
+        <div class="service-name"><span class="service-icon">P</span><div><h2>Layanan PBG</h2><p>SMA-PBG-2026-0081 · Aktif</p></div></div>
+        <a class="button button--ghost button--small" href="#service-detail">Lihat detail →</a>
+      </div>
+      ${homeProgress(scenario.milestone)}
+      <div class="home-current-state">
+        <div><span class="home-current-state__label">MILESTONE TERTINGGI</span><strong>${clientMilestones[scenario.milestone - 1]}</strong></div>
+        <div><span class="home-current-state__label">KONDISI SAAT INI</span><strong>${scenario.condition}</strong><p>${scenario.nextStep}</p></div>
+        ${waitingIndicator(scenario.waiting)}
+      </div>
+    </article>
+
+    ${homeActions(scenario.actions)}
+
+    <div class="metric-grid home-metrics">
+      <article class="metric"><span class="metric__icon">▤</span><span>Dokumen</span><strong>${scenario.documentSummary}</strong><a href="#documents">Lihat dokumen →</a></article>
+      <article class="metric"><span class="metric__icon">Rp</span><span>Pembayaran</span><strong>${scenario.paymentSummary}</strong><a href="#payments">Lihat pembayaran →</a></article>
+      <article class="metric"><span class="metric__icon">↗</span><span>Pembaruan</span><strong>${scenario.updates.length} kabar terbaru</strong><button type="button" data-view-all-updates>Lihat semua →</button></article>
     </div>
-    <div class="metric-grid">
-      <article class="metric"><span class="metric__icon">▤</span><span>Dokumen</span><strong>4 dari 6 lengkap</strong><a href="#documents">Lihat checklist →</a></article>
-      <article class="metric"><span class="metric__icon">Rp</span><span>Pembayaran</span><strong>Rp7.500.000</strong><a href="#payments">Lihat pembayaran →</a></article>
-      <article class="metric"><span class="metric__icon">↗</span><span>Update terbaru</span><strong>10 menit lalu</strong><a href="#service-detail">Lihat timeline →</a></article>
-    </div>
-    <div class="grid grid--equal" style="margin-top:20px">
-      <article class="card"><div class="card__head"><div><h3>Update terbaru</h3><p>Informasi yang dipublikasikan oleh tim SMA</p></div><a class="card__link" href="#service-detail">Lihat semua</a></div><div class="card__body"><div class="timeline"><div class="timeline-item"><span class="timeline-item__dot">✓</span><div><h4>Dokumen NIB sedang diperiksa</h4><p>Tim telah menerima unggahan terakhir Anda.</p></div><time>10 menit lalu</time></div><div class="timeline-item"><span class="timeline-item__dot">↗</span><div><h4>Pengajuan masuk tahap verifikasi</h4><p>Kelengkapan data perusahaan sedang diperiksa.</p></div><time>Kemarin</time></div></div></div></article>
-      <article class="card"><div class="card__head"><div><h3>Kontak pendamping</h3><p>Hubungi kami jika ada yang ingin ditanyakan</p></div></div><div class="card__body"><div class="service-name"><span class="avatar">R</span><div><h2 style="font-size:16px">Ray</h2><p>Pendamping legalitas · Senin–Jumat, 09.00–17.00</p></div></div><button class="button button--ghost button--block" style="margin-top:22px" data-action="support">Kirim pesan</button></div></article>
+
+    <div class="home-lower-grid">
+      <article class="card home-updates"><div class="card__head"><div><h3>Pembaruan Terbaru</h3><p>Riwayat penting yang dibagikan oleh Tim SMA</p></div><button class="home-section__link" type="button" data-view-all-updates>Lihat Semua Pembaruan →</button></div><div class="card__body"><div class="timeline">${updatesTimeline(scenario.updates)}</div></div></article>
+      <article class="card home-help"><div class="card__body"><span class="home-help__icon">?</span><span class="eyebrow">BUTUH BANTUAN?</span><h3>Kami siap mendampingi</h3><p>Hubungi Tim SMA jika ada bagian proses yang ingin Anda tanyakan.</p><button class="button button--ghost button--block" type="button" data-action="support">Hubungi Tim SMA</button></div></article>
     </div>
   </section>`;
 }
@@ -166,11 +373,50 @@ function showModal({ title, body, action = 'Simpan', onSubmit }) {
   root.querySelector('input, select, textarea')?.focus();
 }
 
+document.addEventListener('change', (event) => {
+  const select = event.target.closest('[data-scenario-select]');
+  if (!select || !Object.hasOwn(homeScenarios, select.value)) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set('scenario', select.value);
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#home'}`);
+  render();
+});
+
 document.addEventListener('click', (event) => {
+  const homeAction = event.target.closest('[data-home-action]');
+  if (homeAction) {
+    showModal({
+      title: homeAction.dataset.homeActionTitle,
+      action: 'Tutup',
+      body: '<div class="prototype-message"><span>PROTOTYPE</span><p>CTA ini menunjukkan arah interaksi. Detail dan penyimpanan data akan dibuat pada tahap berikutnya.</p></div>'
+    });
+    return;
+  }
+
+  if (event.target.closest('[data-view-all-actions]')) {
+    const actions = [...homeScenarios[selectedScenarioKey()].actions]
+      .sort((a, b) => a.urgency - b.urgency || new Date(a.dueAt) - new Date(b.dueAt));
+    showModal({
+      title: 'Semua Tindakan',
+      action: 'Tutup',
+      body: `<div class="prototype-list">${actions.map((item) => `<div><span>${item.due}</span><strong>${item.title}</strong><p>${item.description}</p></div>`).join('')}</div>`
+    });
+    return;
+  }
+
+  if (event.target.closest('[data-view-all-updates]')) {
+    showModal({
+      title: 'Semua Pembaruan',
+      action: 'Tutup',
+      body: `<div class="timeline prototype-updates">${updatesTimeline(homeScenarios[selectedScenarioKey()].updates)}</div>`
+    });
+    return;
+  }
+
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (!action) return;
   if (action === 'upload') showModal({ title: 'Unggah dokumen', action: 'Simpan dokumen', body: '<label class="field"><span>Nama dokumen</span><input value="NIB terbaru" required></label><label class="field"><span>Link Google Drive</span><input type="url" placeholder="https://drive.google.com/..."></label><p style="color:var(--muted);font-size:11px;line-height:1.5">Prototype tidak benar-benar mengunggah file.</p>', onSubmit: () => showToast('Dokumen berhasil dikirim untuk diperiksa.') });
-  if (action === 'support') showModal({ title: 'Hubungi tim SMA', action: 'Kirim pesan', body: '<label class="field"><span>Pesan</span><textarea placeholder="Tulis pertanyaan Anda..." required></textarea></label>', onSubmit: () => showToast('Pesan berhasil dikirim ke tim SMA.') });
+  if (action === 'support') showModal({ title: 'Hubungi Tim SMA', action: 'Coba kirim', body: '<label class="field"><span>Pesan</span><textarea placeholder="Tulis pertanyaan Anda..." required></textarea></label><div class="prototype-message"><span>PROTOTYPE</span><p>Pesan pada demo ini tidak akan disimpan atau dikirim.</p></div>', onSubmit: () => showToast('Mode prototype — pesan tidak disimpan.') });
   if (action === 'notifications') showToast('Tidak ada notifikasi baru.');
   if (action === 'request-service') showModal({ title: 'Ajukan layanan baru', action: 'Kirim permintaan', body: '<label class="field"><span>Pilih layanan</span><select><option>PBG</option><option>NIB</option><option>SLF</option><option>Pendirian PT</option></select></label><label class="field"><span>Catatan</span><textarea placeholder="Ceritakan kebutuhan Anda..."></textarea></label>', onSubmit: () => showToast('Permintaan layanan berhasil dikirim.') });
   if (action === 'pay') showModal({ title: 'Tagihan PBG', action: 'Tutup', body: '<div class="info-pair"><span>Jumlah</span><strong style="font-size:24px">Rp12.500.000</strong></div><p style="color:var(--muted);font-size:12px;line-height:1.6">Pembayaran dilakukan melalui instruksi resmi yang dikirimkan tim SMA. Prototype tidak memproses pembayaran.</p>' });
