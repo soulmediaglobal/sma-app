@@ -15,6 +15,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - Database
+
+### Added
+- **PROJECT — Part V.2: Preview Dokumen Formal (schema)**. Lampiran
+  PRD (SPEC_PROJECT_Part_V2_RAB_Formal.md, §Bagian Baru). Schema only,
+  belum ada UI preview.
+  - Tabel baru `company_settings` (key-value) — rekening SMA (BCA,
+    a.n. Soul Mitra Abadi), admin-only RLS. Sudah diisi data asli
+    (bukan placeholder).
+  - Kolom baru `profiles.phone` — nomor HP staff, untuk kontak
+    "pembuat project" di preview dokumen nanti. Nullable, tidak wajib
+    diisi retroaktif.
+
 ## [2.12.0] - 2026-08-24
 
 ### Added
