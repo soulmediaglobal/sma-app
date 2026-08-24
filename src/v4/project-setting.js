@@ -385,9 +385,238 @@ async function loadBankAccounts(root, canEdit) {
   }
 }
 
-// Tabs ("Kelola Dokumen" / "Kelola Rekening Bank") — same tabs-underline
-// markup + activate/wire pattern as client-detail.js's data-client-tab /
-// data-client-panel, just namespaced data-project-setting-tab /
+// ============================================================================
+// Kode Layanan (Issue #85) — third section on the same page. service_type_codes
+// has no id column (service_type is the PK). Same RLS pattern as the other
+// two sections: admin ALL, supervisor/internal SELECT-only, no client access
+// (service_type_codes_admin_all / _supervisor_select / _internal_select in
+// 20260824070000_project_part5-2_rab_formal_schema.sql, not recreated here).
+// Read by generate_quotation_number() (unchanged, out of scope) to build the
+// SMA/YYYY-MM/CODE/seq quotation number.
+// ============================================================================
+
+const SERVICE_CODE_MAX_LENGTH = 3;
+
+function isValidServiceCode(value) {
+  return value.length > 0 && value.length <= SERVICE_CODE_MAX_LENGTH;
+}
+
+async function loadMissingServiceTypes(existingTypes) {
+  const { data, error } = await supabase.from('cases').select('service_type');
+  if (error) {return [];}
+  const existing = new Set(existingTypes);
+  const values = new Set();
+  (data || []).forEach((row) => {
+    if (row.service_type && !existing.has(row.service_type)) {values.add(row.service_type);}
+  });
+  return [...values].sort((a, b) => a.localeCompare(b, 'id'));
+}
+
+async function saveServiceCode(input, row) {
+  const value = input.value.trim().toUpperCase();
+  if (value === row.code) {input.value = row.code; return;}
+  if (!isValidServiceCode(value)) {
+    showToast(`Kode untuk "${row.service_type}" wajib diisi (maks ${SERVICE_CODE_MAX_LENGTH} karakter).`, { variant: 'error' });
+    input.value = row.code;
+    return;
+  }
+
+  input.disabled = true;
+  try {
+    const { error } = await supabase
+      .from('service_type_codes')
+      .update({ code: value })
+      .eq('service_type', row.service_type);
+
+    if (error) {
+      showToast(`Gagal menyimpan kode "${row.service_type}".`, { variant: 'error' });
+      input.value = row.code;
+      return;
+    }
+    row.code = value;
+    input.value = value;
+    showToast(`Kode "${row.service_type}" berhasil disimpan.`, { variant: 'success' });
+  } catch {
+    showToast(`Gagal menyimpan kode "${row.service_type}".`, { variant: 'error' });
+    input.value = row.code;
+  } finally {
+    input.disabled = false;
+  }
+}
+
+function buildServiceCodeRow(row, canEdit) {
+  const rowEl = element('div', 'project-setting-service-code-row');
+  rowEl.appendChild(element('div', 'project-setting-service-code-name', row.service_type));
+
+  if (canEdit) {
+    const input = element('input', 'form-control project-setting-service-code-input');
+    input.type = 'text';
+    input.value = row.code;
+    input.maxLength = SERVICE_CODE_MAX_LENGTH;
+    input.setAttribute('aria-label', `Kode untuk ${row.service_type}`);
+    input.addEventListener('change', () => saveServiceCode(input, row));
+    rowEl.appendChild(input);
+  } else {
+    rowEl.appendChild(element('div', 'project-setting-service-code-value', row.code));
+  }
+
+  return rowEl;
+}
+
+function buildAddServiceCodeForm(missingTypes) {
+  const form = document.createElement('form');
+  form.id = 'service-code-form';
+  form.noValidate = true;
+
+  const typeGroup = element('div', 'form-group');
+  const typeLabel = element('label', 'form-label', 'Jenis Layanan');
+  typeLabel.htmlFor = 'service-code-type';
+  const select = document.createElement('select');
+  select.className = 'form-control';
+  select.id = 'service-code-type';
+  select.name = 'service_type';
+  select.required = true;
+  missingTypes.forEach((type) => {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = type;
+    select.appendChild(option);
+  });
+  typeGroup.append(typeLabel, select);
+  form.appendChild(typeGroup);
+
+  const codeGroup = element('div', 'form-group');
+  const codeLabel = element('label', 'form-label', 'Kode');
+  codeLabel.htmlFor = 'service-code-value';
+  const codeInput = element('input', 'form-control');
+  codeInput.id = 'service-code-value';
+  codeInput.name = 'code';
+  codeInput.type = 'text';
+  codeInput.required = true;
+  codeInput.maxLength = SERVICE_CODE_MAX_LENGTH;
+  codeGroup.append(codeLabel, codeInput);
+  form.appendChild(codeGroup);
+
+  return form;
+}
+
+async function submitAddServiceCode(ctx, form, root) {
+  if (!form.reportValidity()) {return;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
+
+  const serviceType = form.elements.namedItem('service_type').value;
+  const code = form.elements.namedItem('code').value.trim().toUpperCase();
+
+  if (!serviceType) {
+    showToast('Pilih jenis layanan.', { variant: 'error' });
+    return;
+  }
+  if (!isValidServiceCode(code)) {
+    showToast(`Kode wajib diisi (maks ${SERVICE_CODE_MAX_LENGTH} karakter).`, { variant: 'error' });
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+  try {
+    const { error } = await supabase
+      .from('service_type_codes')
+      .insert({ service_type: serviceType, code });
+
+    if (error) {
+      showToast(`Gagal menambahkan kode "${serviceType}".`, { variant: 'error' });
+      return;
+    }
+
+    ctx.close();
+    showToast(`Kode "${serviceType}" berhasil ditambahkan.`, { variant: 'success' });
+    await loadServiceCodes(root, true);
+  } catch {
+    showToast(`Gagal menambahkan kode "${serviceType}".`, { variant: 'error' });
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Tambah Kode';
+  }
+}
+
+async function openAddServiceCodeModal(root, existingTypes) {
+  const missingTypes = await loadMissingServiceTypes(existingTypes);
+  if (missingTypes.length === 0) {
+    showToast('Semua jenis layanan sudah punya kode.', { variant: 'info' });
+    return;
+  }
+
+  const form = buildAddServiceCodeForm(missingTypes);
+  const ctx = showModal({
+    title: 'Tambah Kode Layanan',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Tambah Kode',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {submitAddServiceCode(ctx, form, root);}
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitAddServiceCode(ctx, form, root);
+  });
+}
+
+function renderServiceCodes(root, rows, canEdit) {
+  root.replaceChildren();
+
+  if (canEdit) {
+    const addBtn = element('button', 'btn btn-primary btn-sm project-setting-service-code-add', '+ Tambah Kode');
+    addBtn.type = 'button';
+    addBtn.addEventListener('click', () => openAddServiceCodeModal(root, rows.map((row) => row.service_type)));
+    root.appendChild(addBtn);
+  }
+
+  if (rows.length === 0) {
+    const empty = element('div', 'project-setting-state project-setting-state-empty', 'Belum ada kode layanan.');
+    empty.setAttribute('role', 'status');
+    root.appendChild(empty);
+    root.setAttribute('aria-busy', 'false');
+    return;
+  }
+
+  const list = element('div', 'project-setting-service-code-list');
+  rows.forEach((row) => list.appendChild(buildServiceCodeRow(row, canEdit)));
+  root.appendChild(list);
+  root.setAttribute('aria-busy', 'false');
+}
+
+async function loadServiceCodes(root, canEdit) {
+  setPanelState(root, 'Memuat kode layanan…', 'loading');
+
+  try {
+    const { data, error } = await supabase
+      .from('service_type_codes')
+      .select('service_type, code')
+      .order('service_type', { ascending: true });
+
+    if (error) {
+      setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+      return;
+    }
+
+    renderServiceCodes(root, data || [], canEdit);
+  } catch {
+    setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+  }
+}
+
+// Tabs ("Kelola Dokumen" / "Kelola Rekening Bank" / "Kode Layanan") — same
+// tabs-underline markup + activate/wire pattern as client-detail.js's
+// data-client-tab / data-client-panel, just namespaced data-project-setting-tab /
 // data-project-setting-panel for this page.
 function activateProjectSettingTab(tab) {
   const name = tab.dataset.projectSettingTab;
@@ -425,7 +654,8 @@ let initialized = false;
 export async function initProjectSetting() {
   const root = document.getElementById('project-setting-root');
   const bankRoot = document.getElementById('bank-accounts-root');
-  if ((!root && !bankRoot) || initialized) {return;}
+  const serviceCodesRoot = document.getElementById('service-codes-root');
+  if ((!root && !bankRoot && !serviceCodesRoot) || initialized) {return;}
   initialized = true;
 
   wireProjectSettingTabs();
@@ -434,6 +664,7 @@ export async function initProjectSetting() {
   const canEdit = profile?.role === 'admin';
   await Promise.all([
     root ? loadTemplates(root, canEdit) : Promise.resolve(),
-    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve()
+    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve(),
+    serviceCodesRoot ? loadServiceCodes(serviceCodesRoot, canEdit) : Promise.resolve()
   ]);
 }

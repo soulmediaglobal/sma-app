@@ -28,6 +28,7 @@
     <div class="project-setting-tabs tabs-underline" role="tablist" aria-label="Project Setting" aria-orientation="horizontal">
       <button class="tab active" id="project-setting-tab-documents" type="button" role="tab" aria-selected="true" aria-controls="project-setting-panel-documents" tabindex="0" data-project-setting-tab="documents">Kelola Dokumen</button>
       <button class="tab" id="project-setting-tab-bank" type="button" role="tab" aria-selected="false" aria-controls="project-setting-panel-bank" tabindex="-1" data-project-setting-tab="bank">Kelola Rekening Bank</button>
+      <button class="tab" id="project-setting-tab-service-codes" type="button" role="tab" aria-selected="false" aria-controls="project-setting-panel-service-codes" tabindex="-1" data-project-setting-tab="service-codes">Kode Layanan</button>
     </div>
 
     <section class="project-setting-tab-panel" id="project-setting-panel-documents" role="tabpanel" aria-labelledby="project-setting-tab-documents" data-project-setting-panel="documents">
@@ -45,6 +46,14 @@
         rekening tersebut tetap harus bisa dibuka.
       </div>
       <div id="bank-accounts-root" aria-busy="true"></div>
+    </section>
+
+    <section class="project-setting-tab-panel" id="project-setting-panel-service-codes" role="tabpanel" aria-labelledby="project-setting-tab-service-codes" data-project-setting-panel="service-codes" hidden>
+      <div class="project-setting-panel-desc">
+        Kode 3 huruf per jenis layanan, dipakai untuk penomoran quotation
+        otomatis (mis. SMA/2026-08/PBG/0001).
+      </div>
+      <div id="service-codes-root" aria-busy="true"></div>
     </section>
   </div>
 
