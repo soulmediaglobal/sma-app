@@ -339,8 +339,14 @@ body[data-page='client-detail'].modal-open .toast-host {
   overflow: hidden;
 }
 
+.client-quotation-version-header {
+  display: flex;
+  align-items: stretch;
+}
+
 .client-quotation-version-toggle {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: var(--space-3);
   border: none;
   background: transparent;
@@ -348,6 +354,12 @@ body[data-page='client-detail'].modal-open .toast-host {
   text-align: left;
   font: inherit;
   color: inherit;
+}
+
+.client-quotation-version-preview-btn {
+  align-self: center;
+  flex-shrink: 0;
+  margin-right: var(--space-3);
 }
 
 .client-quotation-version-toggle:hover,
