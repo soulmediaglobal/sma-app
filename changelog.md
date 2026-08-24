@@ -15,7 +15,24 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - App
+## [Unreleased] - Database
+
+### Fixed
+- **Data `profiles.full_name` salah** — backfill Issue #99 (dieksekusi
+  manual via Supabase SQL Editor, tanpa migration file — menyimpang
+  dari konvensi psql Session Pooler) mengisi `full_name` dari prefix
+  email, bukan dari kolom `name` yang sudah benar. Contoh: Ray
+  `full_name` sempat "soulmediaglobal.ind" (harusnya "Ray").
+  - Fix: `UPDATE profiles SET full_name = name`. Kolom `full_name`/
+    `email` dipertahankan (dipakai rencana Issue #100), cuma datanya
+    yang dikoreksi.
+  - Migration ini juga mencatat resmi ke git skema `full_name`/`email`
+    yang sebelumnya live di production tanpa migration file
+    (`add column if not exists`, idempotent).
+- Diverifikasi ke database: 5 profile, semua `full_name` sekarang sama
+  persis dengan `name`.
+
+## [2.21.0] - 2026-08-24
 
 ### Changed
 - **Project Setting — restrukturisasi Jenis Dokumen vs Jenis Layanan**
@@ -290,7 +307,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
   sebelum & sesudah).
 
-## [Unreleased] - App
+## [2.17.1] - 2026-08-24
 
 ### Fixed
 - **SUPERSEDED tidak pernah ditulis saat revisi RAB**. `createDraftQuotation()`
