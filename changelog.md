@@ -15,6 +15,78 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.12.0] - 2026-08-24
+
+### Added
+- **PROJECT — Part V.2: RAB Formal UI** (Issue #62, fase 2/2 — fase 1/2
+  adalah trigger `quotation_number`, commit `d079991` di branch yang
+  sama, belum pernah dapat entry changelog sendiri karena commit itu
+  cuma mengubah file migration, bukan `changelog.md`). Lampiran PRD
+  (`SPEC_PROJECT_Part_V2_RAB_Formal.md`), UI untuk skema yang sudah
+  dibangun di v2.11.0. Semua perubahan ada di
+  `client-quotations.js` (bukan file baru — section "RAB & Penawaran"
+  yang sudah ada dari Part V, ditambah bukan dirombak).
+  - **Section baru "Detail Pekerjaan"** (`case_quotation_line_items`) —
+    tambah/hapus/reorder baris dengan description, detail (sub-line
+    opsional), qty, rate, amount (dihitung client-side `qty × rate`,
+    read-only, bukan input manual — pola sama seperti total termin di
+    Part V). RLS-nya identik `case_quotation_items`: `internal` cuma
+    bisa insert/update/delete selama quotation masih DRAFT.
+  - **`total_amount` pindah sumber**: sebelumnya SUM dari
+    `case_quotation_items` (termin, Part V), sekarang SUM dari
+    `case_quotation_line_items` (Detail Pekerjaan). Ditulis di
+    `saveQuotationLineItems` — `saveQuotationItems` (termin) tidak lagi
+    menulis `total_amount` sama sekali.
+  - **Termin jadi alokasi, bukan sumber independen**: saat isi termin,
+    ditampilkan total Detail Pekerjaan (dihitung live dari input,
+    belum tentu sudah tersimpan) sebagai referensi. Kalau total termin
+    ≠ total Detail Pekerjaan, muncul warning non-blocking (banner
+    oranye) — dikonfirmasi ke Ray: tidak pernah memblokir tombol "Buat
+    Penawaran" karena mismatch ini, cuma indikator visual.
+  - **Validasi "Buat Penawaran" diperketat**: sebelumnya cuma cek
+    `total_amount > 0`, sekarang itu tetap satu-satunya cek langsung
+    tapi secara efektif juga mensyaratkan minimal 1 baris Detail
+    Pekerjaan — karena `total_amount` sekarang murni SUM dari baris
+    itu dan tiap baris wajib qty>0 & rate>0 buat bisa disimpan, jadi
+    total>0 tidak mungkin tercapai tanpa minimal 1 baris valid.
+  - **`quotation_number` ditampilkan read-only**: di header draft
+    editor ("No. RAB: ..." atau placeholder "akan digenerate otomatis"
+    kalau belum ada), di badge ringkas kartu project, dan di tiap baris
+    riwayat versi. Frontend tidak pernah menulis kolom ini — murni
+    dibaca, sesuai kontrak trigger `generate_quotation_number()`.
+  - **`description` auto-generate**: template client-side (bukan
+    trigger DB) diisi otomatis saat "Buat RAB Baru" — memakai
+    `clients.name`, `clients.pic_name`, `cases.service_type`. Tetap
+    editable lewat textarea + tombol "Simpan Deskripsi" sendiri (bukan
+    lock, bukan digabung ke save Detail Pekerjaan/Termin).
+  - Riwayat versi (panel expand per versi) sekarang juga menampilkan
+    Detail Pekerjaan read-only (sebelumnya cuma termin) + description
+    versi itu kalau ada — biar versi lama tetap bisa direview lengkap,
+    bukan cuma diperbaiki bagian termin-nya.
+
+### Belum diverifikasi manual
+- Login OTP masih blocker yang sama seperti Part V — seluruh flow di
+  atas cuma direview lewat kode + `npm run lint`/`npm run build`
+  (keduanya PASS), belum diklik langsung di browser.
+- **Bug ditemukan di trigger `generate_quotation_number()` (commit
+  `d079991`, belum di-tag/dirilis), belum diperbaiki**: commit message
+  klaim query pewarisan nomor sudah difilter `quotation_number IS NOT NULL` +
+  `ORDER BY version`, tapi SQL yang ter-commit di
+  `20260824080000_generate_quotation_number_trigger.sql` (baris ~54)
+  masih `select quotation_number into existing_number from
+  case_quotations where case_id = new.case_id limit 1` — tanpa filter
+  maupun order. Untuk case yang punya >1 row lama (misalnya salah
+  satunya hasil rekonsiliasi Part II dengan `quotation_number` NULL),
+  Postgres bisa memilih row yang salah tanpa `ORDER BY`, sehingga versi
+  baru bisa gagal mewarisi nomor yang sudah ada dan malah generate
+  nomor baru — melanggar aturan "1 nomor per rangkaian negosiasi
+  case_id". Berdampak langsung ke fitur ini karena riwayat versi
+  sekarang menampilkan `quotation_number` per versi. Belum diperbaiki
+  di sesi ini (perlu migration terpisah, di luar scope UI) — perlu
+  keputusan Ray.
+
+---
+
 ## [2.9.0] & [2.10.0] - 2026-08-23
 
 _Catatan: entry ini mencakup 2 tag (Part VII dirilis sebagai v2.9.0, Part V sebagai v2.10.0) karena header sempat tidak di-rename di antara keduanya._
@@ -138,7 +210,9 @@ _Catatan: entry ini mencakup 2 tag (Part VII dirilis sebagai v2.9.0, Part V seba
     pakai hint FK eksplisit dari awal (mengikuti pola fix di v2.7.0),
     tapi belum bisa dikonfirmasi jalan di browser sungguhan.
 
-## [Unreleased] - Database
+## [2.11.0] - 2026-08-24
+
+_Catatan: header ini sempat tertinggal sebagai "[Unreleased] - Database" walau tag `v2.11.0` sudah dibuat saat merge — direname supaya konsisten dengan tag git, pola yang sama seperti fix header 2.8.0/2.9.0/2.10.0 di atas._
 
 ### Added
 - **PROJECT — Part V.2: RAB Formal (schema)**. Lampiran PRD
