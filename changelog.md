@@ -17,6 +17,57 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
+### Changed
+- **Project Setting — restrukturisasi Jenis Dokumen vs Jenis Layanan**
+  (Issue #91). Reorganisasi UI 3 tab di `project_setting.html`, tanpa
+  migrasi baru — kolom `document_templates.default_service_types` dan
+  `service_type_codes` yang dipakai persis sama seperti sebelumnya, cuma
+  arah tulisnya yang dibalik.
+  - **Tab 1 "Kelola Dokumen" → "Jenis Dokumen"**: multi-select
+    `default_service_types` per dokumen (v2.x sebelumnya) dihapus total
+    dari tab ini. Sekarang murni list read-only nama + kategori dokumen —
+    tidak ada kontrol edit sama sekali di tab ini (termasuk buat admin).
+    Add/edit nama & kategori dokumen sendiri tetap di luar scope, sengaja
+    ditunda ke Issue #72 terpisah (dikonfirmasi ke Ray sebelum
+    implementasi, karena brief awal menyebut "keep add/edit" padahal
+    fungsi itu memang belum pernah ada di kode).
+  - **Tab 2 "Kode Layanan" → "Jenis Layanan"** (posisi pindah dari tab
+    ke-3 ke ke-2): gabungan edit kode 3-huruf (persis perilaku lama, tidak
+    diubah) + checklist dokumen wajib per jenis layanan yang baru. Per
+    baris `service_type_codes`, ada accordion (`.accordion-item`, style
+    sudah ada di `_components.scss`, di-reuse bukan bikin baru) berisi
+    checkbox tiap `document_templates`, dikelompokkan per kategori sama
+    kayak tab 1. Centang/hilangkan centang → `update` langsung ke
+    `document_templates.default_service_types` (tambah/buang
+    `service_type` itu dari array), arah kebalikan dari tab lama tapi
+    kolom DB-nya sama — `client-quotations.js` (RAB document multi-select)
+    baca kolom yang sama, tidak disentuh, tetap konsisten otomatis. Label
+    accordion nampilin jumlah dokumen wajib live-update pas dicentang
+    (tanpa reload).
+  - **Tab 3 "Kelola Rekening Bank" → "Rekening Bank"** (posisi pindah ke
+    tab terakhir): fungsi & kode 100% tidak disentuh, cuma pindah posisi
+    tab + rename label (diverifikasi dengan diff literal terhadap fungsi
+    lama — identik).
+  - Admin-only (`canEdit = profile.role === 'admin'`) tetap sama pattern-nya
+    di tab 2: supervisor/internal lihat kode + checklist read-only
+    (checkbox disabled), tidak ada tombol "+ Tambah Kode". RLS tidak
+    diubah/dibuat ulang.
+  - `npm run lint` dan `npm run build` PASS.
+
+### Belum diverifikasi manual
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
+  sama seperti part-part sebelumnya, lihat v2.16.0/v2.18.0/v2.19.0) —
+  belum dicoba end-to-end di browser sungguhan. Sudah direview lewat kode
+  saja (lint+build PASS, diff literal buat pastikan tab Rekening Bank
+  benar-benar tidak berubah, trace manual logic toggle checklist). Yang
+  masih perlu dicek manual: tab Jenis Dokumen benar-benar tanpa kontrol
+  edit, centang/hilangkan centang di tab Jenis Layanan beneran update
+  `default_service_types` di DB (query langsung buat verifikasi), label
+  jumlah dokumen di accordion update benar, revert checkbox saat gagal
+  simpan, dan tab Rekening Bank masih jalan normal setelah pindah posisi.
+
+## [2.20.1] - 2026-08-24
+
 ### Fixed
 - **HOTFIX: query kolom `document_templates.category` yang sudah
   dihapus**. Migration Issue #94 (v2.20.0) menghapus

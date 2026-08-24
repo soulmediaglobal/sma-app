@@ -1,9 +1,5 @@
-// SMA-app — Project Setting page: "Kelola Dokumen Wajib per Jenis Layanan".
-// First sub-feature of the "Project Setting" admin page (more are planned —
-// service_type_codes / company_settings management, still on hold, separate
-// tasks). This task is document_templates.default_service_types only: no
-// add/delete of document_templates rows (separate future "kelola master
-// dokumen" feature).
+// SMA-app — Project Setting page: "Jenis Dokumen" / "Jenis Layanan" /
+// "Rekening Bank", 3 tabs on one page (production/project_setting.html).
 //
 // Nav visibility is admin-only (roles: ['admin'] in shell-render.js NAV,
 // same mechanism as User Management — see src/lib/auth-guard.js). That's a
@@ -11,17 +7,9 @@
 // (document_templates_admin_all) is admin-only for insert/update/delete,
 // supervisor/internal are SELECT-only. A supervisor/internal who reaches
 // this page via direct URL can still see it (RLS allows their SELECT) but
-// the save button below is hidden for non-admin, since a write from them
-// would just fail at the DB level — same "canManageX" UX pattern already
-// used in client-quotations.js / client-documents.js / case-form.js.
-//
-// default_service_types field uses the existing chips multi-select
-// component (v4/form-controls.js, data-multi-select) instead of a plain
-// comma-separated text input. That component already exists and is in use
-// elsewhere in this codebase (production/form.html) — it fits this field
-// better than free text because the option list (distinct `cases.service_type`
-// values, queried live, not hardcoded) runs to a couple dozen entries and
-// benefits from search-to-add + chip removal rather than typo-prone typing.
+// save controls are hidden for non-admin, since a write from them would
+// just fail at the DB level — same "canManageX" UX pattern already used in
+// client-quotations.js / client-documents.js / case-form.js.
 
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
@@ -43,82 +31,20 @@ function setPanelState(root, message, state) {
   root.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
 }
 
-async function loadServiceTypeOptions() {
-  const { data, error } = await supabase.from('cases').select('service_type');
-  if (error) {return [];}
-  const values = new Set();
-  (data || []).forEach((row) => { if (row.service_type) {values.add(row.service_type);} });
-  return [...values].sort((a, b) => a.localeCompare(b, 'id'));
-}
+// ============================================================================
+// Jenis Dokumen (Issue #91) — read-only master list of document_templates
+// (name + category). Which documents are required for which service type is
+// configured from the Jenis Layanan tab instead (see below), reversed from
+// this tab's original direction — picking a service and then its required
+// documents is the natural admin flow, vs. picking a document and then every
+// service that needs it. The underlying column (document_templates.
+// default_service_types) is unchanged, only which side writes it moved.
+// Add/edit of document_templates rows themselves (name, category) is a
+// separate future "kelola master dokumen" feature (Issue #72), intentionally
+// not part of this reorg.
+// ============================================================================
 
-function buildReadOnlyField(template) {
-  const wrap = element('div', 'project-setting-field-readonly');
-  const types = template.default_service_types || [];
-  if (types.length === 0) {
-    wrap.appendChild(element('span', 'project-setting-empty-chip', 'Belum diatur'));
-  } else {
-    types.forEach((type) => wrap.appendChild(element('span', 'project-setting-chip', type)));
-  }
-  return wrap;
-}
-
-function buildEditableField(template, serviceTypeOptions) {
-  const fieldWrap = element('div', 'project-setting-field');
-
-  const msWrap = element('div', 'multi-select');
-  msWrap.dataset.multiSelect = '';
-  const select = document.createElement('select');
-  select.multiple = true;
-  select.hidden = true;
-  const current = new Set(template.default_service_types || []);
-  serviceTypeOptions.forEach((type) => {
-    const option = document.createElement('option');
-    option.value = type;
-    option.textContent = type;
-    option.selected = current.has(type);
-    select.appendChild(option);
-  });
-  msWrap.appendChild(select);
-  fieldWrap.appendChild(msWrap);
-
-  const saveBtn = element('button', 'btn btn-primary btn-sm project-setting-save', 'Simpan');
-  saveBtn.type = 'button';
-  saveBtn.addEventListener('click', async () => {
-    const selected = [...select.selectedOptions].map((o) => o.value);
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Menyimpan…';
-    try {
-      const { error } = await supabase
-        .from('document_templates')
-        .update({ default_service_types: selected.length ? selected : null })
-        .eq('id', template.id);
-
-      if (error) {
-        showToast(`Gagal menyimpan "${template.name}".`, { variant: 'error' });
-        return;
-      }
-      template.default_service_types = selected;
-      showToast(`"${template.name}" berhasil disimpan.`, { variant: 'success' });
-    } catch {
-      showToast(`Gagal menyimpan "${template.name}".`, { variant: 'error' });
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Simpan';
-    }
-  });
-  fieldWrap.appendChild(saveBtn);
-
-  return fieldWrap;
-}
-
-function buildTemplateRow(template, serviceTypeOptions, canEdit) {
-  const row = element('div', 'project-setting-template-row');
-  row.appendChild(element('div', 'project-setting-template-name', template.name));
-  row.appendChild(canEdit ? buildEditableField(template, serviceTypeOptions) : buildReadOnlyField(template));
-  return row;
-}
-
-function renderTemplates(root, templates, serviceTypeOptions, canEdit) {
+function renderDocuments(root, templates) {
   root.replaceChildren();
 
   if (templates.length === 0) {
@@ -139,34 +65,27 @@ function renderTemplates(root, templates, serviceTypeOptions, canEdit) {
       list.appendChild(element('div', 'project-setting-category-heading', categoryName));
       lastCategory = categoryName;
     }
-    list.appendChild(buildTemplateRow(template, serviceTypeOptions, canEdit));
+    list.appendChild(element('div', 'project-setting-doc-row', template.name));
   });
   root.appendChild(list);
   root.setAttribute('aria-busy', 'false');
-
-  if (canEdit) {
-    import('./form-controls.js').then((m) => m.initFormControls());
-  }
 }
 
-async function loadTemplates(root, canEdit) {
+async function loadDocuments(root) {
   setPanelState(root, 'Memuat daftar dokumen…', 'loading');
 
   try {
-    const [templatesResult, serviceTypeOptions] = await Promise.all([
-      supabase
-        .from('document_templates')
-        .select('id, name, category_id, category:document_categories(name), default_service_types')
-        .order('name', { ascending: true }),
-      loadServiceTypeOptions()
-    ]);
+    const { data, error } = await supabase
+      .from('document_templates')
+      .select('id, name, category_id, category:document_categories(name)')
+      .order('name', { ascending: true });
 
-    if (templatesResult.error) {
+    if (error) {
       setPanelState(root, 'Gagal memuat daftar template dokumen.', 'error');
       return;
     }
 
-    renderTemplates(root, templatesResult.data || [], serviceTypeOptions, canEdit);
+    renderDocuments(root, data || []);
   } catch {
     setPanelState(root, 'Gagal memuat daftar template dokumen.', 'error');
   }
@@ -391,12 +310,19 @@ async function loadBankAccounts(root, canEdit) {
 }
 
 // ============================================================================
-// Kode Layanan (Issue #85) — third section on the same page. service_type_codes
-// has no id column (service_type is the PK). Same RLS pattern as the other
-// two sections: admin ALL, supervisor/internal SELECT-only, no client access
+// Jenis Layanan (Issues #85 + #91) — per-service-type config: the 3-letter
+// code used for quotation numbering (service_type_codes, no id column —
+// service_type is the PK) plus a checklist of which document_templates are
+// required for that service. Checking/unchecking a document here updates
+// document_templates.default_service_types (add/remove this service_type
+// from that document's array) — same column client-quotations.js's RAB
+// document multi-select already reads, just written from the service side
+// instead of the document side. Same RLS pattern as the other tabs: admin
+// ALL, supervisor/internal SELECT-only, no client access
 // (service_type_codes_admin_all / _supervisor_select / _internal_select in
-// 20260824070000_project_part5-2_rab_formal_schema.sql, not recreated here).
-// Read by generate_quotation_number() (unchanged, out of scope) to build the
+// 20260824070000_project_part5-2_rab_formal_schema.sql;
+// document_templates_admin_all — not recreated here). service_type_codes is
+// read by generate_quotation_number() (unchanged, out of scope) to build the
 // SMA/YYYY-MM/CODE/seq quotation number.
 // ============================================================================
 
@@ -449,9 +375,79 @@ async function saveServiceCode(input, row) {
   }
 }
 
-function buildServiceCodeRow(row, canEdit) {
-  const rowEl = element('div', 'project-setting-service-code-row');
-  rowEl.appendChild(element('div', 'project-setting-service-code-name', row.service_type));
+async function toggleDocumentService(checkbox, template, serviceType, countLabel) {
+  if (checkbox.disabled) {return;}
+  checkbox.disabled = true;
+  const nowChecked = checkbox.checked;
+  const current = new Set(template.default_service_types || []);
+  if (nowChecked) {current.add(serviceType);} else {current.delete(serviceType);}
+  const next = [...current];
+
+  try {
+    const { error } = await supabase
+      .from('document_templates')
+      .update({ default_service_types: next.length ? next : null })
+      .eq('id', template.id);
+
+    if (error) {
+      checkbox.checked = !nowChecked;
+      showToast(`Gagal memperbarui "${template.name}".`, { variant: 'error' });
+      return;
+    }
+    template.default_service_types = next;
+    const count = parseInt(countLabel.textContent, 10) + (nowChecked ? 1 : -1);
+    countLabel.textContent = `${count} dokumen wajib`;
+  } catch {
+    checkbox.checked = !nowChecked;
+    showToast(`Gagal memperbarui "${template.name}".`, { variant: 'error' });
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
+function buildServiceDocChecklist(row, documentTemplates, canEdit) {
+  const details = element('details', 'accordion-item project-setting-service-docs');
+
+  const summary = document.createElement('summary');
+  summary.className = 'accordion-summary';
+  const countLabel = element('span');
+  summary.appendChild(countLabel);
+  summary.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>');
+  details.appendChild(summary);
+
+  const content = element('div', 'accordion-content project-setting-service-doc-checklist');
+
+  let checkedCount = 0;
+  let lastCategory = null;
+  documentTemplates.forEach((template) => {
+    if (template.category !== lastCategory) {
+      content.appendChild(element('div', 'project-setting-doc-category-heading', template.category || 'Lainnya'));
+      lastCategory = template.category;
+    }
+    const label = element('label', 'form-check');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    const isChecked = (template.default_service_types || []).includes(row.service_type);
+    checkbox.checked = isChecked;
+    if (isChecked) {checkedCount += 1;}
+    checkbox.disabled = !canEdit;
+    if (canEdit) {
+      checkbox.addEventListener('change', () => toggleDocumentService(checkbox, template, row.service_type, countLabel));
+    }
+    label.append(checkbox, document.createTextNode(template.name));
+    content.appendChild(label);
+  });
+
+  countLabel.textContent = `${checkedCount} dokumen wajib`;
+  details.appendChild(content);
+  return details;
+}
+
+function buildServiceTypeRow(row, documentTemplates, canEdit) {
+  const item = element('div', 'project-setting-service-item');
+
+  const header = element('div', 'project-setting-service-code-row');
+  header.appendChild(element('div', 'project-setting-service-code-name', row.service_type));
 
   if (canEdit) {
     const input = element('input', 'form-control project-setting-service-code-input');
@@ -460,12 +456,15 @@ function buildServiceCodeRow(row, canEdit) {
     input.maxLength = SERVICE_CODE_MAX_LENGTH;
     input.setAttribute('aria-label', `Kode untuk ${row.service_type}`);
     input.addEventListener('change', () => saveServiceCode(input, row));
-    rowEl.appendChild(input);
+    header.appendChild(input);
   } else {
-    rowEl.appendChild(element('div', 'project-setting-service-code-value', row.code));
+    header.appendChild(element('div', 'project-setting-service-code-value', row.code));
   }
+  item.appendChild(header);
 
-  return rowEl;
+  item.appendChild(buildServiceDocChecklist(row, documentTemplates, canEdit));
+
+  return item;
 }
 
 function buildAddServiceCodeForm(missingTypes) {
@@ -536,7 +535,7 @@ async function submitAddServiceCode(ctx, form, root) {
 
     ctx.close();
     showToast(`Kode "${serviceType}" berhasil ditambahkan.`, { variant: 'success' });
-    await loadServiceCodes(root, true);
+    await loadServiceTypes(root, true);
   } catch {
     showToast(`Gagal menambahkan kode "${serviceType}".`, { variant: 'error' });
   } finally {
@@ -575,7 +574,7 @@ async function openAddServiceCodeModal(root, existingTypes) {
   });
 }
 
-function renderServiceCodes(root, rows, canEdit) {
+function renderServiceTypes(root, rows, documentTemplates, canEdit) {
   root.replaceChildren();
 
   if (canEdit) {
@@ -593,33 +592,40 @@ function renderServiceCodes(root, rows, canEdit) {
     return;
   }
 
-  const list = element('div', 'project-setting-service-code-list');
-  rows.forEach((row) => list.appendChild(buildServiceCodeRow(row, canEdit)));
+  const list = element('div', 'project-setting-service-list');
+  rows.forEach((row) => list.appendChild(buildServiceTypeRow(row, documentTemplates, canEdit)));
   root.appendChild(list);
   root.setAttribute('aria-busy', 'false');
 }
 
-async function loadServiceCodes(root, canEdit) {
-  setPanelState(root, 'Memuat kode layanan…', 'loading');
+async function loadServiceTypes(root, canEdit) {
+  setPanelState(root, 'Memuat jenis layanan…', 'loading');
 
   try {
-    const { data, error } = await supabase
-      .from('service_type_codes')
-      .select('service_type, code')
-      .order('service_type', { ascending: true });
+    const [codesResult, templatesResult] = await Promise.all([
+      supabase
+        .from('service_type_codes')
+        .select('service_type, code')
+        .order('service_type', { ascending: true }),
+      supabase
+        .from('document_templates')
+        .select('id, name, category, default_service_types')
+        .order('category', { ascending: true })
+        .order('name', { ascending: true })
+    ]);
 
-    if (error) {
-      setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+    if (codesResult.error || templatesResult.error) {
+      setPanelState(root, 'Gagal memuat daftar jenis layanan.', 'error');
       return;
     }
 
-    renderServiceCodes(root, data || [], canEdit);
+    renderServiceTypes(root, codesResult.data || [], templatesResult.data || [], canEdit);
   } catch {
-    setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+    setPanelState(root, 'Gagal memuat daftar jenis layanan.', 'error');
   }
 }
 
-// Tabs ("Kelola Dokumen" / "Kelola Rekening Bank" / "Kode Layanan") — same
+// Tabs ("Jenis Dokumen" / "Jenis Layanan" / "Rekening Bank") — same
 // tabs-underline markup + activate/wire pattern as client-detail.js's
 // data-client-tab / data-client-panel, just namespaced data-project-setting-tab /
 // data-project-setting-panel for this page.
@@ -657,10 +663,10 @@ function wireProjectSettingTabs() {
 let initialized = false;
 
 export async function initProjectSetting() {
-  const root = document.getElementById('project-setting-root');
+  const documentsRoot = document.getElementById('project-setting-root');
+  const serviceTypesRoot = document.getElementById('service-types-root');
   const bankRoot = document.getElementById('bank-accounts-root');
-  const serviceCodesRoot = document.getElementById('service-codes-root');
-  if ((!root && !bankRoot && !serviceCodesRoot) || initialized) {return;}
+  if ((!documentsRoot && !serviceTypesRoot && !bankRoot) || initialized) {return;}
   initialized = true;
 
   wireProjectSettingTabs();
@@ -668,8 +674,8 @@ export async function initProjectSetting() {
   const profile = await getProfile();
   const canEdit = profile?.role === 'admin';
   await Promise.all([
-    root ? loadTemplates(root, canEdit) : Promise.resolve(),
-    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve(),
-    serviceCodesRoot ? loadServiceCodes(serviceCodesRoot, canEdit) : Promise.resolve()
+    documentsRoot ? loadDocuments(documentsRoot) : Promise.resolve(),
+    serviceTypesRoot ? loadServiceTypes(serviceTypesRoot, canEdit) : Promise.resolve(),
+    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve()
   ]);
 }
