@@ -15,6 +15,34 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - Database
+
+### Added
+- **PROJECT — Part VI: Alur Terima/Tolak/Nego**. Menutup lingkaran
+  7-part PROJECT feature. Schema only — UI tombol Terima/Tolak/Nego
+  dibangun di sisi client (mitra.soulmitra.id, tanggung jawab Dimas).
+  - RLS write untuk role `client` di `case_quotations` — client bisa
+    UPDATE quotation miliknya sendiri, cuma dari status SENT, cuma
+    boleh transisi ke ACCEPTED/REJECTED/NEGOTIATING.
+  - Trigger `prevent_client_quotation_tampering` — proteksi kolom,
+    client cuma boleh ubah status/responded_at/client_response_notes,
+    tidak bisa menyelipkan perubahan total_amount/quotation_number/dst
+    lewat request yang sama. Pola sama seperti
+    `profiles_prevent_privilege_escalation` dan
+    `payments_prevent_invoice_receipt_tampering` yang sudah ada.
+  - Trigger `handle_quotation_response` — otomasi saat status berubah:
+    ACCEPTED → `cases.intake_status` jadi ACCEPTED, generate `payments`
+    dari `case_quotation_items` (1:1 per termin), generate 6
+    `case_stages` (idempotent — skip kalau case sudah punya stages)
+    + set `current_stage_id`. REJECTED → `cases.intake_status` jadi
+    REJECTED.
+- Diverifikasi lewat transaction test manual (BEGIN...ROLLBACK):
+  ACCEPTED menghasilkan 4 payments (sesuai 4 termin asli), 6 case_stages
+  urut dengan owner benar, current_stage_id ter-set. REJECTED
+  menghasilkan intake_status yang benar. Idempotency case_stages
+  dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
+  sebelum & sesudah).
+
 ## [2.14.0] - 2026-08-24
 
 ### Added
