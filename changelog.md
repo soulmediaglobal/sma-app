@@ -43,6 +43,63 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
   sebelum & sesudah).
 
+## [2.15.0] - 2026-08-24
+
+### Added
+- **Project Setting — Kelola Dokumen Wajib per Jenis Layanan** (Issue #72).
+  Halaman admin baru pertama di bawah roadmap "Project Setting" (backlog
+  di Issue punya beberapa sub-fitur lanjutan — `service_type_codes` dan
+  `company_settings`, keduanya masih ditunda, task terpisah). Task ini
+  cuma `document_templates.default_service_types`.
+  - Nav item baru **"Project Setting"** (`production/project_setting.html`,
+    group "Sistem"), `roles: ['admin']` di NAV — pola identik dengan
+    "User Management" yang sudah ada (`src/lib/auth-guard.js` yang
+    nyembunyiin nav item berdasarkan role, bukan mekanisme baru).
+  - Halaman me-list semua `document_templates` (15 baris seed dari Part
+    IV), dikelompokkan per `category` (Identitas/Legalitas/Teknis/
+    Keuangan) — pola grouping identik dengan "Dokumen Wajib" di
+    `client-quotations.js` (iterate hasil query yang sudah di-`order`,
+    munculkan heading tiap kali `category` berubah).
+  - Field `default_service_types` per template pakai komponen
+    **multi-select chip yang sudah ada** (`v4/form-controls.js`,
+    `data-multi-select`) — bukan input teks comma-separated. Dipilih
+    karena komponennya sudah jadi & dipakai di tempat lain
+    (`production/form.html`), dan opsinya (distinct `cases.service_type`,
+    di-query live lewat `select('service_type')` + dedupe di JS, **bukan
+    hardcode** — beda dari daftar `SERVICE_TYPES` hardcoded di
+    `case-form.js`, sengaja query karena data historis di `cases` punya
+    lebih banyak jenis layanan daripada dropdown form saat ini) ada
+    puluhan — search-to-add lebih pas daripada ngetik manual/typo-prone.
+    `initFormControls()` dipanggil manual setelah render (bukan
+    otomatis dari `main-v4.js` — itu cuma jalan sekali saat page load
+    berdasarkan DOM statis, sementara baris template di sini muncul
+    async setelah fetch Supabase selesai).
+  - Simpan per-baris (tombol "Simpan" sendiri per template, bukan satu
+    tombol simpan-semua) — update langsung ke
+    `document_templates.default_service_types` lewat RLS
+    `document_templates_admin_all`.
+  - Role gating UX di dalam halaman: non-admin (supervisor/internal,
+    yang punya RLS SELECT-only di tabel ini) lihat versi read-only
+    (chip statis, tanpa kontrol edit/simpan) alih-alih kontrol yang
+    nanti gagal saat disimpan — pola `canManageX` yang sama dengan
+    `client-quotations.js`/`client-documents.js`/`case-form.js`. Ini
+    murni UX convenience menambah dari yang diminta Issue (yang cuma
+    minta nav item admin-only); RLS tetap satu-satunya security
+    boundary yang sebenarnya.
+  - Out of scope (sesuai Issue): tidak ada tambah/hapus baris
+    `document_templates` (fitur "kelola master dokumen" terpisah, masih
+    ditunda).
+
+### Belum diverifikasi manual
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
+  yang sama seperti part-part PROJECT sebelumnya) — halaman ini belum
+  dicoba end-to-end di browser sungguhan sebagai admin, cuma direview
+  lewat kode + `npm run lint`/`npm run build` (keduanya PASS). Yang
+  masih perlu dicek manual: render grouping per kategori, isi/perilaku
+  multi-select (search, tambah/hapus chip), simpan per-baris beneran
+  ke-update di `document_templates` dan toast sukses/error muncul benar,
+  serta visibilitas nav item cuma untuk admin.
+
 ## [2.14.0] - 2026-08-24
 
 ### Added

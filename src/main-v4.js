@@ -30,6 +30,9 @@ guardAdminPage().then(() => {
   if (document.getElementById('client-form')) {
     import('./v4/client-form.js').then((m) => m.initClientForm());
   }
+  if (document.getElementById('project-setting-root')) {
+    import('./v4/project-setting.js').then((m) => m.initProjectSetting());
+  }
 });
 
 // SMA-app: OTP login flow — only loads on the login page.
