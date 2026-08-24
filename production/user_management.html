@@ -58,20 +58,22 @@
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table">
-          <thead>
-            <tr>
-              <th style="width:40px"><input type="checkbox" id="select-all" aria-label="Select all rows"></th>
-              <th>User</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Last active</th>
-              <th>Joined</th>
-              <th data-orderable="false"></th>
-            </tr>
-          </thead>
-          <tbody id="users-rows"></tbody>
-        </table>
+        <table id="users-table" class="table align-middle table-hover mb-0">
+  <thead class="table-light">
+    <tr>
+      <th>USER</th>
+      <th>ROLE</th>
+      <th>JOINED</th>
+      <th>LAST LOGIN</th>
+      <th>LAST UPDATE</th>
+      <th>PROJECTS INVOLVED</th>
+      <th style="width: 50px;">ACTION</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Dynamic rows from user-management.js -->
+  </tbody>
+</table>
       </div>
     </div>
   </div>
