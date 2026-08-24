@@ -66,6 +66,28 @@ BEGIN
     END IF;
   END IF;
 
+  -- Proteksi last-active-admin: cegah lockout total. Kalau baris ini
+  -- admin yang SEDANG di-nonaktifkan (role berubah dari admin, ATAU
+  -- account_status berubah jadi bukan ACTIVE saat role-nya admin),
+  -- pastikan masih ada MINIMAL 1 admin lain yang ACTIVE setelah
+  -- perubahan ini. Kalau tidak ada, tolak.
+  IF (
+    OLD.role = 'admin'
+    AND (
+      (NEW.role IS DISTINCT FROM OLD.role)
+      OR (NEW.account_status IS DISTINCT FROM OLD.account_status AND NEW.account_status != 'ACTIVE')
+    )
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE role = 'admin'
+        AND account_status = 'ACTIVE'
+        AND id != OLD.id
+    ) THEN
+      RAISE EXCEPTION 'Tidak bisa menonaktifkan admin terakhir yang aktif — minimal harus ada 1 admin aktif.';
+    END IF;
+  END IF;
+
   RETURN NEW;
 END;
 $$;

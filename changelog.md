@@ -17,6 +17,30 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - Database
 
+### Added
+- **Issue #109: Role Management & Account Status**. Kolom baru
+  `profiles.account_status` (ACTIVE/SUSPENDED/DISABLED) + audit
+  (`status_changed_at`, `status_changed_by`, `status_reason`).
+  - `auth_role()`/`auth_client_id()` sekarang return NULL kalau
+    `account_status != 'ACTIVE'` — proteksi terpusat, otomatis berlaku
+    ke SEMUA RLS policy di seluruh app (documents, payments,
+    case_quotations, case_stages, dll) tanpa perlu ubah policy satu-satu.
+  - Trigger `prevent_profile_privilege_escalation` diperluas: sekarang
+    juga melindungi kolom `account_status` (sebelumnya cuma `role`/
+    `client_id`), hanya admin/supervisor yang boleh ubah.
+  - **Proteksi last-active-admin** (ditambahkan Claude setelah review
+    rencana awal Gemini): trigger menolak perubahan yang akan membuat
+    TIDAK ADA admin aktif tersisa ("Tidak bisa menonaktifkan admin
+    terakhir yang aktif"). Ini mencegah lockout total dari sistem.
+- Diverifikasi lewat 2 transaction test: (1) suspend admin
+  satu-satunya yang aktif -> ditolak dengan error yang jelas, (2)
+  suspend user non-admin -> berhasil normal.
+- Kerja kolaboratif Ray + Gemini (skema dasar, UI awal) + Claude
+  (review keamanan, proteksi last-admin, eksekusi & verifikasi
+  migration).
+
+## [2.21.1] - 2026-08-24
+
 ### Fixed
 - **Data `profiles.full_name` salah** — backfill Issue #99 (dieksekusi
   manual via Supabase SQL Editor, tanpa migration file — menyimpang
