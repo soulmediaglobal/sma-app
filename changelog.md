@@ -15,15 +15,92 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - Database
+## [2.14.0] - 2026-08-24
 
 ### Added
-- **PROJECT — Part V.2: Preview Dokumen Formal (schema)**. Lampiran
-  PRD (SPEC_PROJECT_Part_V2_RAB_Formal.md, §Bagian Baru). Schema only,
-  belum ada UI preview.
+- **PROJECT — Part V.2: UI Preview Dokumen Formal** (Issue #66). Semua
+  perubahan di `client-quotations.js` (bukan file baru). Rujukan yang
+  disebut Issue #66 (`SPEC_PROJECT_Part_V2_RAB_Formal.md`) ternyata
+  tidak pernah ada sebagai file di repo — cuma disebut di deskripsi
+  Issue #60/#62/#66, kemungkinan lampiran GitHub yang tidak pernah
+  dicommit. Sesi ini jalan dari struktur 12-poin & scope yang sudah
+  ditulis lengkap di deskripsi Issue #66 sendiri, bukan dari file itu.
+  - **Tombol aksi tunggal "Buat Penawaran" dipecah jadi 3**: **Simpan**
+    (baru — aggregate save, menjalankan `save()` dari ketiga editor
+    section — Deskripsi, Detail Pekerjaan, Termin Pembayaran — secara
+    berurutan dan berhenti di section pertama yang gagal; masing-masing
+    section tetap punya tombol simpan sendiri seperti sebelumnya, ini
+    cuma nambah satu tombol eksplisit buat simpan semuanya sekaligus),
+    **Preview** (baru, lihat di bawah), **Kirim Penawaran** (rename
+    dari "Buat Penawaran" — logic DRAFT→SENT-nya tidak berubah, termasuk
+    gating admin/supervisor-only dan validasi ≥1 Detail Pekerjaan).
+  - **Preview dokumen formal**: dibuka di tab browser baru
+    (`window.open`), bukan `showModal()` — stylesheet print yang sudah
+    ada (`_pages.scss`) nge-hide `.modal-backdrop` di `@media print`,
+    yang bakal bikin halaman blank kalau preview dirender di dalam
+    modal terus dipanggil `window.print()`. Tab baru dapat CSS sendiri
+    (inline `<style>`, latar putih, font serif, styling surat resmi —
+    sengaja lepas dari tema dashboard gelap), tombol "Print / Simpan
+    sebagai PDF" (`window.print()`) dan "Tutup". Seluruh konten dibangun
+    lewat `document.createElement`/`textContent` di dokumen tab baru
+    tersebut (bukan `innerHTML`), jadi data client/PIC tetap aman dari
+    HTML injection.
+  - **Preview tersedia di setiap versi di "Riwayat Versi"**, bukan cuma
+    DRAFT yang lagi diedit — Preview murni aksi baca (tidak mengubah
+    status), jadi versi lama yang sudah SENT/ACCEPTED/REJECTED/NEGOTIATING
+    tetap bisa direview/diprint persis seperti saat dikirim. Tombolnya
+    ada di samping toggle expand tiap baris versi (bukan di dalamnya —
+    `<button>` tidak boleh bersarang di `<button>`), reuse fungsi render
+    preview yang sama, cuma datanya beda per versi.
+  - **Tanggal dokumen ikut status versi**: DRAFT (belum pernah dikirim)
+    pakai tanggal hari ini (surat penawaran lazimnya bertanggal saat
+    dicetak/dikirim, bukan saat draft-nya dibuat). Versi yang sudah
+    pernah dikirim pakai `sent_at` (fallback `created_at`) — supaya
+    preview versi lama menunjukkan tanggal asli saat dikirim, bukan
+    tanggal hari ini saat direview belakangan.
+  - **Struktur dokumen** (11 dari 12 poin — poin "jumlah lampiran"
+    sengaja dikosongkan, belum didefinisikan, sesuai catatan eksplisit
+    Issue #66): tanggal, nomor RAB, perihal (`cases.service_type`),
+    "Kepada Yth." (PIC + jabatan + `clients.type`/`name`/`address`),
+    paragraf deskripsi, tabel Rincian Pekerjaan
+    (`case_quotation_line_items`, dengan baris total), daftar Dokumen
+    yang Diperlukan (baris tabel `documents` untuk case ini — pola
+    sama seperti Part V), tabel Termin Pembayaran
+    (`case_quotation_items`, dengan baris total), Rekening Pembayaran
+    (`company_settings`), Kontak, paragraf penutup (menyebut penawaran
+    bisa direspon terima/tolak/nego lewat portal client — tombolnya
+    sendiri belum dibangun, itu Part VI, di luar scope sesi ini).
+  - **Kontak (poin 11) sengaja query baru**, bukan reuse
+    `case_quotations.creator` yang sudah ada di layar — join yang sudah
+    ada itu "siapa yang bikin RAB", bukan "siapa yang bikin project"
+    (`cases.created_by`), dua orang yang bisa beda. Query baru
+    `cases.select('created_by, creator:profiles!created_by(id, name,
+    phone)')`. Nomor telepon nullable — kalau kosong, baris telepon
+    di-skip (bukan tampil "null" atau error); kalau creator/phone gagal
+    di-fetch sama sekali (mis. RLS), seluruh section Kontak di-skip,
+    bukan crash.
+
+### Belum diverifikasi manual
+- Login OTP masih blocker yang sama seperti Part V/V.2 sebelumnya —
+  seluruh flow di atas cuma direview lewat kode + `npm run
+  lint`/`npm run build` (keduanya PASS), belum diklik langsung dengan
+  data project asli di browser. Perlu diverifikasi manual: tampilan
+  preview dengan data lengkap (line items, termin, dokumen terisi),
+  popup blocker behavior, dan hasil `window.print()` di browser asli.
+
+---
+
+## [2.13.0] - 2026-08-24
+
+### Added
+- **PROJECT — Part V.2: Preview Dokumen Formal (schema)** (Issue #64).
+  Lampiran PRD (SPEC_PROJECT_Part_V2_RAB_Formal.md, §Bagian Baru).
+  Schema only, belum ada UI preview — UI-nya menyusul di v2.14.0.
   - Tabel baru `company_settings` (key-value) — rekening SMA (BCA,
-    a.n. Soul Mitra Abadi), admin-only RLS. Sudah diisi data asli
-    (bukan placeholder).
+    a.n. Soul Mitra Abadi). RLS: admin manage-all, supervisor & internal
+    select-only (pola sama seperti `document_templates`/
+    `service_type_codes`), tidak ada akses client. Sudah diisi data
+    asli (bukan placeholder).
   - Kolom baru `profiles.phone` — nomor HP staff, untuk kontak
     "pembuat project" di preview dokumen nanti. Nullable, tidak wajib
     diisi retroaktif.
