@@ -15,6 +15,30 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - Database
+
+### Added
+- **Project Setting — Kategori Dokumen CRUD + Kode Layanan Unique
+  (schema)**. Lanjutan restrukturisasi Issue #91.
+  - Tabel baru `document_categories` (name UNIQUE, order_index) — 4
+    kategori existing (Identitas, Legalitas, Teknis, Keuangan) di-seed.
+    RLS pola sama seperti tabel konfigurasi lain (admin manage,
+    supervisor/internal select-only).
+  - `document_templates.category` (text bebas) diganti
+    `category_id` (FK ke document_categories). Data lama dibackfill
+    otomatis berdasarkan nama kategori yang cocok.
+  - `service_type_codes.code` ditambah UNIQUE constraint — sebelumnya
+    tidak ada, padahal seharusnya kode tidak boleh kembar.
+- Diverifikasi ke database: 15 dokumen ter-backfill sempurna (3
+  Identitas, 9 Legalitas, 2 Teknis, 1 Keuangan — cocok dengan angka
+  Part IV), 0 baris fallback, constraint unique berhasil tanpa error
+  (konfirmasi 21 kode existing memang sudah unik).
+- **Catatan sequencing**: branch ini dibuat dari main (v2.19.0),
+  PARALEL dengan Issue #91 (restrukturisasi tab, belum merged) — bukan
+  numpuk di atasnya. UI kategori dokumen yang baru (task berikutnya)
+  butuh gabungan #91 + #94, urutan merge perlu #91 dulu baru #94, atau
+  task UI berikutnya dibuat dari branch yang sudah include keduanya.
+
 ## [2.19.0] - 2026-08-24
 
 ### Added
