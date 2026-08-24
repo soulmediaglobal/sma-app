@@ -2,17 +2,17 @@ import { supabase } from '../lib/supabaseClient.js';
 
 export function parseUserAgent(ua = navigator.userAgent) {
   let os = 'Unknown OS';
-  if (ua.includes('Macintosh') || ua.includes('Mac OS')) os = 'macOS';
-  else if (ua.includes('Windows')) os = 'Windows';
-  else if (ua.includes('Android')) os = 'Android';
-  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
-  else if (ua.includes('Linux')) os = 'Linux';
+  if (ua.includes('Macintosh') || ua.includes('Mac OS')) {os = 'macOS';}
+  else if (ua.includes('Windows')) {os = 'Windows';}
+  else if (ua.includes('Android')) {os = 'Android';}
+  else if (ua.includes('iPhone') || ua.includes('iPad')) {os = 'iOS';}
+  else if (ua.includes('Linux')) {os = 'Linux';}
 
   let browser = 'Browser';
-  if (ua.includes('Edg/')) browser = 'Edge';
-  else if (ua.includes('Chrome/') && !ua.includes('Edg/')) browser = 'Chrome';
-  else if (ua.includes('Safari/') && !ua.includes('Chrome/')) browser = 'Safari';
-  else if (ua.includes('Firefox/')) browser = 'Firefox';
+  if (ua.includes('Edg/')) {browser = 'Edge';}
+  else if (ua.includes('Chrome/') && !ua.includes('Edg/')) {browser = 'Chrome';}
+  else if (ua.includes('Safari/') && !ua.includes('Chrome/')) {browser = 'Safari';}
+  else if (ua.includes('Firefox/')) {browser = 'Firefox';}
 
   return os + ' · ' + browser;
 }
@@ -20,7 +20,7 @@ export function parseUserAgent(ua = navigator.userAgent) {
 export async function trackCurrentSession() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    if (!session?.user) {return;}
 
     const currentDevice = parseUserAgent();
     await supabase
@@ -36,13 +36,13 @@ export async function trackCurrentSession() {
 }
 
 function formatDate(dateString) {
-  if (!dateString) return '-';
+  if (!dateString) {return '-';}
   const d = new Date(dateString);
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatDateTime(dateString) {
-  if (!dateString) return '-';
+  if (!dateString) {return '-';}
   const d = new Date(dateString);
   const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -51,10 +51,10 @@ function formatDateTime(dateString) {
 
 export async function initUserManagementTable() {
   const table = document.querySelector('#users-table');
-  if (!table) return;
+  if (!table) {return;}
 
   const tbody = table.querySelector('tbody');
-  if (!tbody) return;
+  if (!tbody) {return;}
 
   tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Loading real data from Supabase...</td></tr>';
 
@@ -64,17 +64,17 @@ export async function initUserManagementTable() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (profileErr) throw profileErr;
+    if (profileErr) {throw profileErr;}
 
     const { data: assignees } = await supabase.from('case_assignees').select('user_id');
     const { data: clientCases } = await supabase.from('cases').select('client_id');
 
     const projectCounts = {};
     (assignees || []).forEach(item => {
-      if (item.user_id) projectCounts[item.user_id] = (projectCounts[item.user_id] || 0) + 1;
+      if (item.user_id) {projectCounts[item.user_id] = (projectCounts[item.user_id] || 0) + 1;}
     });
     (clientCases || []).forEach(item => {
-      if (item.client_id) projectCounts[item.client_id] = (projectCounts[item.client_id] || 0) + 1;
+      if (item.client_id) {projectCounts[item.client_id] = (projectCounts[item.client_id] || 0) + 1;}
     });
 
     if (!profiles || profiles.length === 0) {
