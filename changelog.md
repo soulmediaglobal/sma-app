@@ -1070,3 +1070,14 @@ Rilis fondasi pertama.
 [1.1.1]: https://github.com/soulmediaglobal/sma-app/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/soulmediaglobal/sma-app/releases/tag/v1.0.0
+
+## [Unreleased] - Issue #99
+
+### Added
+- Integrated dynamic Supabase data fetching for `production/user_management.html`.
+- Added automated device tracking (`last_login_device` & `last_sign_in_at`) on user session initialization via `trackCurrentSession()`.
+- Added dynamic project count calculations aggregated from `case_assignees` and `cases.client_id`.
+- Added custom inline color coding for user role badges (`admin`, `supervisor`, `internal`, `client`) and randomized initial avatars.
+
+### Database
+- Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
