@@ -128,10 +128,16 @@ function renderTemplates(root, templates, serviceTypeOptions, canEdit) {
 
   const list = element('div', 'project-setting-category-list');
   let lastCategory = null;
-  templates.forEach((template) => {
-    if (template.category !== lastCategory) {
-      list.appendChild(element('div', 'project-setting-category-heading', template.category || 'Lainnya'));
-      lastCategory = template.category;
+  const sortedTemplates = templates.slice().sort((a, b) => {
+    const catA = a.category?.name || 'Lainnya';
+    const catB = b.category?.name || 'Lainnya';
+    return catA === catB ? a.name.localeCompare(b.name) : catA.localeCompare(catB);
+  });
+  sortedTemplates.forEach((template) => {
+    const categoryName = template.category?.name || 'Lainnya';
+    if (categoryName !== lastCategory) {
+      list.appendChild(element('div', 'project-setting-category-heading', categoryName));
+      lastCategory = categoryName;
     }
     list.appendChild(buildTemplateRow(template, serviceTypeOptions, canEdit));
   });
@@ -150,8 +156,7 @@ async function loadTemplates(root, canEdit) {
     const [templatesResult, serviceTypeOptions] = await Promise.all([
       supabase
         .from('document_templates')
-        .select('id, name, category, default_service_types')
-        .order('category', { ascending: true })
+        .select('id, name, category_id, category:document_categories(name), default_service_types')
         .order('name', { ascending: true }),
       loadServiceTypeOptions()
     ]);
