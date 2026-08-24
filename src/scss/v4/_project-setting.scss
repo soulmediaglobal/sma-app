@@ -1,0 +1,97 @@
+// SMA-app — Project Setting page (Kelola Dokumen Wajib per Jenis Layanan).
+
+.project-setting-state {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.project-setting-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.project-setting-category-heading {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.project-setting-template-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.project-setting-template-name {
+  flex: 0 0 200px;
+  padding-top: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+}
+
+.project-setting-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.project-setting-field .multi-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.project-setting-save {
+  flex: 0 0 auto;
+}
+
+.project-setting-field-readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  padding-top: 4px;
+}
+
+.project-setting-chip {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-secondary);
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.project-setting-empty-chip {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+  .project-setting-template-row {
+    flex-direction: column;
+  }
+
+  .project-setting-template-name {
+    flex-basis: auto;
+    padding-top: 0;
+  }
+}
