@@ -165,3 +165,9 @@ document.addEventListener('submit', (e) => {
 
 // Topbar search box opens the command palette — wired by initCommandPalette.
 // Page-actions (Print / Export / Compose / Add / etc.) wired via initPageActions.
+
+import { initUserManagementTable, trackCurrentSession } from './v4/user-management.js';
+trackCurrentSession();
+if (document.querySelector('#users-table')) {
+  initUserManagementTable();
+}
