@@ -82,27 +82,33 @@ export async function initUserManagementTable() {
       return;
     }
 
-    const roleBadges = {
-      admin: 'bg-danger-subtle text-danger border border-danger',
-      supervisor: 'bg-warning-subtle text-warning border border-warning',
-      internal: 'bg-primary-subtle text-primary border border-primary',
-      client: 'bg-success-subtle text-success border border-success'
+    const roleStyles = {
+      admin: 'background-color: rgba(220, 53, 69, 0.25); color: #ff6b6b; border: 1px solid rgba(220, 53, 69, 0.5);',
+      supervisor: 'background-color: rgba(255, 193, 7, 0.25); color: #ffd166; border: 1px solid rgba(255, 193, 7, 0.5);',
+      internal: 'background-color: rgba(13, 110, 253, 0.25); color: #6ea8fe; border: 1px solid rgba(13, 110, 253, 0.5);',
+      client: 'background-color: rgba(25, 135, 84, 0.25); color: #75b798; border: 1px solid rgba(25, 135, 84, 0.5);'
     };
 
+    const avatarColors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#198754', '#20c997', '#0dcaf0'];
+
     tbody.innerHTML = profiles.map(user => {
-      const initial = (user.full_name || user.email || 'U').charAt(0).toUpperCase();
+      const name = user.full_name || user.nama || user.name || user.username || user.display_name || user.email || 'User ' + String(user.id).slice(0, 5);
+      const email = user.email || user.user_email || '-';
+      const initial = name.charAt(0).toUpperCase();
       const role = (user.role || 'internal').toLowerCase();
-      const badgeClass = roleBadges[role] || 'bg-secondary-subtle text-secondary border';
+
+      const bgAvatar = avatarColors[Math.abs(String(user.id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % avatarColors.length];
+      const rStyle = roleStyles[role] || 'background-color: rgba(108, 117, 125, 0.25); color: #adb5bd; border: 1px solid rgba(108, 117, 125, 0.5);';
       const count = projectCounts[user.id] || 0;
 
-      return '<tr>' +
-        '<td><div class="d-flex align-items-center gap-2"><div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 32px; height: 32px; font-weight: bold; font-size: 14px;">' + initial + '</div><div><div class="fw-semibold text-body">' + (user.full_name || 'Unnamed User') + '</div><small class="text-muted">' + (user.email || '-') + '</small></div></div></td>' +
-        '<td><span class="badge ' + badgeClass + ' text-uppercase px-2 py-1 fs-11">' + role + '</span></td>' +
-        '<td>' + formatDate(user.created_at) + '</td>' +
-        '<td><div>' + formatDateTime(user.last_sign_in_at) + '</div><small class="text-muted d-block">' + (user.last_login_device || 'No device info') + '</small></td>' +
-        '<td>' + formatDateTime(user.updated_at) + '</td>' +
-        '<td><span class="badge bg-secondary-subtle text-body border px-2 py-1 fs-12">' + count + ' Projects</span></td>' +
-        '<td><button class="btn btn-sm btn-icon btn-ghost-secondary rounded-circle" data-user-id="' + user.id + '"><i class="bi bi-three-dots-vertical"></i></button></td>' +
+      return '<tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">' +
+        '<td style="padding: 12px 16px;"><div style="display: flex; align-items: center; gap: 12px;"><div style="width: 36px; height: 36px; border-radius: 50%; background-color: ' + bgAvatar + '; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">' + initial + '</div><div><div style="font-weight: 600; color: #f8fafc; font-size: 14px;">' + name + '</div><div style="font-size: 12px; color: #94a3b8;">' + email + '</div></div></div></td>' +
+        '<td style="padding: 12px 16px;"><span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; ' + rStyle + '">' + role + '</span></td>' +
+        '<td style="padding: 12px 16px; color: #cbd5e1; font-size: 13px;">' + formatDate(user.created_at) + '</td>' +
+        '<td style="padding: 12px 16px;"><div style="color: #cbd5e1; font-size: 13px;">' + formatDateTime(user.last_sign_in_at) + '</div><small style="color: #64748b; font-size: 11px; display: block; margin-top: 2px;">' + (user.last_login_device || 'No device info') + '</small></td>' +
+        '<td style="padding: 12px 16px; color: #cbd5e1; font-size: 13px;">' + formatDateTime(user.updated_at) + '</td>' +
+        '<td style="padding: 12px 16px;"><span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.06); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); display: inline-block;">' + count + ' Projects</span></td>' +
+        '<td style="padding: 12px 16px; text-align: center;"><button type="button" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer; width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px;" data-user-id="' + user.id + '">⋮</button></td>' +
       '</tr>';
     }).join('');
 
