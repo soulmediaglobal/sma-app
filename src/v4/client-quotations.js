@@ -1380,9 +1380,8 @@ async function renderModalBody(bodyEl, ctx) {
       .order('version', { ascending: false }),
     supabase
       .from('document_templates')
-      .select('id, name, category')
+      .select('id, name, category_id, category:document_categories(name)')
       .eq('is_active', true)
-      .order('category', { ascending: true })
       .order('name', { ascending: true }),
     supabase
       .from('documents')
@@ -1397,7 +1396,11 @@ async function renderModalBody(bodyEl, ctx) {
   }
 
   const quotations = quotationsResult.data || [];
-  const templates = templatesResult.data || [];
+  const templates = (templatesResult.data || []).slice().sort((a, b) => {
+    const catA = a.category?.name || 'Lainnya';
+    const catB = b.category?.name || 'Lainnya';
+    return catA === catB ? a.name.localeCompare(b.name) : catA.localeCompare(catB);
+  });
   const documents = documentsResult.data || [];
   const draft = quotations.find((q) => q.status === 'DRAFT') || null;
   const itemsCache = new Map();
@@ -1434,9 +1437,10 @@ async function renderModalBody(bodyEl, ctx) {
     const docList = element('div', 'client-quotation-doc-list');
     let lastCategory = null;
     templates.forEach((template) => {
-      if (template.category !== lastCategory) {
-        docList.appendChild(element('div', 'client-quotation-doc-category', template.category || 'Lainnya'));
-        lastCategory = template.category;
+      const categoryName = template.category?.name || 'Lainnya';
+      if (categoryName !== lastCategory) {
+        docList.appendChild(element('div', 'client-quotation-doc-category', categoryName));
+        lastCategory = categoryName;
       }
       docList.appendChild(buildDocumentRow(template, documents, ctx));
     });

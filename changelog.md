@@ -15,7 +15,28 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - Database
+## [Unreleased] - App
+
+### Fixed
+- **HOTFIX: query kolom `document_templates.category` yang sudah
+  dihapus**. Migration Issue #94 (v2.20.0) menghapus
+  `document_templates.category` (diganti `category_id` FK ke
+  `document_categories`), tapi 2 file masih query kolom lama —
+  menyebabkan error di production setiap kali dibuka:
+  - `client-quotations.js` — section "RAB & Penawaran" gagal load total
+    (`templatesResult.error`), ditemukan CCA saat membaca kode sebagai
+    referensi task lain.
+  - `project-setting.js` — tab "Kelola Dokumen" gagal load
+    ("Gagal memuat daftar template dokumen"), ditemukan Ray saat testing
+    manual.
+  - Fix: kedua file diubah untuk embed `category:document_categories(name)`
+    via `category_id`, sorting kategori dipindah ke JS (bukan lagi
+    `.order('category', ...)` di query, karena tidak bisa order by
+    kolom di embedded relation dengan aman).
+- Diverifikasi VISUAL langsung di browser: error hilang di kedua
+  tempat setelah fix diterapkan.
+
+## [2.20.0] - 2026-08-24
 
 ### Added
 - **Project Setting — Kategori Dokumen CRUD + Kode Layanan Unique
