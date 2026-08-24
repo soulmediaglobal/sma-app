@@ -815,6 +815,20 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx) {
 
 async function createDraftQuotation(quotations, ctx) {
   const nextVersion = quotations.length ? Math.max(...quotations.map((q) => q.version)) + 1 : 1;
+
+  // Tandai semua versi lama (bukan DRAFT) jadi SUPERSEDED sebelum bikin
+  // versi baru. Tidak diblokir kalau gagal/tidak kena baris (mis. role
+  // internal yang RLS-nya cuma boleh update quotation berstatus DRAFT,
+  // lihat Part V RLS tightening) — createDraftQuotation tetap lanjut
+  // untuk role itu, limitasinya dicatat di changelog, bukan hard blocker.
+  if (quotations.length) {
+    await supabase
+      .from('case_quotations')
+      .update({ status: 'SUPERSEDED' })
+      .eq('case_id', ctx.caseId)
+      .neq('status', 'DRAFT');
+  }
+
   const description = buildAutoDescription({
     clientName: ctx.client?.name,
     picName: ctx.client?.pic_name,

@@ -43,7 +43,25 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
   sebelum & sesudah).
 
-## [Unreleased] - Database
+## [Unreleased] - App
+
+### Fixed
+- **SUPERSEDED tidak pernah ditulis saat revisi RAB**. `createDraftQuotation()`
+  di `client-quotations.js` tidak menandai versi `case_quotations` lama
+  jadi `SUPERSEDED` saat versi baru dibuat lewat "+ Buat RAB Baru" —
+  status `SUPERSEDED` sudah didefinisikan (label/CSS) tapi tidak ada
+  kode yang menulisnya. Dampak: setelah client Nego dan admin buat RAB
+  baru, versi lama tetap berstatus `NEGOTIATING` selamanya.
+  - Fix: `UPDATE case_quotations SET status='SUPERSEDED' WHERE
+    case_id=... AND status != 'DRAFT'` sebelum insert versi baru.
+  - Tidak diblokir kalau update tidak kena baris (mis. role `internal`
+    yang RLS-nya cuma boleh update quotation berstatus `DRAFT`, lihat
+    Part V RLS tightening) — `createDraftQuotation` tetap lanjut untuk
+    role itu, limitasinya dicatat di sini, bukan hard blocker.
+- Diverifikasi VISUAL langsung di browser oleh Ray: versi lama berubah
+  jadi badge "Digantikan" setelah "+ Buat RAB Baru" diklik.
+
+## [2.17.0] - 2026-08-24
 
 ### Added
 - **Project Setting — Multi Rekening Bank (schema)**. Perluasan dari
