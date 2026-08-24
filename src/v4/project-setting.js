@@ -1,27 +1,15 @@
-// SMA-app — Project Setting page: "Kelola Dokumen Wajib per Jenis Layanan".
-// First sub-feature of the "Project Setting" admin page (more are planned —
-// service_type_codes / company_settings management, still on hold, separate
-// tasks). This task is document_templates.default_service_types only: no
-// add/delete of document_templates rows (separate future "kelola master
-// dokumen" feature).
+// SMA-app — Project Setting page: "Jenis Dokumen" / "Jenis Layanan" /
+// "Rekening Bank", 3 tabs on one page (production/project_setting.html).
 //
 // Nav visibility is admin-only (roles: ['admin'] in shell-render.js NAV,
 // same mechanism as User Management — see src/lib/auth-guard.js). That's a
-// UX convenience, not the security boundary: document_templates RLS
-// (document_templates_admin_all) is admin-only for insert/update/delete,
-// supervisor/internal are SELECT-only. A supervisor/internal who reaches
-// this page via direct URL can still see it (RLS allows their SELECT) but
-// the save button below is hidden for non-admin, since a write from them
-// would just fail at the DB level — same "canManageX" UX pattern already
-// used in client-quotations.js / client-documents.js / case-form.js.
-//
-// default_service_types field uses the existing chips multi-select
-// component (v4/form-controls.js, data-multi-select) instead of a plain
-// comma-separated text input. That component already exists and is in use
-// elsewhere in this codebase (production/form.html) — it fits this field
-// better than free text because the option list (distinct `cases.service_type`
-// values, queried live, not hardcoded) runs to a couple dozen entries and
-// benefits from search-to-add + chip removal rather than typo-prone typing.
+// UX convenience, not the security boundary: document_templates /
+// document_categories RLS (*_admin_all) is admin-only for insert/update/
+// delete, supervisor/internal are SELECT-only. A supervisor/internal who
+// reaches this page via direct URL can still see it (RLS allows their
+// SELECT) but save controls are hidden for non-admin, since a write from
+// them would just fail at the DB level — same "canManageX" UX pattern
+// already used in client-quotations.js / client-documents.js / case-form.js.
 
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
@@ -43,132 +31,357 @@ function setPanelState(root, message, state) {
   root.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
 }
 
-async function loadServiceTypeOptions() {
-  const { data, error } = await supabase.from('cases').select('service_type');
-  if (error) {return [];}
-  const values = new Set();
-  (data || []).forEach((row) => { if (row.service_type) {values.add(row.service_type);} });
-  return [...values].sort((a, b) => a.localeCompare(b, 'id'));
+function isUniqueViolation(error) {
+  return error?.code === '23505';
 }
 
-function buildReadOnlyField(template) {
-  const wrap = element('div', 'project-setting-field-readonly');
-  const types = template.default_service_types || [];
-  if (types.length === 0) {
-    wrap.appendChild(element('span', 'project-setting-empty-chip', 'Belum diatur'));
-  } else {
-    types.forEach((type) => wrap.appendChild(element('span', 'project-setting-chip', type)));
-  }
-  return wrap;
+// ============================================================================
+// Jenis Dokumen (Issues #91 + #94) — full CRUD over document_categories
+// (id, name unique, order_index) and document_templates (id, name,
+// category_id FK). Which documents are required for which service type is
+// configured from the Jenis Layanan tab instead (see below) — picking a
+// service and then its required documents is the natural admin flow, vs.
+// picking a document and then every service that needs it. Reordering
+// categories swaps order_index between adjacent rows (two plain updates,
+// no RPC/transaction — order_index has no uniqueness constraint so a
+// transient collision during the swap is harmless, and the tab always
+// reloads from the DB afterward regardless of partial failure).
+// ============================================================================
+
+function friendlyCategoryError(error, existing) {
+  if (isUniqueViolation(error)) {return 'Nama kategori sudah dipakai.';}
+  return existing ? 'Gagal menyimpan kategori.' : 'Gagal menambahkan kategori.';
 }
 
-function buildEditableField(template, serviceTypeOptions) {
-  const fieldWrap = element('div', 'project-setting-field');
+function buildCategoryForm(existing) {
+  const form = document.createElement('form');
+  form.noValidate = true;
 
-  const msWrap = element('div', 'multi-select');
-  msWrap.dataset.multiSelect = '';
-  const select = document.createElement('select');
-  select.multiple = true;
-  select.hidden = true;
-  const current = new Set(template.default_service_types || []);
-  serviceTypeOptions.forEach((type) => {
-    const option = document.createElement('option');
-    option.value = type;
-    option.textContent = type;
-    option.selected = current.has(type);
-    select.appendChild(option);
-  });
-  msWrap.appendChild(select);
-  fieldWrap.appendChild(msWrap);
+  const group = element('div', 'form-group');
+  const label = element('label', 'form-label', 'Nama Kategori');
+  label.htmlFor = 'category-name';
+  const input = element('input', 'form-control');
+  input.id = 'category-name';
+  input.name = 'name';
+  input.type = 'text';
+  input.required = true;
+  input.value = existing?.name || '';
+  group.append(label, input);
+  form.appendChild(group);
 
-  const saveBtn = element('button', 'btn btn-primary btn-sm project-setting-save', 'Simpan');
-  saveBtn.type = 'button';
-  saveBtn.addEventListener('click', async () => {
-    const selected = [...select.selectedOptions].map((o) => o.value);
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Menyimpan…';
-    try {
-      const { error } = await supabase
-        .from('document_templates')
-        .update({ default_service_types: selected.length ? selected : null })
-        .eq('id', template.id);
-
-      if (error) {
-        showToast(`Gagal menyimpan "${template.name}".`, { variant: 'error' });
-        return;
-      }
-      template.default_service_types = selected;
-      showToast(`"${template.name}" berhasil disimpan.`, { variant: 'success' });
-    } catch {
-      showToast(`Gagal menyimpan "${template.name}".`, { variant: 'error' });
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Simpan';
-    }
-  });
-  fieldWrap.appendChild(saveBtn);
-
-  return fieldWrap;
+  return form;
 }
 
-function buildTemplateRow(template, serviceTypeOptions, canEdit) {
-  const row = element('div', 'project-setting-template-row');
-  row.appendChild(element('div', 'project-setting-template-name', template.name));
-  row.appendChild(canEdit ? buildEditableField(template, serviceTypeOptions) : buildReadOnlyField(template));
-  return row;
-}
+async function submitCategoryForm(ctx, form, root, categories, existing) {
+  if (!form.reportValidity()) {return;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
 
-function renderTemplates(root, templates, serviceTypeOptions, canEdit) {
-  root.replaceChildren();
-
-  if (templates.length === 0) {
-    setPanelState(root, 'Belum ada template dokumen.', 'empty');
+  const name = form.elements.namedItem('name').value.trim();
+  if (!name) {
+    showToast('Nama kategori wajib diisi.', { variant: 'error' });
     return;
   }
 
-  const list = element('div', 'project-setting-category-list');
-  let lastCategory = null;
-  const sortedTemplates = templates.slice().sort((a, b) => {
-    const catA = a.category?.name || 'Lainnya';
-    const catB = b.category?.name || 'Lainnya';
-    return catA === catB ? a.name.localeCompare(b.name) : catA.localeCompare(catB);
-  });
-  sortedTemplates.forEach((template) => {
-    const categoryName = template.category?.name || 'Lainnya';
-    if (categoryName !== lastCategory) {
-      list.appendChild(element('div', 'project-setting-category-heading', categoryName));
-      lastCategory = categoryName;
-    }
-    list.appendChild(buildTemplateRow(template, serviceTypeOptions, canEdit));
-  });
-  root.appendChild(list);
-  root.setAttribute('aria-busy', 'false');
-
-  if (canEdit) {
-    import('./form-controls.js').then((m) => m.initFormControls());
-  }
-}
-
-async function loadTemplates(root, canEdit) {
-  setPanelState(root, 'Memuat daftar dokumen…', 'loading');
-
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
   try {
-    const [templatesResult, serviceTypeOptions] = await Promise.all([
-      supabase
-        .from('document_templates')
-        .select('id, name, category_id, category:document_categories(name), default_service_types')
-        .order('name', { ascending: true }),
-      loadServiceTypeOptions()
-    ]);
+    const { error } = existing
+      ? await supabase.from('document_categories').update({ name }).eq('id', existing.id)
+      : await supabase.from('document_categories').insert({
+        name,
+        order_index: categories.reduce((max, category) => Math.max(max, category.order_index), 0) + 1
+      });
 
-    if (templatesResult.error) {
-      setPanelState(root, 'Gagal memuat daftar template dokumen.', 'error');
+    if (error) {
+      showToast(friendlyCategoryError(error, existing), { variant: 'error' });
       return;
     }
 
-    renderTemplates(root, templatesResult.data || [], serviceTypeOptions, canEdit);
+    ctx.close();
+    showToast(existing ? 'Kategori berhasil diperbarui.' : 'Kategori berhasil ditambahkan.', { variant: 'success' });
+    await loadDocumentsTab(root, true);
   } catch {
-    setPanelState(root, 'Gagal memuat daftar template dokumen.', 'error');
+    showToast(friendlyCategoryError(null, existing), { variant: 'error' });
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = existing ? 'Simpan' : 'Tambah Kategori';
+  }
+}
+
+function openCategoryModal(root, categories, existing) {
+  const form = buildCategoryForm(existing);
+  const ctx = showModal({
+    title: existing ? 'Edit Kategori' : 'Tambah Kategori',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: existing ? 'Simpan' : 'Tambah Kategori',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {submitCategoryForm(ctx, form, root, categories, existing);}
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitCategoryForm(ctx, form, root, categories, existing);
+  });
+}
+
+async function moveCategory(root, categories, category, direction, trigger) {
+  if (trigger?.disabled) {return;}
+  const sorted = [...categories].sort((a, b) => a.order_index - b.order_index);
+  const index = sorted.findIndex((candidate) => candidate.id === category.id);
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= sorted.length) {return;}
+  const target = sorted[targetIndex];
+
+  if (trigger) {trigger.disabled = true;}
+  try {
+    const [a, b] = await Promise.all([
+      supabase.from('document_categories').update({ order_index: target.order_index }).eq('id', category.id),
+      supabase.from('document_categories').update({ order_index: category.order_index }).eq('id', target.id)
+    ]);
+
+    if (a.error || b.error) {
+      showToast('Gagal mengubah urutan kategori.', { variant: 'error' });
+      await loadDocumentsTab(root, true);
+      return;
+    }
+    await loadDocumentsTab(root, true);
+  } catch {
+    showToast('Gagal mengubah urutan kategori.', { variant: 'error' });
+  } finally {
+    if (trigger?.isConnected) {trigger.disabled = false;}
+  }
+}
+
+function buildDocumentForm(categories, existing, defaultCategoryId) {
+  const form = document.createElement('form');
+  form.noValidate = true;
+
+  const nameGroup = element('div', 'form-group');
+  const nameLabel = element('label', 'form-label', 'Nama Dokumen');
+  nameLabel.htmlFor = 'document-name';
+  const nameInput = element('input', 'form-control');
+  nameInput.id = 'document-name';
+  nameInput.name = 'name';
+  nameInput.type = 'text';
+  nameInput.required = true;
+  nameInput.value = existing?.name || '';
+  nameGroup.append(nameLabel, nameInput);
+  form.appendChild(nameGroup);
+
+  const catGroup = element('div', 'form-group');
+  const catLabel = element('label', 'form-label', 'Kategori');
+  catLabel.htmlFor = 'document-category';
+  const catSelect = document.createElement('select');
+  catSelect.className = 'form-control';
+  catSelect.id = 'document-category';
+  catSelect.name = 'category_id';
+  catSelect.required = true;
+  const currentCategoryId = existing ? existing.category_id : defaultCategoryId;
+  categories.forEach((category) => {
+    const option = document.createElement('option');
+    option.value = category.id;
+    option.textContent = category.name;
+    option.selected = category.id === currentCategoryId;
+    catSelect.appendChild(option);
+  });
+  catGroup.append(catLabel, catSelect);
+  form.appendChild(catGroup);
+
+  return form;
+}
+
+async function submitDocumentForm(ctx, form, root, existing) {
+  if (!form.reportValidity()) {return;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
+
+  const name = form.elements.namedItem('name').value.trim();
+  const categoryId = form.elements.namedItem('category_id').value;
+  if (!name) {
+    showToast('Nama dokumen wajib diisi.', { variant: 'error' });
+    return;
+  }
+  if (!categoryId) {
+    showToast('Pilih kategori dokumen.', { variant: 'error' });
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+  try {
+    const { error } = existing
+      ? await supabase.from('document_templates').update({ name, category_id: categoryId }).eq('id', existing.id)
+      : await supabase.from('document_templates').insert({ name, category_id: categoryId });
+
+    if (error) {
+      showToast(existing ? 'Gagal menyimpan dokumen.' : 'Gagal menambahkan dokumen.', { variant: 'error' });
+      return;
+    }
+
+    ctx.close();
+    showToast(existing ? 'Dokumen berhasil diperbarui.' : 'Dokumen berhasil ditambahkan.', { variant: 'success' });
+    await loadDocumentsTab(root, true);
+  } catch {
+    showToast(existing ? 'Gagal menyimpan dokumen.' : 'Gagal menambahkan dokumen.', { variant: 'error' });
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = existing ? 'Simpan' : 'Tambah Dokumen';
+  }
+}
+
+function openDocumentModal(root, categories, existing, defaultCategoryId) {
+  const form = buildDocumentForm(categories, existing, defaultCategoryId);
+  const ctx = showModal({
+    title: existing ? 'Edit Dokumen' : 'Tambah Dokumen',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: existing ? 'Simpan' : 'Tambah Dokumen',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {submitDocumentForm(ctx, form, root, existing);}
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitDocumentForm(ctx, form, root, existing);
+  });
+}
+
+function buildDocumentRow(root, doc, categories, canEdit) {
+  const row = element('div', 'project-setting-doc-row');
+  row.appendChild(element('span', 'project-setting-doc-row-name', doc.name));
+
+  if (canEdit) {
+    const editBtn = element('button', 'btn btn-outline btn-sm', 'Edit');
+    editBtn.type = 'button';
+    editBtn.addEventListener('click', () => openDocumentModal(root, categories, doc));
+    row.appendChild(editBtn);
+  }
+
+  return row;
+}
+
+function buildCategoryBlock(root, category, documents, categories, canEdit, index, total) {
+  const block = element('div', 'project-setting-doc-category-block');
+
+  const header = element('div', 'project-setting-doc-category-block-header');
+  header.appendChild(element('div', 'project-setting-doc-category-name', category.name));
+
+  if (canEdit) {
+    const actions = element('div', 'project-setting-doc-category-actions');
+
+    const upBtn = element('button', 'btn btn-outline btn-sm', '↑');
+    upBtn.type = 'button';
+    upBtn.disabled = index === 0;
+    upBtn.setAttribute('aria-label', `Pindahkan kategori "${category.name}" ke atas`);
+    upBtn.addEventListener('click', () => moveCategory(root, categories, category, -1, upBtn));
+    actions.appendChild(upBtn);
+
+    const downBtn = element('button', 'btn btn-outline btn-sm', '↓');
+    downBtn.type = 'button';
+    downBtn.disabled = index === total - 1;
+    downBtn.setAttribute('aria-label', `Pindahkan kategori "${category.name}" ke bawah`);
+    downBtn.addEventListener('click', () => moveCategory(root, categories, category, 1, downBtn));
+    actions.appendChild(downBtn);
+
+    const editBtn = element('button', 'btn btn-outline btn-sm', 'Edit');
+    editBtn.type = 'button';
+    editBtn.addEventListener('click', () => openCategoryModal(root, categories, category));
+    actions.appendChild(editBtn);
+
+    header.appendChild(actions);
+  }
+  block.appendChild(header);
+
+  const list = element('div', 'project-setting-doc-list');
+  if (documents.length === 0) {
+    list.appendChild(element('div', 'project-setting-doc-empty', 'Belum ada dokumen di kategori ini.'));
+  } else {
+    documents.forEach((doc) => list.appendChild(buildDocumentRow(root, doc, categories, canEdit)));
+  }
+  block.appendChild(list);
+
+  if (canEdit) {
+    const addDocBtn = element('button', 'btn btn-outline btn-sm project-setting-doc-add', '+ Tambah Dokumen');
+    addDocBtn.type = 'button';
+    addDocBtn.addEventListener('click', () => openDocumentModal(root, categories, null, category.id));
+    block.appendChild(addDocBtn);
+  }
+
+  return block;
+}
+
+function renderDocumentsTab(root, categories, templates, canEdit) {
+  root.replaceChildren();
+
+  if (canEdit) {
+    const addCatBtn = element('button', 'btn btn-primary btn-sm project-setting-category-add', '+ Tambah Kategori');
+    addCatBtn.type = 'button';
+    addCatBtn.addEventListener('click', () => openCategoryModal(root, categories, null));
+    root.appendChild(addCatBtn);
+  }
+
+  if (categories.length === 0) {
+    const empty = element('div', 'project-setting-state project-setting-state-empty', 'Belum ada kategori dokumen.');
+    empty.setAttribute('role', 'status');
+    root.appendChild(empty);
+    root.setAttribute('aria-busy', 'false');
+    return;
+  }
+
+  const byCategory = new Map();
+  templates.forEach((doc) => {
+    const list = byCategory.get(doc.category_id) || [];
+    list.push(doc);
+    byCategory.set(doc.category_id, list);
+  });
+
+  const list = element('div', 'project-setting-category-list');
+  categories.forEach((category, index) => {
+    list.appendChild(buildCategoryBlock(root, category, byCategory.get(category.id) || [], categories, canEdit, index, categories.length));
+  });
+  root.appendChild(list);
+  root.setAttribute('aria-busy', 'false');
+}
+
+async function loadDocumentsTab(root, canEdit) {
+  setPanelState(root, 'Memuat daftar dokumen…', 'loading');
+
+  try {
+    const [categoriesResult, templatesResult] = await Promise.all([
+      supabase
+        .from('document_categories')
+        .select('id, name, order_index')
+        .order('order_index', { ascending: true }),
+      supabase
+        .from('document_templates')
+        .select('id, name, category_id')
+        .order('name', { ascending: true })
+    ]);
+
+    if (categoriesResult.error || templatesResult.error) {
+      setPanelState(root, 'Gagal memuat daftar dokumen.', 'error');
+      return;
+    }
+
+    renderDocumentsTab(root, categoriesResult.data || [], templatesResult.data || [], canEdit);
+  } catch {
+    setPanelState(root, 'Gagal memuat daftar dokumen.', 'error');
   }
 }
 
@@ -391,13 +604,29 @@ async function loadBankAccounts(root, canEdit) {
 }
 
 // ============================================================================
-// Kode Layanan (Issue #85) — third section on the same page. service_type_codes
-// has no id column (service_type is the PK). Same RLS pattern as the other
-// two sections: admin ALL, supervisor/internal SELECT-only, no client access
+// Jenis Layanan (Issues #85 + #91 + #94) — per-service-type config: the
+// 3-letter code used for quotation numbering (service_type_codes, no id
+// column — service_type is the PK, code now has a UNIQUE constraint added
+// in 20260824120000_document_categories_and_code_unique.sql) plus a
+// checklist of which document_templates are required for that service,
+// grouped by document_categories with a per-category search filter (Ray's
+// UX feedback: a flat checkbox dump per category wasn't clear enough).
+// Checking/unchecking a document updates document_templates.
+// default_service_types (add/remove this service_type from that document's
+// array) — same column client-quotations.js's RAB document multi-select
+// already reads, just written from the service side instead of the
+// document side. New service types are created directly from this tab now
+// (input service_type name + code) instead of being limited to whatever
+// already exists in cases.service_type history — deliberately NOT backed
+// by a FK to cases.service_type (Issue #94: existing case data doesn't
+// cleanly match, deferred). Same RLS pattern as the other tabs: admin ALL,
+// supervisor/internal SELECT-only, no client access
 // (service_type_codes_admin_all / _supervisor_select / _internal_select in
-// 20260824070000_project_part5-2_rab_formal_schema.sql, not recreated here).
-// Read by generate_quotation_number() (unchanged, out of scope) to build the
-// SMA/YYYY-MM/CODE/seq quotation number.
+// 20260824070000_project_part5-2_rab_formal_schema.sql;
+// document_templates_admin_all / document_categories_admin_all — not
+// recreated here). service_type_codes is read by generate_quotation_number()
+// (unchanged, out of scope) to build the SMA/YYYY-MM/CODE/seq quotation
+// number.
 // ============================================================================
 
 const SERVICE_CODE_MAX_LENGTH = 3;
@@ -406,15 +635,16 @@ function isValidServiceCode(value) {
   return value.length > 0 && value.length <= SERVICE_CODE_MAX_LENGTH;
 }
 
-async function loadMissingServiceTypes(existingTypes) {
-  const { data, error } = await supabase.from('cases').select('service_type');
-  if (error) {return [];}
-  const existing = new Set(existingTypes);
-  const values = new Set();
-  (data || []).forEach((row) => {
-    if (row.service_type && !existing.has(row.service_type)) {values.add(row.service_type);}
-  });
-  return [...values].sort((a, b) => a.localeCompare(b, 'id'));
+function friendlyServiceCodeError(error, { serviceType, code, isNewServiceType }) {
+  if (isUniqueViolation(error)) {
+    if (error.message?.includes('service_type_codes_code_unique')) {
+      return `Kode "${code}" sudah dipakai jenis layanan lain.`;
+    }
+    if (isNewServiceType) {return `Jenis layanan "${serviceType}" sudah ada.`;}
+  }
+  return isNewServiceType
+    ? `Gagal menambahkan jenis layanan "${serviceType}".`
+    : `Gagal menyimpan kode "${serviceType}".`;
 }
 
 async function saveServiceCode(input, row) {
@@ -434,7 +664,10 @@ async function saveServiceCode(input, row) {
       .eq('service_type', row.service_type);
 
     if (error) {
-      showToast(`Gagal menyimpan kode "${row.service_type}".`, { variant: 'error' });
+      showToast(
+        friendlyServiceCodeError(error, { serviceType: row.service_type, code: value, isNewServiceType: false }),
+        { variant: 'error' }
+      );
       input.value = row.code;
       return;
     }
@@ -449,9 +682,121 @@ async function saveServiceCode(input, row) {
   }
 }
 
-function buildServiceCodeRow(row, canEdit) {
-  const rowEl = element('div', 'project-setting-service-code-row');
-  rowEl.appendChild(element('div', 'project-setting-service-code-name', row.service_type));
+async function toggleDocumentService(checkbox, template, serviceType, countLabel) {
+  if (checkbox.disabled) {return;}
+  checkbox.disabled = true;
+  const nowChecked = checkbox.checked;
+  const current = new Set(template.default_service_types || []);
+  if (nowChecked) {current.add(serviceType);} else {current.delete(serviceType);}
+  const next = [...current];
+
+  try {
+    const { error } = await supabase
+      .from('document_templates')
+      .update({ default_service_types: next.length ? next : null })
+      .eq('id', template.id);
+
+    if (error) {
+      checkbox.checked = !nowChecked;
+      showToast(`Gagal memperbarui "${template.name}".`, { variant: 'error' });
+      return;
+    }
+    template.default_service_types = next;
+    const count = parseInt(countLabel.textContent, 10) + (nowChecked ? 1 : -1);
+    countLabel.textContent = `${count} dokumen wajib`;
+  } catch {
+    checkbox.checked = !nowChecked;
+    showToast(`Gagal memperbarui "${template.name}".`, { variant: 'error' });
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
+function filterChecklist(listEl, query) {
+  const q = query.trim().toLowerCase();
+  listEl.querySelectorAll('.form-check').forEach((label) => {
+    label.hidden = q.length > 0 && !label.dataset.docName.includes(q);
+  });
+}
+
+function buildDocChecklistSection(row, category, documents, canEdit, onToggle) {
+  const section = element('div', 'project-setting-doc-checklist-section');
+
+  const header = element('div', 'project-setting-doc-checklist-section-header');
+  header.appendChild(element('span', 'project-setting-doc-checklist-section-title', category.name));
+
+  const searchBox = element('div', 'search-box project-setting-doc-checklist-search');
+  searchBox.insertAdjacentHTML('afterbegin', '<svg class="s-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>');
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Cari dokumen…';
+  searchInput.setAttribute('aria-label', `Cari dokumen di kategori ${category.name}`);
+  searchBox.appendChild(searchInput);
+  header.appendChild(searchBox);
+  section.appendChild(header);
+
+  const list = element('div', 'project-setting-doc-checklist-list');
+  if (documents.length === 0) {
+    list.appendChild(element('div', 'project-setting-doc-checklist-empty', 'Belum ada dokumen di kategori ini.'));
+  } else {
+    documents.forEach((template) => {
+      const label = element('label', 'form-check');
+      label.dataset.docName = template.name.toLowerCase();
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = (template.default_service_types || []).includes(row.service_type);
+      checkbox.disabled = !canEdit;
+      if (canEdit) {
+        checkbox.addEventListener('change', () => onToggle(checkbox, template));
+      }
+      label.append(checkbox, document.createTextNode(template.name));
+      list.appendChild(label);
+    });
+  }
+  section.appendChild(list);
+
+  searchInput.addEventListener('input', () => filterChecklist(list, searchInput.value));
+
+  return section;
+}
+
+function buildServiceDocChecklist(row, categories, documentsByCategory, canEdit) {
+  const details = element('details', 'accordion-item project-setting-service-docs');
+
+  const summary = document.createElement('summary');
+  summary.className = 'accordion-summary';
+  const countLabel = element('span');
+  summary.appendChild(countLabel);
+  summary.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>');
+  details.appendChild(summary);
+
+  const content = element('div', 'accordion-content project-setting-service-doc-checklist');
+
+  let checkedCount = 0;
+  categories.forEach((category) => {
+    const documents = documentsByCategory.get(category.id) || [];
+    documents.forEach((template) => {
+      if ((template.default_service_types || []).includes(row.service_type)) {checkedCount += 1;}
+    });
+    content.appendChild(buildDocChecklistSection(
+      row,
+      category,
+      documents,
+      canEdit,
+      (checkbox, template) => toggleDocumentService(checkbox, template, row.service_type, countLabel)
+    ));
+  });
+
+  countLabel.textContent = `${checkedCount} dokumen wajib`;
+  details.appendChild(content);
+  return details;
+}
+
+function buildServiceTypeRow(row, categories, documentsByCategory, canEdit) {
+  const item = element('div', 'project-setting-service-item');
+
+  const header = element('div', 'project-setting-service-code-row');
+  header.appendChild(element('div', 'project-setting-service-code-name', row.service_type));
 
   if (canEdit) {
     const input = element('input', 'form-control project-setting-service-code-input');
@@ -460,41 +805,38 @@ function buildServiceCodeRow(row, canEdit) {
     input.maxLength = SERVICE_CODE_MAX_LENGTH;
     input.setAttribute('aria-label', `Kode untuk ${row.service_type}`);
     input.addEventListener('change', () => saveServiceCode(input, row));
-    rowEl.appendChild(input);
+    header.appendChild(input);
   } else {
-    rowEl.appendChild(element('div', 'project-setting-service-code-value', row.code));
+    header.appendChild(element('div', 'project-setting-service-code-value', row.code));
   }
+  item.appendChild(header);
 
-  return rowEl;
+  item.appendChild(buildServiceDocChecklist(row, categories, documentsByCategory, canEdit));
+
+  return item;
 }
 
-function buildAddServiceCodeForm(missingTypes) {
+function buildAddServiceTypeForm() {
   const form = document.createElement('form');
-  form.id = 'service-code-form';
+  form.id = 'service-type-form';
   form.noValidate = true;
 
   const typeGroup = element('div', 'form-group');
-  const typeLabel = element('label', 'form-label', 'Jenis Layanan');
-  typeLabel.htmlFor = 'service-code-type';
-  const select = document.createElement('select');
-  select.className = 'form-control';
-  select.id = 'service-code-type';
-  select.name = 'service_type';
-  select.required = true;
-  missingTypes.forEach((type) => {
-    const option = document.createElement('option');
-    option.value = type;
-    option.textContent = type;
-    select.appendChild(option);
-  });
-  typeGroup.append(typeLabel, select);
+  const typeLabel = element('label', 'form-label', 'Nama Jenis Layanan');
+  typeLabel.htmlFor = 'service-type-name';
+  const typeInput = element('input', 'form-control');
+  typeInput.id = 'service-type-name';
+  typeInput.name = 'service_type';
+  typeInput.type = 'text';
+  typeInput.required = true;
+  typeGroup.append(typeLabel, typeInput);
   form.appendChild(typeGroup);
 
   const codeGroup = element('div', 'form-group');
   const codeLabel = element('label', 'form-label', 'Kode');
-  codeLabel.htmlFor = 'service-code-value';
+  codeLabel.htmlFor = 'service-type-code';
   const codeInput = element('input', 'form-control');
-  codeInput.id = 'service-code-value';
+  codeInput.id = 'service-type-code';
   codeInput.name = 'code';
   codeInput.type = 'text';
   codeInput.required = true;
@@ -505,16 +847,16 @@ function buildAddServiceCodeForm(missingTypes) {
   return form;
 }
 
-async function submitAddServiceCode(ctx, form, root) {
+async function submitAddServiceType(ctx, form, root) {
   if (!form.reportValidity()) {return;}
   const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
   if (submitButton.disabled) {return;}
 
-  const serviceType = form.elements.namedItem('service_type').value;
+  const serviceType = form.elements.namedItem('service_type').value.trim();
   const code = form.elements.namedItem('code').value.trim().toUpperCase();
 
   if (!serviceType) {
-    showToast('Pilih jenis layanan.', { variant: 'error' });
+    showToast('Nama jenis layanan wajib diisi.', { variant: 'error' });
     return;
   }
   if (!isValidServiceCode(code)) {
@@ -530,40 +872,34 @@ async function submitAddServiceCode(ctx, form, root) {
       .insert({ service_type: serviceType, code });
 
     if (error) {
-      showToast(`Gagal menambahkan kode "${serviceType}".`, { variant: 'error' });
+      showToast(friendlyServiceCodeError(error, { serviceType, code, isNewServiceType: true }), { variant: 'error' });
       return;
     }
 
     ctx.close();
-    showToast(`Kode "${serviceType}" berhasil ditambahkan.`, { variant: 'success' });
-    await loadServiceCodes(root, true);
+    showToast(`Jenis layanan "${serviceType}" berhasil ditambahkan.`, { variant: 'success' });
+    await loadServiceTypes(root, true);
   } catch {
-    showToast(`Gagal menambahkan kode "${serviceType}".`, { variant: 'error' });
+    showToast(`Gagal menambahkan jenis layanan "${serviceType}".`, { variant: 'error' });
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = 'Tambah Kode';
+    submitButton.textContent = 'Tambah Layanan';
   }
 }
 
-async function openAddServiceCodeModal(root, existingTypes) {
-  const missingTypes = await loadMissingServiceTypes(existingTypes);
-  if (missingTypes.length === 0) {
-    showToast('Semua jenis layanan sudah punya kode.', { variant: 'info' });
-    return;
-  }
-
-  const form = buildAddServiceCodeForm(missingTypes);
+function openAddServiceTypeModal(root) {
+  const form = buildAddServiceTypeForm();
   const ctx = showModal({
-    title: 'Tambah Kode Layanan',
+    title: 'Tambah Jenis Layanan',
     body: form,
     size: 'sm',
     actions: [
       { label: 'Batal', variant: 'outline' },
       {
-        label: 'Tambah Kode',
+        label: 'Tambah Layanan',
         variant: 'primary',
         closeOnAction: false,
-        action: () => {submitAddServiceCode(ctx, form, root);}
+        action: () => {submitAddServiceType(ctx, form, root);}
       }
     ]
   });
@@ -571,55 +907,72 @@ async function openAddServiceCodeModal(root, existingTypes) {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    submitAddServiceCode(ctx, form, root);
+    submitAddServiceType(ctx, form, root);
   });
 }
 
-function renderServiceCodes(root, rows, canEdit) {
+function renderServiceTypes(root, rows, categories, templates, canEdit) {
   root.replaceChildren();
 
   if (canEdit) {
-    const addBtn = element('button', 'btn btn-primary btn-sm project-setting-service-code-add', '+ Tambah Kode');
+    const addBtn = element('button', 'btn btn-primary btn-sm project-setting-service-code-add', '+ Tambah Layanan');
     addBtn.type = 'button';
-    addBtn.addEventListener('click', () => openAddServiceCodeModal(root, rows.map((row) => row.service_type)));
+    addBtn.addEventListener('click', () => openAddServiceTypeModal(root));
     root.appendChild(addBtn);
   }
 
   if (rows.length === 0) {
-    const empty = element('div', 'project-setting-state project-setting-state-empty', 'Belum ada kode layanan.');
+    const empty = element('div', 'project-setting-state project-setting-state-empty', 'Belum ada jenis layanan.');
     empty.setAttribute('role', 'status');
     root.appendChild(empty);
     root.setAttribute('aria-busy', 'false');
     return;
   }
 
-  const list = element('div', 'project-setting-service-code-list');
-  rows.forEach((row) => list.appendChild(buildServiceCodeRow(row, canEdit)));
+  const documentsByCategory = new Map();
+  templates.forEach((template) => {
+    const list = documentsByCategory.get(template.category_id) || [];
+    list.push(template);
+    documentsByCategory.set(template.category_id, list);
+  });
+
+  const list = element('div', 'project-setting-service-list');
+  rows.forEach((row) => list.appendChild(buildServiceTypeRow(row, categories, documentsByCategory, canEdit)));
   root.appendChild(list);
   root.setAttribute('aria-busy', 'false');
 }
 
-async function loadServiceCodes(root, canEdit) {
-  setPanelState(root, 'Memuat kode layanan…', 'loading');
+async function loadServiceTypes(root, canEdit) {
+  setPanelState(root, 'Memuat jenis layanan…', 'loading');
 
   try {
-    const { data, error } = await supabase
-      .from('service_type_codes')
-      .select('service_type, code')
-      .order('service_type', { ascending: true });
+    const [codesResult, categoriesResult, templatesResult] = await Promise.all([
+      supabase
+        .from('service_type_codes')
+        .select('service_type, code')
+        .order('service_type', { ascending: true }),
+      supabase
+        .from('document_categories')
+        .select('id, name, order_index')
+        .order('order_index', { ascending: true }),
+      supabase
+        .from('document_templates')
+        .select('id, name, category_id, default_service_types')
+        .order('name', { ascending: true })
+    ]);
 
-    if (error) {
-      setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+    if (codesResult.error || categoriesResult.error || templatesResult.error) {
+      setPanelState(root, 'Gagal memuat daftar jenis layanan.', 'error');
       return;
     }
 
-    renderServiceCodes(root, data || [], canEdit);
+    renderServiceTypes(root, codesResult.data || [], categoriesResult.data || [], templatesResult.data || [], canEdit);
   } catch {
-    setPanelState(root, 'Gagal memuat daftar kode layanan.', 'error');
+    setPanelState(root, 'Gagal memuat daftar jenis layanan.', 'error');
   }
 }
 
-// Tabs ("Kelola Dokumen" / "Kelola Rekening Bank" / "Kode Layanan") — same
+// Tabs ("Jenis Dokumen" / "Jenis Layanan" / "Rekening Bank") — same
 // tabs-underline markup + activate/wire pattern as client-detail.js's
 // data-client-tab / data-client-panel, just namespaced data-project-setting-tab /
 // data-project-setting-panel for this page.
@@ -657,10 +1010,10 @@ function wireProjectSettingTabs() {
 let initialized = false;
 
 export async function initProjectSetting() {
-  const root = document.getElementById('project-setting-root');
+  const documentsRoot = document.getElementById('project-setting-root');
+  const serviceTypesRoot = document.getElementById('service-types-root');
   const bankRoot = document.getElementById('bank-accounts-root');
-  const serviceCodesRoot = document.getElementById('service-codes-root');
-  if ((!root && !bankRoot && !serviceCodesRoot) || initialized) {return;}
+  if ((!documentsRoot && !serviceTypesRoot && !bankRoot) || initialized) {return;}
   initialized = true;
 
   wireProjectSettingTabs();
@@ -668,8 +1021,8 @@ export async function initProjectSetting() {
   const profile = await getProfile();
   const canEdit = profile?.role === 'admin';
   await Promise.all([
-    root ? loadTemplates(root, canEdit) : Promise.resolve(),
-    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve(),
-    serviceCodesRoot ? loadServiceCodes(serviceCodesRoot, canEdit) : Promise.resolve()
+    documentsRoot ? loadDocumentsTab(documentsRoot, canEdit) : Promise.resolve(),
+    serviceTypesRoot ? loadServiceTypes(serviceTypesRoot, canEdit) : Promise.resolve(),
+    bankRoot ? loadBankAccounts(bankRoot, canEdit) : Promise.resolve()
   ]);
 }

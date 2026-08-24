@@ -1,4 +1,5 @@
-// SMA-app — Project Setting page (Kelola Dokumen Wajib per Jenis Layanan).
+// SMA-app — Project Setting page: Jenis Dokumen / Jenis Layanan / Rekening
+// Bank, 3 tabs on one page.
 
 // Tabs — same structure/CSS pattern as client-detail.html's
 // .client-detail-card / .client-detail-tabs / .client-tab-panel, just
@@ -34,31 +35,62 @@
   font-size: 13px;
 }
 
+// Jenis Dokumen tab (Issues #91 + #94) — category + document CRUD.
+
+.project-setting-category-add {
+  margin-bottom: var(--space-3);
+}
+
 .project-setting-category-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-4);
 }
 
-.project-setting-category-heading {
-  margin-top: var(--space-4);
+.project-setting-doc-category-block {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color-light);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.project-setting-doc-category-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.project-setting-doc-category-name {
   color: var(--text-muted);
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
-
-  &:first-child {
-    margin-top: 0;
-  }
 }
 
-.project-setting-template-row {
+.project-setting-doc-category-actions {
   display: flex;
-  align-items: flex-start;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+.project-setting-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.project-setting-doc-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--border-color-light);
 
   &:last-child {
@@ -66,61 +98,19 @@
   }
 }
 
-.project-setting-template-name {
-  flex: 0 0 200px;
-  padding-top: 6px;
+.project-setting-doc-row-name {
   color: var(--text);
   font-size: 13px;
-  font-weight: var(--font-weight-medium);
 }
 
-.project-setting-field {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  flex: 1 1 auto;
-  min-width: 0;
+.project-setting-doc-add {
+  margin-top: var(--space-2);
 }
 
-.project-setting-field .multi-select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.project-setting-save {
-  flex: 0 0 auto;
-}
-
-.project-setting-field-readonly {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  flex: 1 1 auto;
-  padding-top: 4px;
-}
-
-.project-setting-chip {
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface-secondary);
-  color: var(--text);
-  font-size: 11.5px;
-}
-
-.project-setting-empty-chip {
+.project-setting-doc-empty {
+  padding: var(--space-2) 0;
   color: var(--text-muted);
   font-size: 12.5px;
-}
-
-@media (max-width: 720px) {
-  .project-setting-template-row {
-    flex-direction: column;
-  }
-
-  .project-setting-template-name {
-    flex-basis: auto;
-    padding-top: 0;
-  }
 }
 
 // Rekening Bank section (Issue #78).
@@ -179,21 +169,42 @@
 }
 
 @media (max-width: 720px) {
-  .project-setting-bank-row {
+  .project-setting-bank-row,
+  .project-setting-doc-category-block-header,
+  .project-setting-doc-row,
+  .project-setting-doc-checklist-section-header {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-setting-doc-checklist-search {
+    width: 100%;
   }
 }
 
-// Kode Layanan section (Issue #85).
+// Jenis Layanan section (Issues #85 + #91 + #94) — service code + per-service
+// required-document checklist (accordion, .accordion-item/-summary/-content
+// styling lives in _components.scss), grouped by category with a
+// per-category search filter (.search-box, base styling in _layout.scss).
 
 .project-setting-service-code-add {
   margin-bottom: var(--space-3);
 }
 
-.project-setting-service-code-list {
+.project-setting-service-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
+}
+
+.project-setting-service-item {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color-light);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
 }
 
 .project-setting-service-code-row {
@@ -202,16 +213,12 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border-color-light);
-
-  &:last-child {
-    border-bottom: none;
-  }
 }
 
 .project-setting-service-code-name {
   color: var(--text);
   font-size: 13px;
+  font-weight: var(--font-weight-medium);
 }
 
 .project-setting-service-code-input {
@@ -226,4 +233,47 @@
   color: var(--text-muted);
   font-size: 13px;
   font-weight: var(--font-weight-medium);
+}
+
+.project-setting-service-docs {
+  margin-top: var(--space-1);
+}
+
+.project-setting-service-doc-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.project-setting-doc-checklist-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.project-setting-doc-checklist-section-title {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.project-setting-doc-checklist-search {
+  width: 170px;
+  flex: 0 0 auto;
+}
+
+.project-setting-doc-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-setting-doc-checklist-empty {
+  padding: var(--space-1) 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
