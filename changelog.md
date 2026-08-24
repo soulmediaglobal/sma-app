@@ -15,6 +15,54 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.19.0] - 2026-08-24
+
+### Added
+- **Project Setting — Kode Layanan** (Issue #85). Tab ke-3 (terakhir) di
+  `project_setting.html`, melengkapi "Kelola Dokumen" dan "Kelola Rekening
+  Bank" dari v2.18.0. Pola tab-underline (`data-project-setting-tab`/
+  `data-project-setting-panel`, `activateProjectSettingTab`/
+  `wireProjectSettingTabs`) di-reuse persis, cuma nambah tab ke-3 —
+  mekanisme tab tidak diubah.
+  - List semua baris `service_type_codes` (`service_type`, `code`), tabel
+    yang sudah ada + terisi 21 baris dari migrasi
+    `20260824070000_project_part5-2_rab_formal_schema.sql`. Kolom ini
+    dibaca `generate_quotation_number()` (trigger, tidak disentuh) buat
+    bikin nomor quotation format `SMA/YYYY-MM/CODE/seq`.
+  - **Edit kode inline per baris** — input text per baris, simpan otomatis
+    lewat event `change` (ke-trigger browser saat blur setelah value
+    berubah), bukan tombol Simpan terpisah kayak tab "Kelola Dokumen" atau
+    modal kayak tab "Kelola Rekening Bank" — sesuai spec issue ("save on
+    change/blur"). Validasi UI-level saja: wajib diisi, maks 3 karakter
+    (`maxlength` di input + cek JS) — cocok sama batas `varchar(3)` yang
+    sudah ada di kolom, tapi TIDAK menambah constraint DB baru (di luar
+    scope issue). Gagal simpan → toast error + input dikembalikan ke nilai
+    lama.
+  - **"+ Tambah Kode"** — modal pilih `service_type` dari dropdown (opsi =
+    nilai `cases.service_type` yang distinct dan belum punya baris di
+    `service_type_codes`, di-query live, bukan hardcode) + input kode 3
+    karakter, lalu `insert`. Kalau semua jenis layanan sudah punya kode,
+    tombol munculkan toast info alih-alih modal kosong.
+  - Admin-only (`canEdit = profile.role === 'admin'`) sama seperti 2 tab
+    lain di halaman ini — supervisor/internal lihat versi read-only tanpa
+    input/tombol, RLS `service_type_codes_admin_all`/`_supervisor_select`/
+    `_internal_select` dari migrasi v2.x sebelumnya tidak diubah/dibuat
+    ulang. `generate_quotation_number()` trigger tidak disentuh sama
+    sekali, sesuai batasan scope issue.
+  - `npm run lint` dan `npm run build` PASS.
+
+### Belum diverifikasi manual
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
+  sama seperti part-part sebelumnya, lihat v2.16.0/v2.18.0) — belum
+  dicoba end-to-end di browser sungguhan. Sudah direview lewat kode saja
+  (lint+build PASS, cross-check terhadap pola 2 tab lain yang sudah ada di
+  file yang sama). Yang masih perlu dicek manual: switching antar 3 tab
+  bareng-bareng, edit kode tersimpan ke `service_type_codes` + toast
+  sukses/error muncul benar (termasuk kasus kode kosong/reset ke nilai
+  lama saat gagal), "+ Tambah Kode" nampilin cuma jenis layanan yang belum
+  punya kode dan berhasil insert, serta tampilan read-only buat
+  supervisor/internal.
+
 ## [2.18.0] - 2026-08-24
 
 ### Added
