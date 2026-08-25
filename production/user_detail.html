@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    LANGUAGE NOTE: this page (and profile.html) is English-only by
+    deliberate exception to this project's normal Bahasa Indonesia UI
+    convention (see AGENTS.md). Ray asked for internal consistency
+    within this specific page's existing English-heavy redesign rather
+    than a full retranslation — scoped to these two pages only. Do not
+    "fix" it back to Indonesian without checking with Ray first, and
+    don't use it as precedent for other pages.
+  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Detail - SMA App</title>
+
+  <script type="module" src="/src/main-v4.js"></script>
+
+  <style>
+    /* =========================================================
+       USER DETAIL
+       Gentellella profile-page layout
+       ========================================================= */
+
+    .user-detail-page {
+      max-width: 1410px;
+      margin: 0 auto;
+      padding: 0 24px 40px;
+    }
+
+    .user-detail-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 0 24px;
+    }
+
+    .user-detail-heading-eyebrow {
+      margin: 0 0 4px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .user-detail-heading h1 {
+      margin: 0;
+      color: var(--text);
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .user-detail-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .user-detail-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    .user-detail-back:hover {
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       GRID
+       ========================================================= */
+
+    .ud-row {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .ud-row-main {
+      grid-template-columns: 465px minmax(0, 1fr);
+    }
+
+    .ud-row-half {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .ud-row-stats {
+      grid-template-columns: 400px minmax(0, 1fr);
+    }
+
+    /* =========================================================
+       CARD
+       ========================================================= */
+
+    .ud-card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      border-radius: 7px;
+      background: var(--bg-surface);
+    }
+
+    .ud-card-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ud-card-header h2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .ud-card-header p {
+      margin: 5px 0 0;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* =========================================================
+       PROFILE CARD — LEFT
+       ========================================================= */
+
+    .ud-profile-card {
+      min-height: 558px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ud-profile-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 28px 24px 30px;
+      text-align: center;
+    }
+
+    .ud-avatar {
+      width: 102px;
+      height: 102px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 0;
+      background: var(--primary);
+      margin-bottom: 15px;
+    }
+
+    .ud-profile-name {
+      margin: 0;
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .ud-profile-role {
+      margin-top: 5px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .ud-profile-email {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .ud-badges {
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .ud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .7px;
+      text-transform: uppercase;
+    }
+
+    .ud-role-admin {
+      background: rgba(220,53,69,.13);
+      color: #ff747d;
+      border: 1px solid rgba(220,53,69,.35);
+    }
+
+    .ud-role-supervisor {
+      background: rgba(255,193,7,.13);
+      color: #ffd166;
+      border: 1px solid rgba(255,193,7,.35);
+    }
+
+    .ud-role-internal {
+      background: rgba(13,110,253,.13);
+      color: #75a9ff;
+      border: 1px solid rgba(13,110,253,.35);
+    }
+
+    .ud-role-client {
+      background: rgba(25,135,84,.13);
+      color: #70d6a5;
+      border: 1px solid rgba(25,135,84,.35);
+    }
+
+    .ud-status-active {
+      background: rgba(26,187,156,.12);
+      color: #32d6b3;
+      border: 1px solid rgba(26,187,156,.3);
+    }
+
+    .ud-status-inactive {
+      background: rgba(220,53,69,.12);
+      color: #ff747d;
+      border: 1px solid rgba(220,53,69,.3);
+    }
+
+    .ud-profile-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 17px;
+      padding: 7px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ud-profile-action:hover {
+      color: var(--text);
+      background: var(--bg-surface-secondary);
+    }
+
+    /* =========================================================
+       PROFILE COMPLETION — matches Gentellella lower-left
+       ========================================================= */
+
+    .ud-completion {
+      border-top: 1px solid var(--border-color);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .ud-ring {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 10px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center,
+          var(--bg-surface) 58%,
+          transparent 59%),
+        conic-gradient(
+          var(--primary) 0deg,
+          var(--primary) 260deg,
+          var(--bg-surface-secondary) 260deg,
+          var(--bg-surface-secondary) 360deg
+        );
+    }
+
+    .ud-ring span {
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .ud-completion-label {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .ud-completion-link {
+      display: inline-block;
+      margin-top: 7px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    /* =========================================================
+       PERSONAL INFORMATION
+       ========================================================= */
+
+    .ud-personal-card {
+      min-height: 558px;
+    }
+
+    .ud-form {
+      padding: 18px;
+    }
+
+    .ud-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 16px;
+    }
+
+    .ud-form-field {
+      min-width: 0;
+    }
+
+    .ud-form-field.full {
+      grid-column: 1 / -1;
+    }
+
+    .ud-form-label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ud-form-label span {
+      color: #e05260;
+    }
+
+    /* Default `.ud-form-value` styling is the READ-ONLY look — dimmer
+       background + muted text + not-allowed cursor + a small lock glyph,
+       same "disabled field" language as .form-control:disabled in
+       _forms.scss (var(--bg-surface-secondary) / var(--text-muted)).
+       `.ud-form-input` (real <input>s below) overrides this to the
+       brighter, standard-input look for the fields that are actually
+       editable (full_name, phone). */
+    .ud-form-value {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      padding: 9px 11px;
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      color: var(--text-muted);
+      background: var(--bg-surface-secondary);
+      font-size: 12.5px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      cursor: not-allowed;
+    }
+
+    /* Lock glyph on read-only fields. Browsers don't render generated
+       content on <input>, so this never shows up on `.ud-form-input`
+       without any extra selector needed. */
+    .ud-form-value::after {
+      content: '🔒';
+      margin-left: auto;
+      padding-left: 8px;
+      font-size: 10px;
+      opacity: .55;
+      flex-shrink: 0;
+    }
+
+    .ud-form-value.textarea {
+      min-height: 94px;
+      align-items: flex-start;
+    }
+
+    input.ud-form-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+      outline: none;
+      color: var(--text);
+      background: var(--bg-surface);
+      cursor: text;
+    }
+
+    input.ud-form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-lt);
+    }
+
+    .ud-role-select {
+      position: relative;
+    }
+
+    .ud-role-select::after {
+      content: '⌄';
+      position: absolute;
+      right: 12px;
+      top: 8px;
+      color: var(--text-muted);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    .ud-form-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .ud-button {
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 8px 13px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ud-button-primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* =========================================================
+       NOTIFICATIONS / SESSIONS
+       ========================================================= */
+
+    .ud-list {
+      padding: 0 18px;
+    }
+
+    .ud-list-row {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ud-list-row:last-child {
+      border-bottom: 0;
+    }
+
+    .ud-list-title {
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+
+    .ud-list-meta {
+      margin-top: 3px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .ud-toggle {
+      width: 38px;
+      height: 22px;
+      border-radius: 20px;
+      background: var(--primary);
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    .ud-toggle::after {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 16px;
+      margin-left: 16px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    /* sessions */
+
+    .ud-session-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ud-session-table th {
+      padding: 10px 18px;
+      color: var(--text-muted);
+      background: var(--bg-surface-secondary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .7px;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .ud-session-table td {
+      padding: 11px 18px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 12px;
+    }
+
+    .ud-session-device {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .ud-session-meta {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .ud-live {
+      color: #2fd49d;
+      font-weight: 600;
+    }
+
+    /* =========================================================
+       STATS
+       ========================================================= */
+
+    .ud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .ud-stat {
+      min-height: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      text-align: center;
+    }
+
+    .ud-stat:nth-child(2n) {
+      border-right: 0;
+    }
+
+    .ud-stat:nth-last-child(-n+2) {
+      border-bottom: 0;
+    }
+
+    .ud-stat-value {
+      color: var(--text);
+      font-size: 25px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .ud-stat-label {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 10px;
+      letter-spacing: .7px;
+      text-transform: uppercase;
+    }
+
+    /* =========================================================
+       ACHIEVEMENTS
+       ========================================================= */
+
+    .ud-achievements {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .ud-achievement {
+      min-height: 122px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .ud-achievement-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 9px;
+      border-radius: 50%;
+      background: rgba(26,187,156,.14);
+      color: var(--primary);
+      font-size: 18px;
+    }
+
+    .ud-achievement-title {
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .ud-achievement-meta {
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+
+    /* =========================================================
+       CONNECTED ACCOUNTS
+       ========================================================= */
+
+    .ud-connected {
+      padding: 18px;
+    }
+
+    .ud-connected-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 60px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ud-connected-row:last-child {
+      border-bottom: 0;
+    }
+
+    .ud-connected-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--bg-surface-secondary);
+      color: var(--text);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .ud-connected-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .ud-connected-name {
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .ud-connected-meta {
+      margin-top: 3px;
+      color: var(--text-muted);
+      font-size: 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .ud-connected-status {
+      color: #2fd49d;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* =========================================================
+       RECENT ACTIVITY
+       ========================================================= */
+
+    .ud-timeline {
+      padding: 18px 22px;
+    }
+
+    .ud-event {
+      position: relative;
+      padding: 0 0 20px 26px;
+    }
+
+    .ud-event:last-child {
+      padding-bottom: 0;
+    }
+
+    .ud-event::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 7px;
+      bottom: -2px;
+      width: 1px;
+      background: var(--border-color);
+    }
+
+    .ud-event:last-child::before {
+      display: none;
+    }
+
+    .ud-event-dot {
+      position: absolute;
+      left: 0;
+      top: 3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--bg-surface);
+      box-shadow: 0 0 0 1px rgba(26,187,156,.35);
+    }
+
+    .ud-event-time {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .ud-event-title {
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .ud-event-meta {
+      margin-top: 3px;
+      color: var(--text-muted);
+      font-size: 10.5px;
+    }
+
+    @media (max-width: 1100px) {
+      .ud-row-main,
+      .ud-row-half,
+      .ud-row-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .ud-profile-card,
+      .ud-personal-card {
+        min-height: auto;
+      }
+
+      .ud-achievements {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 700px) {
+      .user-detail-page {
+        padding: 0 14px 30px;
+      }
+
+      .ud-form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .ud-form-field.full {
+        grid-column: auto;
+      }
+
+      .ud-achievements {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .user-detail-heading {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+
+<style id="profile-reference-override">
+/* ============================================================
+   USER DETAIL — GENTELLELLA PROFILE REFERENCE MATCH
+   Visual-only override. Does not touch Supabase/data logic.
+   ============================================================ */
+
+/* ---------- GLOBAL PROFILE PAGE ---------- */
+
+body[data-page="user_detail"] {
+  background: #0f1724 !important;
+}
+
+body[data-page="user_detail"] .main {
+  background: #0f1724 !important;
+}
+
+body[data-page="user_detail"] .container-fluid {
+  max-width: 100% !important;
+  padding: 0 24px 48px !important;
+}
+
+/* ---------- BACK / BREADCRUMB ---------- */
+
+body[data-page="user_detail"] .container-fluid > a:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin: 0 0 24px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #14b8a6 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+}
+
+body[data-page="user_detail"] .container-fluid > a:first-child:hover {
+  color: #2dd4bf !important;
+}
+
+/* ---------- ALL CARDS ---------- */
+
+body[data-page="user_detail"] .card {
+  background: #192333 !important;
+  border: 1px solid #2a3749 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+body[data-page="user_detail"] .card-header {
+  background: transparent !important;
+  border-bottom: 1px solid #2a3749 !important;
+  padding: 16px 18px !important;
+}
+
+body[data-page="user_detail"] .card-body {
+  padding: 18px !important;
+}
+
+body[data-page="user_detail"] .card-title {
+  color: #e5eaf2 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+/* ---------- HERO / PROFILE AREA ---------- */
+
+body[data-page="user_detail"] .card:first-of-type {
+  margin-bottom: 18px !important;
+}
+
+/* Make hero behave like reference left profile card + information panel */
+body[data-page="user_detail"] .card:first-of-type .card-body {
+  padding: 0 !important;
+}
+
+body[data-page="user_detail"] .card:first-of-type .row {
+  margin: 0 !important;
+}
+
+body[data-page="user_detail"] .card:first-of-type [class*="col-"] {
+  padding: 0 !important;
+}
+
+/* ---------- AVATAR ---------- */
+
+body[data-page="user_detail"] #detailAvatar {
+  width: 128px !important;
+  height: 128px !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  object-fit: cover !important;
+  display: block !important;
+  margin: 0 auto 18px !important;
+}
+
+/* ---------- NAME ---------- */
+
+body[data-page="user_detail"] #detailName {
+  color: #e8edf5 !important;
+  font-size: 25px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+  margin: 0 0 6px !important;
+}
+
+body[data-page="user_detail"] #detailRole {
+  color: #8d99aa !important;
+  font-size: 14px !important;
+  margin: 0 !important;
+}
+
+body[data-page="user_detail"] #detailEmail {
+  color: #8d99aa !important;
+  font-size: 13px !important;
+  margin-top: 10px !important;
+}
+
+body[data-page="user_detail"] #detailLocation {
+  color: #8d99aa !important;
+  font-size: 13px !important;
+}
+
+/* ---------- BADGES ---------- */
+
+body[data-page="user_detail"] .badge {
+  border-radius: 5px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .07em !important;
+}
+
+/* ---------- PROFILE INFORMATION ---------- */
+
+body[data-page="user_detail"] .card.mt-4:first-of-type {
+  margin-top: 18px !important;
+}
+
+body[data-page="user_detail"] label.text-muted {
+  color: #8c98aa !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+  font-weight: 700 !important;
+  margin-bottom: 7px !important;
+}
+
+body[data-page="user_detail"] .fw-semibold {
+  color: #d9e0ea !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
+
+/* ---------- GRID SPACING ---------- */
+
+body[data-page="user_detail"] .row.g-3 {
+  row-gap: 24px !important;
+}
+
+body[data-page="user_detail"] .row.g-4 {
+  gap: 0 !important;
+}
+
+/* ---------- STATS ---------- */
+
+body[data-page="user_detail"] #detailStatProjects,
+body[data-page="user_detail"] #detailStatTeam,
+body[data-page="user_detail"] #detailStatCommits,
+body[data-page="user_detail"] #detailStatRating {
+  color: #e6ebf3 !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
+}
+
+body[data-page="user_detail"] .display-6 {
+  font-weight: 600 !important;
+}
+
+body[data-page="user_detail"] .text-muted {
+  color: #8995a8 !important;
+}
+
+body[data-page="user_detail"] #detailStatProjects + .text-muted,
+body[data-page="user_detail"] #detailStatTeam + .text-muted,
+body[data-page="user_detail"] #detailStatCommits + .text-muted,
+body[data-page="user_detail"] #detailStatRating + .text-muted {
+  font-size: 10px !important;
+  letter-spacing: .13em !important;
+  font-weight: 700 !important;
+}
+
+/* ---------- ACTIVITY ---------- */
+
+body[data-page="user_detail"] .list-group-item {
+  background: transparent !important;
+  border-color: #293548 !important;
+  color: #d7dee8 !important;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+body[data-page="user_detail"] .list-group-item span {
+  font-size: 13px !important;
+}
+
+body[data-page="user_detail"] .list-group-item small {
+  color: #7e8a9d !important;
+  font-size: 11px !important;
+}
+
+/* ---------- RESPONSIVE DESKTOP PROPORTIONS ---------- */
+
+@media (min-width: 992px) {
+
+  /* Profile + personal info side by side */
+  body[data-page="user_detail"] .profile-top-grid {
+    display: grid !important;
+    grid-template-columns: 32% minmax(0, 68%) !important;
+    gap: 18px !important;
+  }
+
+  /* If current markup doesn't have wrapper, make first two cards behave cleanly */
+  body[data-page="user_detail"] .profile-layout {
+    display: grid !important;
+    grid-template-columns: 32% minmax(0, 68%) !important;
+    gap: 18px !important;
+  }
+
+}
+
+/* ---------- REFERENCE-STYLE DARK INPUT / BUTTON ---------- */
+
+body[data-page="user_detail"] .btn {
+  border-radius: 5px !important;
+  font-size: 13px !important;
+}
+
+body[data-page="user_detail"] .btn-outline-secondary {
+  color: #aab4c3 !important;
+  border-color: #354255 !important;
+  background: #192333 !important;
+}
+
+body[data-page="user_detail"] .btn-outline-secondary:hover {
+  background: #202d3f !important;
+  border-color: #46556b !important;
+}
+
+body[data-page="user_detail"] .btn-primary {
+  background: #14b8a6 !important;
+  border-color: #14b8a6 !important;
+}
+
+/* ---------- REMOVE BOOTSTRAP'S EXCESSIVE VISUAL WEIGHT ---------- */
+
+body[data-page="user_detail"] .mt-4 {
+  margin-top: 18px !important;
+}
+
+body[data-page="user_detail"] h2,
+body[data-page="user_detail"] h3,
+body[data-page="user_detail"] h4,
+body[data-page="user_detail"] h5 {
+  color: #e5eaf2 !important;
+}
+
+/* ---------- MOBILE ---------- */
+
+@media (max-width: 991.98px) {
+
+  body[data-page="user_detail"] .container-fluid {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  body[data-page="user_detail"] .card-body {
+    padding: 16px !important;
+  }
+
+  body[data-page="user_detail"] #detailAvatar {
+    width: 110px !important;
+    height: 110px !important;
+  }
+
+  body[data-page="user_detail"] #detailName {
+    font-size: 22px !important;
+  }
+}
+
+/* ============================================================
+   END PROFILE REFERENCE OVERRIDE
+   ============================================================ */
+</style>
+
+</head>
+
+<body data-shell="admin" data-page="user_detail" data-breadcrumb="Home > User Management > User Detail">
+
+  <main class="main">
+  <div class="page-wrapper">
+
+    <div class="user-detail-page">
+
+      <div class="user-detail-heading">
+        <div>
+          <div class="user-detail-heading-eyebrow">ACCOUNT</div>
+          <h1>User profile</h1>
+        </div>
+
+        <div class="user-detail-actions">
+          <a href="user_management.html" class="ud-button">
+            Cancel
+          </a>
+          <a href="user_management.html" class="ud-button ud-button-primary">
+            Manage Account
+          </a>
+        </div>
+      </div>
+
+      <!-- =====================================================
+           PROFILE + PERSONAL INFORMATION
+           ===================================================== -->
+
+      <section class="ud-row ud-row-main">
+
+        <article class="ud-card ud-profile-card">
+
+          <div class="ud-profile-main">
+
+            <img
+              id="detailAvatar"
+              class="ud-avatar"
+              src=""
+              alt="User avatar"
+            />
+
+            <h2 id="detailName" class="ud-profile-name">Loading...</h2>
+
+            <div id="detailRole" class="ud-profile-role">-</div>
+
+            <div id="detailEmail" class="ud-profile-email">-</div>
+
+            <div class="ud-badges">
+              <span id="detailRoleBadge" class="ud-badge ud-role-admin">-</span>
+
+              <span id="detailStatus" class="ud-badge ud-status-active">
+                <span>●</span>
+                Active
+              </span>
+            </div>
+
+            <a href="user_management.html" class="ud-profile-action">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>
+              Manage Account
+            </a>
+
+          </div>
+
+          <div class="ud-completion">
+            <div class="ud-ring">
+              <span id="completionValue">72%</span>
+            </div>
+
+            <div class="ud-completion-label">
+              Profile completion
+            </div>
+
+            <a href="#" class="ud-completion-link">
+              View details →
+            </a>
+          </div>
+
+        </article>
+
+        <article class="ud-card ud-personal-card">
+
+          <div class="ud-card-header">
+            <h2>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Personal information
+            </h2>
+
+            <p>
+              User profile and contact details.
+            </p>
+          </div>
+
+          <div class="ud-form">
+
+            <div class="ud-form-grid">
+
+              <div class="ud-form-field">
+                <label class="ud-form-label" for="detailInfoName">Full name</label>
+                <input id="detailInfoName" class="ud-form-value ud-form-input" type="text" />
+              </div>
+
+              <div class="ud-form-field">
+                <label class="ud-form-label">Email <span>*</span></label>
+                <div id="detailInfoEmail" class="ud-form-value">-</div>
+              </div>
+
+              <!-- `profiles` has no `company` column yet — display-only,
+                   will always read "-" until that's added to the schema. -->
+              <div class="ud-form-field">
+                <label class="ud-form-label">Company</label>
+                <div id="detailInfoCompany" class="ud-form-value">-</div>
+              </div>
+
+              <div class="ud-form-field">
+                <label class="ud-form-label" for="detailInfoPhone">Phone</label>
+                <input id="detailInfoPhone" class="ud-form-value ud-form-input" type="tel" />
+              </div>
+
+              <div class="ud-form-field full">
+                <label class="ud-form-label">Role</label>
+                <div class="ud-form-value ud-role-select" id="detailInfoRole">-</div>
+              </div>
+
+              <!-- `profiles` has no `position` column yet — display-only,
+                   will always read "-" until that's added to the schema. -->
+              <div class="ud-form-field">
+                <label class="ud-form-label">Position</label>
+                <div id="detailInfoPosition" class="ud-form-value">-</div>
+              </div>
+
+              <div class="ud-form-field">
+                <label class="ud-form-label">Created</label>
+                <div id="detailInfoCreated" class="ud-form-value">-</div>
+              </div>
+
+              <!-- `profiles` has no `bio` column yet — display-only,
+                   will always read "-" until that's added to the schema. -->
+              <div class="ud-form-field full">
+                <label class="ud-form-label">Bio</label>
+                <div id="detailInfoBio" class="ud-form-value textarea">-</div>
+              </div>
+
+            </div>
+
+            <div class="ud-form-footer">
+              <button type="button" class="ud-button" id="userDetailDiscardBtn">Discard</button>
+              <button type="button" class="ud-button ud-button-primary" id="userDetailSaveBtn">Save</button>
+            </div>
+
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- =====================================================
+           ACCOUNT SECURITY + SESSIONS
+           ===================================================== -->
+
+      <section class="ud-row ud-row-half">
+
+        <article class="ud-card">
+
+          <div class="ud-card-header">
+            <h2>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3a6 6 0 00-6 6c0 6-3 7-3 7h18s-3-1-3-7a6 6 0 00-6-6z"/><path d="M10.5 21a1.5 1.5 0 003 0"/></svg>
+              Account security
+            </h2>
+
+            <p>
+              Account access and security state.
+            </p>
+          </div>
+
+          <div class="ud-list">
+
+            <div class="ud-list-row">
+              <div>
+                <div class="ud-list-title">Account status</div>
+                <div id="securityStatusMeta" class="ud-list-meta">
+                  Current account access
+                </div>
+              </div>
+              <strong id="securityStatus">-</strong>
+            </div>
+
+            <div class="ud-list-row">
+              <div>
+                <div class="ud-list-title">Role</div>
+                <div class="ud-list-meta">Authorization level</div>
+              </div>
+              <strong id="securityRole">-</strong>
+            </div>
+
+            <div class="ud-list-row">
+              <div>
+                <div class="ud-list-title">Last sign in</div>
+                <div class="ud-list-meta">Most recent authentication</div>
+              </div>
+              <strong id="securityLogin">-</strong>
+            </div>
+
+            <div class="ud-list-row">
+              <div>
+                <div class="ud-list-title">Last login device</div>
+                <div class="ud-list-meta">Recorded device and browser</div>
+              </div>
+              <strong id="securityDevice">-</strong>
+            </div>
+
+          </div>
+
+        </article>
+
+        <article class="ud-card">
+
+          <div class="ud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h2>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></svg>
+                Sessions
+              </h2>
+
+              <p>
+                Latest recorded sign-in session.
+              </p>
+            </div>
+
+            <button class="ud-button">
+              Sign out all
+            </button>
+          </div>
+
+          <table class="ud-session-table">
+            <thead>
+              <tr>
+                <th>Device</th>
+                <th>Location</th>
+                <th>Last seen</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>
+                  <span id="sessionDevice" class="ud-session-device">-</span>
+                  <span id="sessionBrowser" class="ud-session-meta">-</span>
+                </td>
+
+                <td>Indonesia</td>
+
+                <td id="sessionLastSeen">-</td>
+              </tr>
+            </tbody>
+          </table>
+
+        </article>
+
+      </section>
+
+      <!-- =====================================================
+           ACCOUNT STATS + ACHIEVEMENTS
+           ===================================================== -->
+
+      <section class="ud-row ud-row-stats">
+
+        <article class="ud-card">
+
+          <div class="ud-card-header">
+            <h2>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19V5M8 19v-8M12 19V9M16 19v-5M20 19v-9"/></svg>
+              Account stats
+            </h2>
+
+            <p>
+              Account activity overview.
+            </p>
+          </div>
+
+          <div class="ud-stat-grid">
+
+            <div class="ud-stat">
+              <span id="detailStatProjects" class="ud-stat-value">0</span>
+              <span class="ud-stat-label">Projects</span>
+            </div>
+
+            <div class="ud-stat">
+              <span id="detailStatTeam" class="ud-stat-value">0</span>
+              <span class="ud-stat-label">Assignments</span>
+            </div>
+
+            <div class="ud-stat">
+              <span id="detailStatCommits" class="ud-stat-value">0</span>
+              <span class="ud-stat-label">Logins</span>
+            </div>
+
+            <div class="ud-stat">
+              <span id="detailStatRating" class="ud-stat-value">0</span>
+              <span class="ud-stat-label">Days</span>
+            </div>
+
+          </div>
+
+        </article>
+
+        <article class="ud-card">
+
+          <div class="ud-card-header" style="display:flex;justify-content:space-between;">
+            <div>
+              <h2>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 21l5-3 5 3-1.5-6.5"/></svg>
+                Achievements
+              </h2>
+
+              <p>
+                Account milestones.
+              </p>
+            </div>
+          </div>
+
+          <div class="ud-achievements">
+
+            <div class="ud-achievement">
+              <div class="ud-achievement-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-7 7-7"/><path d="M15 15l2.5 2.5L22 13"/></svg>
+              </div>
+              <div class="ud-achievement-title">Active user</div>
+              <div class="ud-achievement-meta">Account active</div>
+            </div>
+
+            <div class="ud-achievement">
+              <div class="ud-achievement-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              </div>
+              <div class="ud-achievement-title">Project member</div>
+              <div class="ud-achievement-meta">Assigned projects</div>
+            </div>
+
+            <div class="ud-achievement">
+              <div class="ud-achievement-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <div class="ud-achievement-title">Verified role</div>
+              <div class="ud-achievement-meta">Role assigned</div>
+            </div>
+
+            <div class="ud-achievement">
+              <div class="ud-achievement-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              </div>
+              <div class="ud-achievement-title">Established</div>
+              <div class="ud-achievement-meta">Account history</div>
+            </div>
+
+            <div class="ud-achievement">
+              <div class="ud-achievement-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+              </div>
+              <div class="ud-achievement-title">Reliable</div>
+              <div class="ud-achievement-meta">Active account</div>
+            </div>
+
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- =====================================================
+           CONNECTED ACCOUNTS + RECENT ACTIVITY
+           ===================================================== -->
+
+      <section class="ud-row ud-row-half">
+
+        <article class="ud-card">
+
+          <div class="ud-card-header">
+            <h2>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 15l6-6"/><path d="M13 5l1.5-1.5a3.5 3.5 0 015 5L18 10"/><path d="M11 19l-1.5 1.5a3.5 3.5 0 01-5-5L6 14"/></svg>
+              Connected accounts
+            </h2>
+
+            <p>
+              Authentication and account connections.
+            </p>
+          </div>
+
+          <div class="ud-connected">
+
+            <div class="ud-connected-row">
+              <div class="ud-connected-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+              </div>
+
+              <div class="ud-connected-info">
+                <div class="ud-connected-name">Email / Supabase Auth</div>
+                <div id="connectedEmail" class="ud-connected-meta">-</div>
+              </div>
+
+              <div class="ud-connected-status">● Connected</div>
+            </div>
+
+            <div class="ud-connected-row">
+              <div class="ud-connected-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7 18c0-2.5 2-4 5-4s5 1.5 5 4"/></svg>
+              </div>
+
+              <div class="ud-connected-info">
+                <div class="ud-connected-name">SMA Account</div>
+                <div class="ud-connected-meta">Internal profile</div>
+              </div>
+
+              <div class="ud-connected-status">● Active</div>
+            </div>
+
+          </div>
+
+        </article>
+
+        <article class="ud-card">
+
+          <div class="ud-card-header">
+            <h2>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Recent activity
+            </h2>
+
+            <p>
+              Latest recorded account events.
+            </p>
+          </div>
+
+          <div id="detailActivity" class="ud-timeline">
+            <div style="color:var(--text-muted);font-size:12px;">
+              Loading...
+            </div>
+          </div>
+
+        </article>
+
+      </section>
+
+    </div>
+
+  </div>
+  </main>
+
+</body>
+</html>

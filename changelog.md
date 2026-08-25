@@ -15,6 +15,152 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] - User Profile & Detail Pages
+
+### Fixed
+- **Issue #113: Koreksi struktur teknis halaman Profile & User Detail**.
+  `production/profile.html` dan `production/user_detail.html` (redesign
+  visual dari Gemini) punya 4 masalah struktural yang menyimpang dari
+  konvensi codebase — desain visualnya dipertahankan 100%, cuma
+  strukturnya yang dibetulkan:
+  - Kedua halaman pakai pola SPA (`<div id="app">` kosong + tanpa
+    `<script type="module" src="/src/main-v4.js">` di `<head>`) alih-alih
+    static HTML + main-v4.js yang dipakai semua halaman lain. Dibalikin
+    ke pola yang benar, plus `data-shell="admin"` supaya sidebar/topbar
+    ke-inject dan `guardAdminPage()` jalan (redirect ke login kalau belum
+    ada sesi) — sebelumnya kedua halaman ini ke-render tanpa shell/guard
+    sama sekali.
+  - Logic yang tadinya inline `<script type="module">` di body dipindah
+    ke `src/v4/profile.js` (`initProfile()`) dan `src/v4/user-detail.js`
+    (`initUserDetail()`, file baru) — masing-masing di-lazy-import dari
+    `main-v4.js` dengan DOM-presence guard, sama seperti
+    `client-detail.js`/`project-setting.js`.
+  - `src/v4/profile.js` (dan inline script `profile.html` yang lama)
+    bikin instance Supabase client sendiri lewat `createClient(...)`.
+    Diganti pakai `supabase` singleton dari `src/lib/supabaseClient.js`
+    yang dipakai seluruh app.
+  - Kedua halaman ini load `bootstrap-icons` dari CDN — stack project ini
+    eksplisit tidak pakai Bootstrap. Semua `<i class="bi bi-...">`
+    diganti inline SVG (ikon boleh tidak identik, cuma dependensi CDN-nya
+    yang dihapus).
+  - `uploadAvatar()` + tombol "Change avatar" dihapus dari
+    `profile.html`/`profile.js` — kolom `profiles.avatar_url` belum ada
+    di schema (diverifikasi: id, role, name, client_id, created_at,
+    phone, last_sign_in_at, last_login_device, full_name, email,
+    account_status, status_changed_at, status_changed_by,
+    status_reason). Ditinggalkan komentar di kode bahwa fitur ini butuh
+    migration + Supabase Storage bucket baru sebelum bisa diaktifkan
+    lagi. Logic tampilan avatar (fallback ke gambar generated dari nama)
+    tetap dipertahankan di kedua halaman.
+  - File backup nyasar (`profile.html.bak`, `user_detail.html.bak`,
+    `user_detail.html.dom-backup`, `user-management.js.bak`) dihapus —
+    bukan bagian dari konvensi file project ini.
+  - **Bug lanjutan ditemukan Ray setelah login**: sidebar overlap ke
+    konten dan tidak bisa di-toggle. Root cause: kedua halaman masih
+    pakai wrapper `<main class="main-content" id="mainContent">` —
+    nama class sisa dari redesign SPA yang tidak nyambung ke CSS
+    layout sidebar yang sebenarnya. Dibetulkan ke wrapper yang dipakai
+    semua halaman lain, `<main class="main"><div class="page-wrapper">`
+    (persis pola `client-detail.html`). Konten/card di dalamnya tidak
+    diubah. Selector CSS `body[data-page="user_detail"] .main-content`
+    di `<style>` override `user_detail.html` juga disesuaikan ke `.main`
+    supaya background gelapnya tidak hilang. `id="mainContent"` sudah
+    dicek tidak direferensikan di `profile.js`/`user-detail.js`.
+  - **2 masalah lagi ditemukan Ray setelah login berhasil** (sidebar
+    sudah confirmed OK):
+    1. Tombol "Manage Account" muncul dobel di `user_detail.html` (di
+       card profil kiri DAN di footer form kanan) — sekarang footer
+       form kanan diganti jadi tombol "Simpan" yang fungsional (lihat
+       poin 2), card kiri tetap pakai "Manage Account" (link ke
+       `user_management.html`, beda fungsi). Header atas ("Cancel" +
+       "Manage Account") tidak diubah, tidak termasuk yang dilaporkan
+       dobel.
+    2. Form "Personal information" di `user_detail.html` full visual
+       saja — field `detailInfoName`/`detailInfoPhone` cuma `<div>`,
+       bukan `<input>`, dan tidak ada satupun tombol yang benar-benar
+       nyimpan. Dicek ulang schema `profiles` lewat
+       `supabase/migrations/*.sql` (bukan asumsi): kolom yang beneran
+       ada & bisa diedit user cuma `full_name` dan `phone`. Kolom
+       `company`/`position`/`bio` TIDAK ADA di schema — field-field ini
+       tetap ditampilkan read-only ("-") dengan komentar HTML yang
+       menjelaskan kenapa. `role` sengaja tetap read-only juga: trigger
+       `prevent_profile_privilege_escalation` cuma izinin admin/
+       supervisor ubah role, dan halaman ini belum ada UI konfirmasi/
+       proteksi last-admin-lockout untuk itu — di luar scope perbaikan
+       ini.
+       - `detailInfoName`/`detailInfoPhone` diganti jadi `<input>`
+         beneran (CSS `.ud-form-input` ditambah secukupnya biar
+         tampilannya tetap konsisten sama field read-only di
+         sebelahnya).
+       - Tombol "Simpan" manggil `updateProfile()` — diimpor dari
+         `src/v4/profile.js` (di-`export`, dipakai bareng, bukan
+         disalin ulang) — cuma kirim `{ full_name, phone }`.
+       - Tombol "Discard" reset kedua field ke nilai terakhir yang
+         berhasil di-load (state di memory), bukan reload halaman.
+       - Sukses/gagal simpan ditampilkan lewat `showToast()`
+         (`src/v4/toast.js`) — pola yang sama dipakai
+         `project-setting.js`, bukan bikin cara baru.
+       - **Catatan buat Ray**: `src/v4/profile.js` (halaman
+         `profile.html`, punya user sendiri) masih kirim `company` dan
+         `bio` ke `updateProfile()` juga — dua kolom itu SAMA-SAMA tidak
+         ada di schema, jadi setiap klik "Save changes" di
+         `profile.html` kemungkinan besar sudah gagal dari awal (error
+         "column does not exist"). Belum disentuh di commit ini karena
+         di luar scope yang diminta (cuma `user_detail.html`) —
+         di-flag di sini biar tidak kelewat, perlu diputuskan
+         terpisah apakah mau dibetulkan dengan pola yang sama
+         (disable + comment, seperti avatar upload) atau kolomnya
+         ditambah lewat migration baru.
+  - **2 hotfix lagi dari Ray** setelah form Save/Discard confirmed jalan:
+    1. **Konsistensi bahasa — DEVIASI SENGAJA, BACA INI SEBELUM UBAH
+       BAHASA HALAMAN INI.** Konvensi normal project ini: semua teks UI
+       pakai Bahasa Indonesia. `profile.html` dan `user_detail.html`
+       DIKECUALIKAN dari aturan itu atas permintaan eksplisit Ray —
+       khusus 2 halaman ini distandardkan ke **English penuh** karena
+       redesign Gemini aslinya sudah sebagian besar Inggris dan Ray
+       memilih konsistensi-dalam-halaman itu ketimbang menerjemahkan
+       ulang semuanya ke Indonesia. **Jangan "dibetulkan" balik ke
+       Indonesia tanpa konfirmasi Ray, dan jangan jadikan ini preseden
+       untuk halaman lain** — dicatat juga sebagai komentar
+       `LANGUAGE NOTE` di `<head>` kedua file HTML dan di kepala
+       `profile.js`/`user-detail.js`. Yang dibetulkan: tombol "Simpan"
+       (sisa dari hotfix sebelumnya) → "Save"; toast Indonesia di
+       `user-detail.js` → English; `alert()` di `profile.js`
+       (ternyata juga campur — belum kelihatan sebelumnya karena ada
+       di JS, bukan di HTML) → English; `<html lang="id">` → `lang="en"`
+       di kedua file (representasi bahasa konten yang benar).
+    2. **Field editable vs read-only kelihatan identik.** Sekarang
+       `.ud-form-value` (dipakai semua field non-input) defaultnya
+       tampil sebagai state read-only: `background: var(--bg-surface-
+       secondary)`, `color: var(--text-muted)`, `cursor: not-allowed`,
+       plus glyph 🔒 kecil via `::after` (otomatis tidak muncul di
+       `<input>` karena browser tidak render generated content di situ
+       — tidak perlu selector pengecualian terpisah). Field Role tetap
+       pakai chevron ⌄ yang sudah ada (urutan CSS-nya sengaja
+       ditumpuk setelah aturan lock supaya menang). `.ud-form-input`
+       (2 field beneran editable: `detailInfoName`/`detailInfoPhone`)
+       di-override ke tampilan input standar: `background: var(--bg-
+       surface)`, `color: var(--text)`, `cursor: text`, plus focus ring
+       (`box-shadow` + border warna primary) — dicocokkan ke pola yang
+       sudah ada di `_forms.scss` (`.form-control:disabled` pakai token
+       yang sama persis: `--bg-surface-secondary` / `--text-muted`),
+       bukan bikin pola baru.
+- Diverifikasi: `npm run lint` (0 error) dan `npm run build` (sukses,
+  chunk `profile.js`/`user-detail.js` ke-generate, HTML hasil build
+  dicek manual — DOCTYPE & shell injection sidebar masih utuh meski ada
+  komentar baru di `<head>`), struktur wrapper kedua halaman sudah
+  dicocokkan baris-per-baris dengan `client-detail.html`, sweep
+  grep untuk sisa teks Bahasa Indonesia di keempat file (2 HTML + 2 JS)
+  sudah bersih. Klik-lewat browser sempat dicoba lagi tapi masih
+  terblokir oleh auth guard di environment ini (browser sandbox ini
+  tidak punya sesi login Ray yang sudah diverifikasi manual di
+  environment dia) — jadi verifikasi Save/Discard/toast dan tampilan
+  visual lock-icon/dimmed-field di atas masih lewat code review teliti,
+  bukan klik langsung. Perlu dicek manual oleh Ray: field bisa diedit &
+  tersimpan, toast sukses/error muncul, Discard beneran reset ke nilai
+  lama, dan bedanya field editable vs read-only kelihatan jelas secara
+  visual.
+
 ## [Unreleased] - Database
 
 ### Added
