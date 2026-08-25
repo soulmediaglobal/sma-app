@@ -118,12 +118,42 @@ export async function initUserManagementTable() {
   }
 }
 
+function initUserDetailNavigation() {
+  const table = document.querySelector('#users-table');
+  if (!table || table.dataset.detailNavBound === 'true') {
+    return;
+  }
+
+  table.dataset.detailNavBound = 'true';
+
+  table.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-user-id]');
+
+    if (!button || !table.contains(button)) {
+      return;
+    }
+
+    const userId = button.dataset.userId;
+
+    if (!userId) {
+      console.warn('User detail navigation: missing user ID');
+      return;
+    }
+
+    window.location.href =
+      'user_detail.html?id=' + encodeURIComponent(userId);
+  });
+}
+
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     trackCurrentSession();
     initUserManagementTable();
+    initUserDetailNavigation();
   });
 } else {
   trackCurrentSession();
   initUserManagementTable();
+  initUserDetailNavigation();
 }
