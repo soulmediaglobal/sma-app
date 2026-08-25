@@ -161,6 +161,16 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   lama, dan bedanya field editable vs read-only kelihatan jelas secara
   visual.
 
+### Fixed
+
+- **Issue #115: `profile.js` mengirim field `company`/`bio` yang tidak
+  ada di schema.** `updateProfile()` sekarang hanya mengirim
+  `full_name` dan `phone` — `company`/`bio` sengaja dikecualikan dari
+  load dan payload save (pola sama seperti `avatar_url`), tidak
+  memerlukan migration baru. Perubahan `production/profile.html`
+  (restrukturisasi layout, di luar scope task ini) dibatalkan, tidak
+  ikut di-commit.
+
 ## [Unreleased] - Database
 
 ### Added

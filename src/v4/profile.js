@@ -67,8 +67,7 @@ async function loadProfile() {
     document.getElementById('editEmail').value = profile.email || '';
     document.getElementById('editPhone').value = profile.phone || '';
     document.getElementById('editRole').value = roleLabels[profile.role] || profile.role;
-    document.getElementById('editCompany').value = profile.company || '';
-    document.getElementById('editBio').value = profile.bio || '';
+    // Company/Bio editing intentionally disabled; fields are not part of the supported Profile UI.
 
     const notif = profile.preferences?.notifications || {};
     document.getElementById('notifProductUpdates').checked = notif.product_updates !== false;
@@ -113,9 +112,8 @@ async function saveProfile() {
 
   const data = {
     full_name: fullName,
-    phone: document.getElementById('editPhone').value,
-    company: document.getElementById('editCompany').value,
-    bio: document.getElementById('editBio').value
+    phone: document.getElementById('editPhone').value
+    // Company/Bio intentionally excluded; no schema change is required.
   };
 
   try {
