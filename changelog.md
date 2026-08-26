@@ -144,6 +144,39 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
     BELUM dicoba dengan session REAL milik Ray (masih blocker akses
     email yang sama) — Ray perlu re-test tombol "Sign out all" beneran
     buat konfirmasi fix ini nutup bug-nya di skenario asli.
+- **Bug PRE-EXISTING (bukan bagian Issue #125), ditemukan Ray sambil
+  test di atas — commit terpisah**: tombol "Keluar" di sidebar (menu
+  dropdown user, `wireSignOut()` di `src/lib/auth-guard.js`) punya bug
+  yang SAMA PERSIS dengan bug "Sign out all" di atas — bounce balik ke
+  dashboard, tetap login, meski `signOut()` (`src/lib/auth.js`) sudah
+  ada baris `window.location.href = 'login.html'`.
+  - Ditelusuri `src/v4/menus.js` (`openMenu()`): click handler-nya
+    manggil `closeMenu()` (cuma cleanup DOM popover, tidak ada
+    navigasi/`history` apapun) lalu manggil `item.action(trigger)`
+    TANPA di-`await` (fire-and-forget) — tapi ini bukan sumber race-nya
+    (promise tetap jalan sampai selesai walau tidak di-`await`
+    caller-nya). `openMenu`/`menus.js` DIKONFIRMASI BUKAN penyebab.
+  - Penyebab sebenarnya: `signOut()` di `src/lib/auth.js` (dipanggil
+    langsung sebagai action item menu "Keluar", dan juga dipanggil
+    otomatis dari `guardAdminPage()` kalau ada session tapi row
+    `profiles`-nya tidak ketemu) punya pola PERSIS SAMA dengan bug
+    "Sign out all" di atas — `await supabase.auth.signOut()` (default
+    scope `'global'`) lalu langsung redirect, tanpa verifikasi lokal
+    eksplisit. Fix yang sama diterapkan di sini: sesudah `signOut()`
+    resolve, `getSession()` dipanggil ulang buat verifikasi, fallback
+    ke `signOut({scope:'local'})` kalau ternyata masih ada session.
+  - Ini pre-existing bug di kode yang TIDAK disentuh sesi Issue #125 —
+    di-commit terpisah dari kerjaan session-tracking, bukan bagian PR
+    yang sama.
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Tes langsung
+    di browser — simulasi PERSIS alur produksi: `openMenu()` beneran
+    dipanggil dengan trigger + item `{ label: 'Keluar', action: () =>
+    signOut() }` yang sama dengan `auth-guard.js`, tombol menu-nya
+    di-klik (bukan manggil `signOut()` langsung, biar jalur
+    `openMenu()`-nya ikut ke-exercise), pakai session palsu di
+    `localStorage` — hasilnya `login.html` ke-load bersih, TIDAK
+    bounce balik. BELUM dicoba dengan session REAL (blocker akses
+    email yang sama) — Ray perlu re-test tombol "Keluar" beneran.
 
 ### Belum diverifikasi manual
 - Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
