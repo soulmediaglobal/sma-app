@@ -17,6 +17,21 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
+### Fixed
+- **Issue #135: hapus `@view-transition`, penyebab flash HTML tanpa
+  CSS saat navigasi.** Setiap pindah halaman menampilkan flash <1
+  detik berupa HTML mentah tanpa styling (bukan sekadar background
+  putih). Percobaan pertama menambahkan `background-color` ke
+  `::view-transition-group(root)` tidak menyelesaikan masalah —
+  dikonfirmasi dari screenshot konten benar-benar unstyled, bukan
+  cuma background putih. `@view-transition { navigation: auto; }`
+  dihapus total — tidak ada kode JS yang bergantung padanya
+  (diverifikasi via grep), murni animasi kosmetik antar-halaman,
+  bukan fitur inti.
+- Diverifikasi visual langsung di browser oleh Ray.
+
+## [2.30.0] - 2026-08-26
+
 ### Changed
 - **Issue #132: kosmetik tabel Sessions.** Kolom Device dari teks polos
   jadi chip (Desktop/Mobile) sejajar dengan OS. Kolom "Last seen"
