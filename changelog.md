@@ -145,38 +145,62 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
     email yang sama) — Ray perlu re-test tombol "Sign out all" beneran
     buat konfirmasi fix ini nutup bug-nya di skenario asli.
 - **Bug PRE-EXISTING (bukan bagian Issue #125), ditemukan Ray sambil
-  test di atas — commit terpisah**: tombol "Keluar" di sidebar (menu
-  dropdown user, `wireSignOut()` di `src/lib/auth-guard.js`) punya bug
-  yang SAMA PERSIS dengan bug "Sign out all" di atas — bounce balik ke
-  dashboard, tetap login, meski `signOut()` (`src/lib/auth.js`) sudah
-  ada baris `window.location.href = 'login.html'`.
-  - Ditelusuri `src/v4/menus.js` (`openMenu()`): click handler-nya
-    manggil `closeMenu()` (cuma cleanup DOM popover, tidak ada
-    navigasi/`history` apapun) lalu manggil `item.action(trigger)`
-    TANPA di-`await` (fire-and-forget) — tapi ini bukan sumber race-nya
-    (promise tetap jalan sampai selesai walau tidak di-`await`
-    caller-nya). `openMenu`/`menus.js` DIKONFIRMASI BUKAN penyebab.
-  - Penyebab sebenarnya: `signOut()` di `src/lib/auth.js` (dipanggil
-    langsung sebagai action item menu "Keluar", dan juga dipanggil
-    otomatis dari `guardAdminPage()` kalau ada session tapi row
-    `profiles`-nya tidak ketemu) punya pola PERSIS SAMA dengan bug
-    "Sign out all" di atas — `await supabase.auth.signOut()` (default
-    scope `'global'`) lalu langsung redirect, tanpa verifikasi lokal
-    eksplisit. Fix yang sama diterapkan di sini: sesudah `signOut()`
-    resolve, `getSession()` dipanggil ulang buat verifikasi, fallback
-    ke `signOut({scope:'local'})` kalau ternyata masih ada session.
-  - Ini pre-existing bug di kode yang TIDAK disentuh sesi Issue #125 —
-    di-commit terpisah dari kerjaan session-tracking, bukan bagian PR
-    yang sama.
-  - Diverifikasi: `npm run lint` + `npm run build` PASS. Tes langsung
-    di browser — simulasi PERSIS alur produksi: `openMenu()` beneran
-    dipanggil dengan trigger + item `{ label: 'Keluar', action: () =>
-    signOut() }` yang sama dengan `auth-guard.js`, tombol menu-nya
-    di-klik (bukan manggil `signOut()` langsung, biar jalur
-    `openMenu()`-nya ikut ke-exercise), pakai session palsu di
-    `localStorage` — hasilnya `login.html` ke-load bersih, TIDAK
-    bounce balik. BELUM dicoba dengan session REAL (blocker akses
-    email yang sama) — Ray perlu re-test tombol "Keluar" beneran.
+  test di atas — 2 commit terpisah, root cause AKHIRNYA ketemu di
+  commit ke-2**: tombol logout bounce balik ke dashboard, tetap login.
+  - **Commit pertama (dugaan awal, TERNYATA salah sasaran)**: sempat
+    dikira bug yang sama persis dengan "Sign out all" di atas
+    (`signOut()` di `src/lib/auth.js` dikasih fix defensif yang sama —
+    re-check `getSession()` + fallback `signOut({scope:'local'})`).
+    Fix itu SENDIRI valid dan tetap dipertahankan (diverifikasi Ray
+    lewat `import('/src/lib/auth.js').then(m => m.signOut())` langsung
+    di Console — sign-out sukses total). TAPI itu bukan penyebab bug
+    yang Ray alami — Ray konfirmasi lewat DevTools Application > Local
+    Storage: session di localStorage SAMA SEKALI TIDAK BERUBAH sesudah
+    klik tombol logout di UI, dan nol baris `[DEBUG signOut]` muncul
+    di Console pas klik lewat UI. Artinya `signOut()` di `auth.js`
+    TIDAK PERNAH terpanggil dari UI sama sekali — bug-nya di jalur
+    klik, bukan di `signOut()` itu sendiri.
+  - **Root cause sebenarnya (commit kedua)**: DUA bug terpisah, keduanya
+    di `src/v4/shell.js`:
+    1. Tombol yang Ray SEBENARNYA klik adalah avatar "Account menu" di
+       topbar (`.tb-avatar`, pojok kanan atas — cocok sama deskripsi
+       Ray sendiri "top-right") → dropdown `USER_MENU` → "Sign out" →
+       `openSignOutModal()`. Modal konfirmasinya cuma tampilan demo
+       peninggalan template Gentelella asli — tombol "Sign out" di
+       modal itu cuma nampilin toast "Signed out" lalu redirect pakai
+       `setTimeout`, TIDAK PERNAH manggil `supabase.auth.signOut()`
+       sama sekali. Ini persis jelasin SEMUA bukti: storage tidak
+       berubah, nol debug log, dan kenapa redirect ke `login.html`
+       selalu bounce balik (session asli tidak pernah kehapus).
+    2. Terpisah dari itu: `shell.js` JUGA masang listener klik-nya
+       sendiri (demo, `USER_MENU`) di `.sidebar-user .more-btn` —
+       tombol yang SAMA yang dipakai `auth-guard.js` buat "Keluar"
+       (real). Dua listener nempel di elemen yang sama, dua-duanya
+       kepanggil tiap klik; karena `openMenu()` toggle-tutup kalau
+       dipanggil 2x buat trigger yang sama, panggilan kedua langsung
+       nutup menu yang baru dibuka panggilan pertama — sinkron, dalam
+       tick yang sama, sebelum sempat ke-render — jadi menu-nya
+       TIDAK PERNAH kelihatan sama sekali kalau klik tombol sidebar
+       itu. Dikonfirmasi lewat reproduksi persis (dua listener
+       ditempel ke elemen yang sama, di-klik via script) sebelum
+       listener demo-nya dihapus.
+  - Fix: listener demo `shell.js` di `.sidebar-user .more-btn` dihapus
+    total (`auth-guard.js` sudah pegang tombol itu sendirian). Action
+    "Sign out" di `openSignOutModal()` diganti manggil `signOut()` asli
+    dari `src/lib/auth.js` (bukan toast+timer palsu lagi).
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Dua tes
+    end-to-end lewat MODUL ASLI (bukan tiruan) di browser, pakai
+    session palsu: (a) sidebar — `openMenu()` + item Keluar sekarang
+    beneran ke-render dan persist (sebelumnya langsung hilang); (b)
+    topbar — `mountShell()` beneran dipanggil di DOM buatan, avatar
+    di-klik → dropdown muncul → klik "Sign out" → modal muncul → klik
+    "Sign out" di modal → `signOut()` asli kepanggil, storage
+    kehapus, mendarat bersih di `login.html` tanpa bounce (skrip-nya
+    sendiri sampai "terputus" di tengah karena halaman beneran
+    ke-navigate — bukti paling kuat kalau alurnya jalan). BELUM dicoba
+    dengan session REAL milik Ray (blocker akses email yang sama) —
+    Ray perlu re-test tombol logout (baik avatar topbar maupun
+    "Keluar" sidebar) beneran buat konfirmasi final.
 
 ### Belum diverifikasi manual
 - Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
@@ -197,7 +221,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   angka "Logins" di Account Stats naik sesuai jumlah login sungguhan;
   "Last activity" di Account Security menampilkan waktu aktivitas
   terakhir yang benar (atau "No activity recorded" kalau belum pernah
-  ada aktivitas tercatat untuk user itu).
+  ada aktivitas tercatat untuk user itu); avatar "Account menu" di
+  topbar (pojok kanan atas) → "Sign out" → confirm di modal → beneran
+  sign out dan mendarat di `login.html` tanpa bounce (re-test khusus
+  bug yang barusan ketemu akar masalahnya); tombol "Keluar" di sidebar
+  (footer sidebar, dropdown user) sekarang beneran kebuka dan bisa
+  diklik (sebelumnya menu-nya tidak pernah kelihatan sama sekali
+  karena konflik listener).
 
 ## [Unreleased] - Database
 
