@@ -1,7 +1,18 @@
-// SMA-app — login_history capture (Issue #125). Called fire-and-forget
-// after a successful OTP login (see src/v4/login.js). Never awaited by
-// the login flow — a failure here must not block or delay the user
-// reaching the app.
+// SMA-app — login_history capture (Issue #125). Called after a successful
+// OTP login (see src/v4/login.js). The core row (device/os/browser) is
+// awaited by the caller — it's a single fast insert, so the login flow
+// isn't meaningfully delayed, and it guarantees the row actually exists
+// before navigation happens. IP/city/country enrichment is a SEPARATE,
+// genuinely fire-and-forget UPDATE kicked off after that insert — it can
+// take up to IP_LOOKUP_TIMEOUT_MS and must never block navigation, so the
+// caller does not (and must not) await it.
+//
+// This split exists because the original all-in-one version awaited the
+// IP lookup INSIDE the same fire-and-forget call, before ever reaching the
+// insert. Navigating to index.html right after kicking that off (with no
+// gap) tore down the page context mid-fetch essentially every time, so the
+// insert was never reached and no row was ever written — silently, since
+// the code never got far enough to hit the try/catch's error path.
 
 import { supabase } from './supabaseClient.js';
 
@@ -71,28 +82,52 @@ async function fetchIpLocation() {
   }
 }
 
-/** Record one login_history row for `profileId`. Fire-and-forget — the
- * caller must not `await` this before continuing the login flow. */
+/** Best-effort: look up IP/city/country and UPDATE the row that's already
+ * been written. Never awaited by anything — a slow/timed-out/failed lookup
+ * just leaves those 3 (nullable) columns empty. */
+async function enrichLoginHistoryLocation(rowId) {
+  const location = await fetchIpLocation();
+  if (!location.ip_address && !location.city && !location.country) {return;}
+
+  const { error } = await supabase.from('login_history').update(location).eq('id', rowId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to enrich login history with location:', error.message);
+  }
+}
+
+/** Record one login_history row for `profileId`. Await this — it's a
+ * single fast insert (device/os/browser only) that must land before the
+ * caller navigates away, otherwise the row never gets written at all. IP
+ * geolocation enrichment happens separately afterward, fully
+ * fire-and-forget (see enrichLoginHistoryLocation above) — this function
+ * does not wait on it. */
 export async function recordLoginHistory(profileId) {
   try {
     const ua = navigator.userAgent;
     const { deviceType, os } = detectDeviceAndOs(ua);
     const deviceBrand = deviceType === 'mobile' ? extractDeviceBrand(ua, os) : null;
     const browser = detectBrowser(ua);
-    const location = await fetchIpLocation();
 
-    const { error } = await supabase.from('login_history').insert({
-      profile_id: profileId,
-      device_type: deviceType,
-      device_brand: deviceBrand,
-      os,
-      browser,
-      ...location
-    });
+    const { data, error } = await supabase
+      .from('login_history')
+      .insert({
+        profile_id: profileId,
+        device_type: deviceType,
+        device_brand: deviceBrand,
+        os,
+        browser
+      })
+      .select('id')
+      .single();
+
     if (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to record login history:', error.message);
+      return;
     }
+
+    enrichLoginHistoryLocation(data.id);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to record login history:', error);

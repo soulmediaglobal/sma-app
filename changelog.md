@@ -201,6 +201,45 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
     dengan session REAL milik Ray (blocker akses email yang sama) —
     Ray perlu re-test tombol logout (baik avatar topbar maupun
     "Keluar" sidebar) beneran buat konfirmasi final.
+- **Bug ditemukan Ray: `login_history` selalu 0 row sesudah login
+  berhasil**, padahal login-nya sendiri jalan mulus dan nol error di
+  Console (dicek dari sebelum login sampai landing di dashboard).
+  - Root cause: di `src/v4/login.js`, `recordLoginHistory(userId)`
+    dipanggil fire-and-forget (tanpa `await`, sesuai desain awal), TAPI
+    baris SETELAHNYA langsung `window.location.href = 'index.html'`
+    TANPA jeda sama sekali. `recordLoginHistory()` sendiri, sebelum
+    fix ini, `await fetchIpLocation()` DULU (bisa sampai 3 detik kalau
+    API IP-nya lambat/timeout) SEBELUM sempat sampai ke baris
+    `insert()`-nya. Navigasi ke halaman lain motong context halaman di
+    tengah jalan — fetch/promise yang belum selesai kena cancel oleh
+    browser. Insert-nya nyaris tidak pernah kesampaian, jadi row-nya
+    memang beneran tidak pernah ke-tulis — dan karena code belum
+    sampai baris `insert()`, `try/catch`-nya juga tidak pernah nangkep
+    apapun (makanya nol error di Console, bukan error yang
+    ke-swallow).
+  - Fix (opsi 1 dari 2 yang didiskusikan — row-nya dijamin selalu ada
+    apapun kecepatan jaringan API IP-nya): `recordLoginHistory()`
+    sekarang DI-`await` oleh `login.js` sebelum redirect, tapi cuma
+    buat INSERT row inti (`device_type`/`device_brand`/`os`/`browser`)
+    — 1 request cepat, jadi delay ke login tetap minimal (bukan lagi
+    fire-and-forget, tapi juga bukan "await 3 detik ip lookup" seperti
+    sebelumnya). Pengayaan IP/city/country dipisah jadi fungsi sendiri
+    (`enrichLoginHistoryLocation()`) yang dipanggil TANPA `await` dari
+    dalam `recordLoginHistory()` sesudah insert sukses — ini yang
+    beneran fire-and-forget sekarang, UPDATE row yang sama by `id`
+    begitu lookup-nya selesai. Kalau navigasi motong proses ini di
+    tengah jalan, yang hilang cuma IP/city/country (nullable, sama
+    seperti skenario "API-nya gagal/timeout" yang sudah ditangani dari
+    awal) — bukan row-nya sendiri.
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Module
+    ke-load bersih tanpa error import/sintaks di browser (dev server).
+    BELUM dicoba insert sungguhan (blocker akses email yang sama,
+    RLS `login_history_own_insert` juga makan `auth.uid()` beneran
+    jadi tidak bisa dites pakai anon key kosongan) — Ray perlu login
+    sungguhan dan cek: (a) row muncul LANGSUNG sesudah landing di
+    dashboard (bukan "eventually"), (b) beberapa detik kemudian, query
+    ulang row yang sama buat pastikan `ip_address`/`city`/`country`
+    sudah keisi (asumsi ipapi.co tidak diblokir jaringannya).
 
 ### Belum diverifikasi manual
 - Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker

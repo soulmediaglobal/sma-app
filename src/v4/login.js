@@ -67,9 +67,14 @@ export async function initLogin() {
       showToast(error.message || 'Kode salah atau sudah kadaluarsa.', { variant: 'error' });
       return;
     }
-    // Fire-and-forget — never awaited, must not delay reaching the app.
+    // Awaited: it's one fast insert (device/os/browser only) — IP/location
+    // enrichment happens separately afterward and is NOT awaited here (see
+    // src/lib/login-history.js). Awaiting the whole thing here, including
+    // the IP lookup, used to mean navigating away almost always tore down
+    // the page mid-fetch before the insert ever ran, so no row was ever
+    // written at all.
     const userId = data?.user?.id;
-    if (userId) {recordLoginHistory(userId);}
+    if (userId) {await recordLoginHistory(userId);}
     window.location.href = 'index.html';
   });
 
