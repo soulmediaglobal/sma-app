@@ -17,10 +17,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
-### Changed
-- **Issue #119: Konsolidasi profile.html ke user_detail.html.**
-  `production/profile.html` dihapus total — user_detail.html sekarang
-  satu-satunya halaman untuk lihat/edit info user, mode ditentukan dari
+### Added
+- **Session Tracking & Login History (Issue #125)**:
+  - Tabel `login_history` untuk mencatat aktivitas login per user (perangkat, OS, browser, IP, lokasi).
+  - Capture otomatis riwayat login saat autentikasi OTP berhasil[cite: 1].
+  - UI card "Sessions", statistik total login, dan indikator aktivitas terakhir di `user_detail.html`[cite: 1].
+  - RLS UPDATE Policy untuk pengisian asynchronous data lokasi/IP[cite: 1].
+
+### Fixed
+- Tombol topbar "Sign out" dan penanganan handler ganda pada menu sidebar[cite: 1].
   perbandingan `?id=` di URL dengan ID user yang login:
   - Tanpa `?id=` (atau `?id=` sama dengan ID sendiri) → mode "profil
     sendiri"
