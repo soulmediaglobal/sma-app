@@ -56,6 +56,7 @@ export default [
         MouseEvent: 'readonly',
         DOMParser: 'readonly',
         crypto: 'readonly',
+        AbortController: 'readonly',
         // Library globals
         $: 'readonly',
         jQuery: 'readonly',

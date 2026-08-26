@@ -76,11 +76,15 @@ function formatDateTime(value) {
 }
 
 function formatSessionDevice(row) {
-  const parts = [];
-  parts.push(row.device_type === 'mobile' ? 'Mobile' : 'Desktop');
-  if (row.device_brand) {parts.push(row.device_brand);}
-  if (row.os) {parts.push(row.os);}
-  return parts.join(' · ');
+  const type = row.device_type === 'mobile' ? 'Mobile' : 'Desktop';
+  const os = row.os || 'Unknown OS';
+  return `${type} · ${os}`;
+}
+
+function formatSessionBrand(row) {
+  const brand = row.device_brand || (row.os === 'macOS' ? 'Mac' : 'Generic');
+  const browser = row.browser || 'Browser';
+  return `${brand} · ${browser}`;
 }
 
 function formatSessionLocation(row) {
@@ -93,17 +97,17 @@ function renderSessionHistory(rows) {
   if (!tbody) {return;}
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
     return;
   }
 
   tbody.innerHTML = rows.map((row) => `
     <tr>
-      <td>
-        <span class="ud-session-device">${escapeHtml(formatSessionDevice(row))}</span>
-        <span class="ud-session-meta">${escapeHtml(row.browser || 'Browser')}</span>
-      </td>
+      <td>${escapeHtml(formatSessionDevice(row))}</td>
+      <td>${escapeHtml(formatSessionBrand(row))}</td>
+      <td>${escapeHtml(row.ip_address || '-')}</td>
       <td>${escapeHtml(formatSessionLocation(row))}</td>
+      <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
       <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
     </tr>
   `).join('');
@@ -115,14 +119,14 @@ async function loadSessionHistory(userId) {
   try {
     const { data, error } = await supabase
       .from('login_history')
-      .select('device_type, device_brand, os, browser, city, country, logged_in_at')
+      .select('device_type, device_brand, os, browser, ip_address, city, country, logged_in_at')
       .eq('profile_id', userId)
       .order('logged_in_at', { ascending: false })
       .limit(5);
     if (error) {throw error;}
     renderSessionHistory(data || []);
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:#ff747d;">${escapeHtml(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#ff747d;">${escapeHtml(error.message)}</td></tr>`;
   }
 }
 
