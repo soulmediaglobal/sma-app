@@ -103,6 +103,10 @@ async function enrichLoginHistoryLocation(rowId) {
  * fire-and-forget (see enrichLoginHistoryLocation above) — this function
  * does not wait on it. */
 export async function recordLoginHistory(profileId) {
+  // TEMPORARY DEBUG — do not merge. Confirms the function body is even
+  // reached at all when called from the real login flow.
+  // eslint-disable-next-line no-console
+  console.log('[DEBUG recordLoginHistory] entered with profileId:', profileId);
   try {
     const ua = navigator.userAgent;
     const { deviceType, os } = detectDeviceAndOs(ua);
@@ -121,6 +125,9 @@ export async function recordLoginHistory(profileId) {
       .select('id')
       .single();
 
+    // TEMPORARY DEBUG — do not merge.
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG recordLoginHistory] insert resolved — data:', data, 'error:', error);
     if (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to record login history:', error.message);

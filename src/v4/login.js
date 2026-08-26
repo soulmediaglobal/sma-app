@@ -63,6 +63,11 @@ export async function initLogin() {
     const { data, error } = await verifyOtp(currentEmail, codeInput.value.trim());
     btn.disabled = false;
     btn.textContent = 'Verifikasi';
+    // TEMPORARY DEBUG — do not merge. Investigating login_history rows
+    // never appearing with zero console output. Confirms the real shape
+    // of verifyOtp()'s data object instead of trusting the SDK's .d.ts.
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] verifyOtp() resolved — full data:', JSON.parse(JSON.stringify(data ?? null)), 'error:', error);
     if (error) {
       showToast(error.message || 'Kode salah atau sudah kadaluarsa.', { variant: 'error' });
       return;
@@ -74,7 +79,11 @@ export async function initLogin() {
     // the page mid-fetch before the insert ever ran, so no row was ever
     // written at all.
     const userId = data?.user?.id;
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] resolved userId:', userId, '— will call recordLoginHistory:', !!userId);
     if (userId) {await recordLoginHistory(userId);}
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] about to navigate to index.html');
     window.location.href = 'index.html';
   });
 
