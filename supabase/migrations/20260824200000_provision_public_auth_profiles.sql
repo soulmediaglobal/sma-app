@@ -30,6 +30,10 @@ with check (
   and account_status = 'ACTIVE'
 );
 
+-- Privilege SELECT diperlukan agar session authenticated dapat membaca profil;
+-- RLS profiles tetap menentukan row yang dapat terlihat oleh setiap pengguna.
+grant select on table public.profiles to authenticated;
+
 revoke update (name, full_name, phone) on public.profiles from anon;
 grant update (name, full_name, phone) on public.profiles to authenticated;
 
