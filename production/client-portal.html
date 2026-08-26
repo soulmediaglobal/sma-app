@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Client Portal | Soul Mitra Abadi</title>
+  <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+  <script type="module" src="/src/main-v4.js"></script>
+</head>
+<body>
+  <main class="client-portal-shell" data-client-auth-page="portal">
+    <header class="client-portal-header">
+      <a class="client-auth-brand" href="client-portal.html" aria-label="Beranda Client Portal">
+        <span class="client-auth-brand-mark" aria-hidden="true">SMA</span>
+        <span>Client Portal</span>
+      </a>
+      <button type="button" class="client-auth-secondary" data-client-logout>Keluar</button>
+    </header>
+
+    <section class="client-portal-state" data-portal-loading aria-live="polite">
+      <div class="client-auth-spinner" aria-hidden="true"></div>
+      <p>Memuat portal kamu…</p>
+    </section>
+
+    <section class="client-portal-state" data-portal-blocked hidden>
+      <h1>Portal belum dapat dibuka</h1>
+      <p data-blocked-message>Akun belum dapat digunakan.</p>
+      <button type="button" class="client-auth-secondary" data-client-logout>Keluar</button>
+    </section>
+
+    <div class="client-portal-content" data-portal-content hidden>
+      <section class="client-profile-banner" data-profile-banner hidden>
+        <div>
+          <strong>Lengkapi <span data-profile-missing>profil</span> agar kamu dapat mengajukan project.</strong>
+          <p>Portal tetap dapat digunakan. Data ini baru diwajibkan saat membuat pengajuan.</p>
+        </div>
+        <button type="button" class="client-auth-primary" data-complete-profile>Lengkapi profil</button>
+      </section>
+
+      <section class="client-portal-welcome">
+        <div>
+          <p class="client-auth-eyebrow">Beranda</p>
+          <h1>Halo, <span data-client-name>Pengguna</span></h1>
+          <p>Selamat datang di ruang layanan Soul Mitra Abadi.</p>
+        </div>
+        <div class="client-account-card">
+          <span class="client-avatar" data-client-initial aria-hidden="true">P</span>
+          <div>
+            <strong data-client-name>Pengguna</strong>
+            <span data-client-email>Email</span>
+            <small data-client-link-status>Akun eksternal aktif</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="client-profile-panel" data-profile-panel hidden aria-labelledby="client-profile-title">
+        <div>
+          <h2 id="client-profile-title">Lengkapi profil</h2>
+          <p>Pastikan nama dan nomor WhatsApp dapat digunakan oleh Tim SMA.</p>
+        </div>
+        <form data-phone-form novalidate>
+          <label for="client-profile-name">Nama lengkap</label>
+          <input id="client-profile-name" type="text" autocomplete="name" placeholder="Nama lengkap" required data-client-profile-name>
+          <label for="client-phone">Nomor WhatsApp</label>
+          <div class="client-profile-form-row">
+            <input id="client-phone" type="tel" autocomplete="tel" placeholder="08xxxxxxxxxx" required data-client-phone>
+            <button type="submit" class="client-auth-primary">Simpan</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="client-portal-grid" aria-label="Layanan portal">
+        <article class="client-portal-card client-portal-card-primary">
+          <span class="client-portal-icon" aria-hidden="true">＋</span>
+          <h2>Ajukan project baru</h2>
+          <p>Sampaikan kebutuhan perizinan atau legalitas yang ingin dibantu oleh Tim SMA.</p>
+          <button type="button" class="client-auth-primary" data-create-project>Buat Project</button>
+        </article>
+        <article class="client-portal-card">
+          <span class="client-portal-icon" aria-hidden="true">◎</span>
+          <h2>Status akun</h2>
+          <p>Akun kamu sudah aktif. Kamu dapat menggunakan Client Portal tanpa persetujuan internal. Setiap pengajuan project akan ditinjau oleh Tim SMA sebelum mulai dikerjakan.</p>
+        </article>
+        <article class="client-portal-card">
+          <span class="client-portal-icon" aria-hidden="true">?</span>
+          <h2>Butuh bantuan?</h2>
+          <p>Hubungi pendamping SMA bila ada kendala saat masuk atau menyiapkan pengajuan.</p>
+        </article>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

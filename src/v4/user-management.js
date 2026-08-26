@@ -146,14 +146,6 @@ function initUserDetailNavigation() {
 }
 
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    trackCurrentSession();
-    initUserManagementTable();
-    initUserDetailNavigation();
-  });
-} else {
-  trackCurrentSession();
-  initUserManagementTable();
+export function initUserManagementNavigation() {
   initUserDetailNavigation();
 }
