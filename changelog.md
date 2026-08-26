@@ -50,6 +50,26 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   sendiri dengan benar, Role sekarang jadi dropdown yang bisa diedit
   dan disimpan.
 
+## [Unreleased] - Database
+
+### Fixed
+- **5 kolom `profiles` tanpa migration file (`avatar_url`, `bio`,
+  `position`, `company`, `social_links`)**. Ditemukan sudah ada di
+  production tanpa jejak migration sama sekali — kemungkinan
+  dieksekusi via Supabase SQL Editor manual di sesi lain, menyimpang
+  dari konvensi psql + migration file wajib. `bio`/`position`/`company`
+  terisi data fiktif/karangan generik di semua row (bukan data asli).
+  - Migration ini mencatat resmi struktur 5 kolom ke git (idempotent —
+    `add column if not exists`, aman dijalankan ulang di environment
+    manapun)
+  - Data fiktif di `bio`/`position`/`company` dikosongkan (`NULL`)
+  - `preferences` (kolom jsonb lain yang juga belum ada migration)
+    SENGAJA TIDAK disentuh — datanya variatif per user (beda setting
+    notifikasi antar orang), kemungkinan data asli dari fitur
+    Notifications di halaman profile lama, bukan data fiktif
+- Diverifikasi ke database: 5 profile, `bio`/`position`/`company`
+  sekarang kosong semua.
+
 ## [2.23.0] - 2026-08-25
 
 ### Fixed
