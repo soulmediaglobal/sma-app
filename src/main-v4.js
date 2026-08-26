@@ -43,6 +43,12 @@ if (document.querySelector('[data-auth="otp"]')) {
   import('./v4/login.js').then((m) => m.initLogin());
 }
 
+// Public Client Portal auth is intentionally separate from the invite-only
+// internal OTP flow above. Its module owns login, callback, and holding page.
+if (document.querySelector('[data-client-auth-page]')) {
+  import('./v4/client-portal-auth.js').then((m) => m.initClientPortalAuth());
+}
+
 // Service worker — only in production builds (skip on dev so HMR isn't fought
 // by the cache). Path uses Vite's BASE_URL so subpath deploys (e.g.
 // preview.colorlib.com/theme/foo/) register the SW at the right scope.
@@ -169,8 +175,10 @@ document.addEventListener('submit', (e) => {
 // Topbar search box opens the command palette — wired by initCommandPalette.
 // Page-actions (Print / Export / Compose / Add / etc.) wired via initPageActions.
 
-import { initUserManagementTable, trackCurrentSession } from './v4/user-management.js';
-trackCurrentSession();
 if (document.querySelector('#users-table')) {
-  initUserManagementTable();
+  import('./v4/user-management.js').then((module) => {
+    module.trackCurrentSession();
+    module.initUserManagementTable();
+    module.initUserManagementNavigation();
+  });
 }
