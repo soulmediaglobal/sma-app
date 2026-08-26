@@ -2,6 +2,7 @@
 // verify the 6-digit code. No password, no self-signup (see src/lib/auth.js).
 
 import { requestOtp, verifyOtp, getSession } from '../lib/auth.js';
+import { recordLoginHistory } from '../lib/login-history.js';
 import { showToast } from './toast.js';
 
 export async function initLogin() {
@@ -59,13 +60,16 @@ export async function initLogin() {
     const btn = codeForm.querySelector('button[type="submit"]');
     btn.disabled = true;
     btn.textContent = 'Memverifikasi…';
-    const { error } = await verifyOtp(currentEmail, codeInput.value.trim());
+    const { data, error } = await verifyOtp(currentEmail, codeInput.value.trim());
     btn.disabled = false;
     btn.textContent = 'Verifikasi';
     if (error) {
       showToast(error.message || 'Kode salah atau sudah kadaluarsa.', { variant: 'error' });
       return;
     }
+    // Fire-and-forget — never awaited, must not delay reaching the app.
+    const userId = data?.user?.id;
+    if (userId) {recordLoginHistory(userId);}
     window.location.href = 'index.html';
   });
 

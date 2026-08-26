@@ -22,6 +22,7 @@
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { updateProfile } from './profile.js';
+import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 
 const roleLabels = {
@@ -74,10 +75,55 @@ function formatDateTime(value) {
   });
 }
 
-function formatDevice(device) {
-  if (!device) {return { device: 'Unknown device', browser: 'Browser' };}
-  const parts = device.split(' · ');
-  return { device: parts[0] || 'Unknown', browser: parts[1] || 'Browser' };
+function formatSessionDevice(row) {
+  const parts = [];
+  parts.push(row.device_type === 'mobile' ? 'Mobile' : 'Desktop');
+  if (row.device_brand) {parts.push(row.device_brand);}
+  if (row.os) {parts.push(row.os);}
+  return parts.join(' · ');
+}
+
+function formatSessionLocation(row) {
+  const parts = [row.city, row.country].filter(Boolean);
+  return parts.length ? parts.join(', ') : '-';
+}
+
+function renderSessionHistory(rows) {
+  const tbody = document.getElementById('sessionHistoryBody');
+  if (!tbody) {return;}
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => `
+    <tr>
+      <td>
+        <span class="ud-session-device">${escapeHtml(formatSessionDevice(row))}</span>
+        <span class="ud-session-meta">${escapeHtml(row.browser || 'Browser')}</span>
+      </td>
+      <td>${escapeHtml(formatSessionLocation(row))}</td>
+      <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadSessionHistory(userId) {
+  const tbody = document.getElementById('sessionHistoryBody');
+  if (!tbody) {return;}
+  try {
+    const { data, error } = await supabase
+      .from('login_history')
+      .select('device_type, device_brand, os, browser, city, country, logged_in_at')
+      .eq('profile_id', userId)
+      .order('logged_in_at', { ascending: false })
+      .limit(5);
+    if (error) {throw error;}
+    renderSessionHistory(data || []);
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:#ff747d;">${escapeHtml(error.message)}</td></tr>`;
+  }
 }
 
 function avatarUrl(name) {
@@ -209,26 +255,26 @@ async function loadUserDetail(userId, canEditRole) {
     setText('securityDevice', profile.last_login_device || 'Not recorded');
 
     /* SESSION */
-    const device = formatDevice(profile.last_login_device);
-    setText('sessionDevice', device.device);
-    setText('sessionBrowser', device.browser);
-    setText('sessionLastSeen', profile.last_sign_in_at ? formatDateTime(profile.last_sign_in_at) : 'Never');
-    if (profile.last_sign_in_at) {
-      document.getElementById('sessionLastSeen').classList.add('ud-live');
-    }
+    await loadSessionHistory(userId);
 
     /* CONNECTED */
     setText('connectedEmail', profile.email || 'No email');
 
     /* STATS */
-    const [{ count: assignmentCount }, { count: createdCaseCount }] = await Promise.all([
+    const [{ count: assignmentCount }, { count: createdCaseCount }, { count: loginCount }, lastActivityResult] = await Promise.all([
       supabase.from('case_assignees').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase.from('cases').select('*', { count: 'exact', head: true }).eq('created_by', userId)
+      supabase.from('cases').select('*', { count: 'exact', head: true }).eq('created_by', userId),
+      supabase.from('login_history').select('*', { count: 'exact', head: true }).eq('profile_id', userId),
+      supabase.from('activities').select('created_at').eq('by_user', userId).order('created_at', { ascending: false }).limit(1)
     ]);
 
     setText('detailStatProjects', (assignmentCount || 0) + (createdCaseCount || 0));
     setText('detailStatTeam', assignmentCount || 0);
-    setText('detailStatCommits', profile.last_sign_in_at ? '1+' : '0');
+    setText('detailStatCommits', loginCount || 0);
+
+    /* LAST ACTIVITY */
+    const lastActivityAt = lastActivityResult.data?.[0]?.created_at || null;
+    setText('securityLastActivity', lastActivityAt ? formatDateTime(lastActivityAt) : 'No activity recorded');
 
     const days = profile.created_at ? Math.floor((Date.now() - new Date(profile.created_at).getTime()) / 86400000) : 0;
     setText('detailStatRating', days);
@@ -278,6 +324,55 @@ async function saveUserDetail(userId, saveBtn) {
   }
 }
 
+/** `supabase.auth.signOut({ scope: 'global' })` invalidates every refresh
+ * token for the *currently authenticated* user — there's no service-role
+ * key on the frontend to force-revoke an arbitrary other user's sessions.
+ * So this only actually does anything when viewing your own profile. */
+function signOutAllSessions(btn) {
+  showModal({
+    title: 'Sign out of all sessions?',
+    body: '<p>This signs you out on every device. You will need to log in again.</p>',
+    actions: [
+      { label: 'Cancel', variant: 'ghost' },
+      {
+        label: 'Sign out all',
+        variant: 'danger',
+        action: async () => {
+          btn.disabled = true;
+          const { error } = await supabase.auth.signOut({ scope: 'global' });
+          if (error) {
+            showToast('Failed to sign out: ' + error.message, { variant: 'error' });
+            btn.disabled = false;
+            return;
+          }
+
+          // Belt-and-suspenders against a race hit in manual testing: right
+          // after `signOut({ scope: 'global' })` resolved, login.html's own
+          // "already got a session? bounce to index.html" check (src/v4/
+          // login.js initLogin()) still read a session and redirected
+          // straight back to the dashboard — confirmed by a second
+          // navigation firing before the first one's cross-document view
+          // transition finished (console: "AbortError: Transition was
+          // skipped"). The supabase-js source shows scope:'global' *should*
+          // clear local storage before its promise resolves (_signOut →
+          // removeCurrentSession runs on every path where scope !==
+          // 'others', see node_modules/@supabase/auth-js …
+          // GoTrueClient.js), so rather than trust that timing, explicitly
+          // re-check local session state and force a local-only clear
+          // (storage removal only — no dependency on the network round
+          // trip that just happened) if it's somehow still there.
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await supabase.auth.signOut({ scope: 'local' });
+          }
+
+          window.location.href = 'login.html';
+        }
+      }
+    ]
+  });
+}
+
 function discardUserDetail() {
   if (!loadedProfile) {return;}
   setValue('detailInfoName', loadedProfile.full_name || '');
@@ -307,4 +402,14 @@ export async function initUserDetail() {
   const discardBtn = document.getElementById('userDetailDiscardBtn');
   if (saveBtn) {saveBtn.addEventListener('click', () => saveUserDetail(userId, saveBtn));}
   if (discardBtn) {discardBtn.addEventListener('click', discardUserDetail);}
+
+  const signOutAllBtn = document.getElementById('udSignOutAllBtn');
+  if (signOutAllBtn) {
+    if (me?.id === userId) {
+      signOutAllBtn.addEventListener('click', () => signOutAllSessions(signOutAllBtn));
+    } else {
+      signOutAllBtn.disabled = true;
+      signOutAllBtn.title = 'Only available on your own account — no admin API to force-sign-out another user.';
+    }
+  }
 }
