@@ -42,7 +42,18 @@ function detectBrowser(ua) {
   return null;
 }
 
-/** Quick IP + location lookup with 1.5s timeout */
+/** Quick IP + location lookup with 1.5s timeout per provider.
+ *
+ * BigDataCloud's Client Info API is tried first (Issue #130 - an
+ * attempt at better city-level accuracy than ipwho.is for Indonesian
+ * ISPs, whose IP-to-city registration data is often inaccurate in most
+ * free geolocation databases). Falls back to ipify+ipwho.is (the
+ * original provider) if BigDataCloud fails or times out.
+ *
+ * Neither provider can fully fix Indonesia's underlying accuracy
+ * problem - IP geolocation depends on how each ISP registers its
+ * address blocks, not on which lookup service is used - but this is
+ * worth trying since BigDataCloud may have better-maintained data. */
 async function fetchIpLocation() {
   const fetchWithTimeout = async (url) => {
     const controller = new AbortController();
@@ -57,8 +68,23 @@ async function fetchIpLocation() {
     }
   };
 
+  // Try BigDataCloud's client-side Client Info API first - no API key,
+  // no rate limit, returns IP + city/country in one call.
   try {
-    // Force IPv4 lookup via ipify first
+    const bdcData = await fetchWithTimeout('https://api.bigdatacloud.net/data/client-info');
+    if (bdcData?.ipAddress) {
+      return {
+        ip_address: bdcData.ipAddress,
+        city: bdcData.location?.city || null,
+        country: bdcData.location?.country?.name || null
+      };
+    }
+  } catch {
+    // fall through to the ipify+ipwho.is fallback below
+  }
+
+  // Fallback: original provider (ipify for IPv4, ipwho.is for geo).
+  try {
     const ipData = await fetchWithTimeout('https://api4.ipify.org?format=json');
     const ipv4 = ipData?.ip || null;
 

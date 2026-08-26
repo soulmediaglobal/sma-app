@@ -18,6 +18,24 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ## [Unreleased] - App
 
 ### Changed
+- **Issue #130: coba provider IP geolocation lain (BigDataCloud).**
+  fetchIpLocation() di login-history.js sekarang mencoba BigDataCloud
+  Client Info API dulu (client-side, gratis, tanpa API key, tanpa rate
+  limit — 1 call untuk IP+city+country sekaligus), fallback ke
+  ipify+ipwho.is (provider lama) kalau gagal/timeout.
+- **Hasil eksperimen: TIDAK memperbaiki akurasi kota.** Dites langsung
+  dengan `curl` ke 3 provider berbeda (ipwho.is, ipinfo.io, BigDataCloud)
+  untuk IP yang sama — ketiganya konsisten melaporkan kota yang sama
+  ("Semarang") meski user secara fisik ada di kota lain (Jogja).
+  Konfirmasi: ini keterbatasan data registrasi ISP Indonesia di
+  database geolocation manapun, bukan masalah pilihan provider.
+  BigDataCloud dipertahankan karena secara teknis lebih efisien (1 API
+  call vs 2, tidak ada rate limit eksplisit) meski akurasi kota sama
+  saja dengan provider lama.
+
+## [2.28.0] - 2026-08-26
+
+### Changed
 - **Issue #128: rapikan card Sessions & Recent Activity.** Tabel
   Sessions diperluas jadi 6 kolom (Device, Brand, IP Address,
   Location, Last seen, Last activity) dengan strategi lookup IP yang
