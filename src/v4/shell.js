@@ -9,6 +9,7 @@ import { renderShell } from './shell-render.js';
 import { openPanel, openMenu } from './menus.js';
 import { showToast } from './toast.js';
 import { showModal } from './modal.js';
+import { signOut } from '../lib/auth.js';
 
 function injectShellIfMissing() {
   const body = document.body;
@@ -298,10 +299,12 @@ function openSignOutModal() {
       {
         label: 'Sign out',
         variant: 'primary',
-        action: () => {
-          showToast('Signed out', { variant: 'success' });
-          setTimeout(() => { window.location.href = 'login.html'; }, 600);
-        }
+        // Used to just show a "Signed out" toast and redirect on a timer —
+        // decorative leftover from the Gentelella template that never
+        // actually touched the Supabase session. This is the topbar
+        // "Account menu" dropdown (top-right), the one people naturally
+        // click first — call the real sign-out here.
+        action: () => { signOut(); }
       }
     ]
   });
@@ -487,13 +490,14 @@ function bindTopbarPanels() {
     });
   }
 
-  const sidebarMore = document.querySelector('.sidebar-user .more-btn');
-  if (sidebarMore) {
-    sidebarMore.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      openMenu(sidebarMore, USER_MENU);
-    });
-  }
+  // `.sidebar-user .more-btn` is NOT wired here — src/lib/auth-guard.js's
+  // wireSignOut() owns that button exclusively (real sign-out, not the
+  // decorative USER_MENU). It used to ALSO get a listener from this
+  // function; both fired on every click, and since they targeted the same
+  // trigger element, openMenu()'s toggle-if-same-trigger check made the
+  // second call close what the first call had just opened — same click,
+  // same synchronous tick, before any paint — so neither menu was ever
+  // actually visible. See changelog for the investigation.
 }
 
 /**

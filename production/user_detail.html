@@ -1297,6 +1297,14 @@ body[data-page="user_detail"] h5 {
               <strong id="securityDevice">-</strong>
             </div>
 
+            <div class="ud-list-row">
+              <div>
+                <div class="ud-list-title">Last activity</div>
+                <div class="ud-list-meta">Most recent action in the system</div>
+              </div>
+              <strong id="securityLastActivity">-</strong>
+            </div>
+
           </div>
 
         </article>
@@ -1311,11 +1319,11 @@ body[data-page="user_detail"] h5 {
               </h2>
 
               <p>
-                Latest recorded sign-in session.
+                Recent sign-in history.
               </p>
             </div>
 
-            <button class="ud-button">
+            <button class="ud-button" id="udSignOutAllBtn" type="button">
               Sign out all
             </button>
           </div>
@@ -1329,16 +1337,9 @@ body[data-page="user_detail"] h5 {
               </tr>
             </thead>
 
-            <tbody>
+            <tbody id="sessionHistoryBody">
               <tr>
-                <td>
-                  <span id="sessionDevice" class="ud-session-device">-</span>
-                  <span id="sessionBrowser" class="ud-session-meta">-</span>
-                </td>
-
-                <td>Indonesia</td>
-
-                <td id="sessionLastSeen">-</td>
+                <td colspan="3" style="color:var(--text-muted);">-</td>
               </tr>
             </tbody>
           </table>

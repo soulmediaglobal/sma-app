@@ -2,6 +2,7 @@
 // verify the 6-digit code. No password, no self-signup (see src/lib/auth.js).
 
 import { requestOtp, verifyOtp, getSession } from '../lib/auth.js';
+import { recordLoginHistory } from '../lib/login-history.js';
 import { showToast } from './toast.js';
 
 export async function initLogin() {
@@ -59,13 +60,30 @@ export async function initLogin() {
     const btn = codeForm.querySelector('button[type="submit"]');
     btn.disabled = true;
     btn.textContent = 'Memverifikasi…';
-    const { error } = await verifyOtp(currentEmail, codeInput.value.trim());
+    const { data, error } = await verifyOtp(currentEmail, codeInput.value.trim());
     btn.disabled = false;
     btn.textContent = 'Verifikasi';
+    // TEMPORARY DEBUG — do not merge. Investigating login_history rows
+    // never appearing with zero console output. Confirms the real shape
+    // of verifyOtp()'s data object instead of trusting the SDK's .d.ts.
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] verifyOtp() resolved — full data:', JSON.parse(JSON.stringify(data ?? null)), 'error:', error);
     if (error) {
       showToast(error.message || 'Kode salah atau sudah kadaluarsa.', { variant: 'error' });
       return;
     }
+    // Awaited: it's one fast insert (device/os/browser only) — IP/location
+    // enrichment happens separately afterward and is NOT awaited here (see
+    // src/lib/login-history.js). Awaiting the whole thing here, including
+    // the IP lookup, used to mean navigating away almost always tore down
+    // the page mid-fetch before the insert ever ran, so no row was ever
+    // written at all.
+    const userId = data?.user?.id;
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] resolved userId:', userId, '— will call recordLoginHistory:', !!userId);
+    if (userId) {await recordLoginHistory(userId);}
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG login] about to navigate to index.html');
     window.location.href = 'index.html';
   });
 

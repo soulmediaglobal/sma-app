@@ -17,10 +17,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
-### Changed
-- **Issue #119: Konsolidasi profile.html ke user_detail.html.**
-  `production/profile.html` dihapus total — user_detail.html sekarang
-  satu-satunya halaman untuk lihat/edit info user, mode ditentukan dari
+### Added
+- **Session Tracking & Login History (Issue #125)**:
+  - Tabel `login_history` untuk mencatat aktivitas login per user (perangkat, OS, browser, IP, lokasi).
+  - Capture otomatis riwayat login saat autentikasi OTP berhasil[cite: 1].
+  - UI card "Sessions", statistik total login, dan indikator aktivitas terakhir di `user_detail.html`[cite: 1].
+  - RLS UPDATE Policy untuk pengisian asynchronous data lokasi/IP[cite: 1].
+
+### Fixed
+- Tombol topbar "Sign out" dan penanganan handler ganda pada menu sidebar[cite: 1].
   perbandingan `?id=` di URL dengan ID user yang login:
   - Tanpa `?id=` (atau `?id=` sama dengan ID sendiri) → mode "profil
     sendiri"
@@ -49,6 +54,224 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   hilang untuk admin, klik dari sidebar (tanpa `?id=`) menampilkan data
   sendiri dengan benar, Role sekarang jadi dropdown yang bisa diedit
   dan disimpan.
+
+### Added
+- **Issue #125: Session tracking lengkap (device/browser/IP/lokasi) +
+  UI riwayat login.** Lanjutan dari migration `login_history` (commit
+  `aa26285`):
+  - `src/lib/login-history.js` (baru) — `recordLoginHistory(profileId)`
+    dipanggil fire-and-forget (tidak di-`await`) setelah OTP berhasil
+    diverifikasi di `src/v4/login.js`, supaya gagal/lambatnya panggilan
+    ini tidak pernah memblokir user masuk ke app. Mendeteksi
+    `device_type`/`os` dari `navigator.userAgent` (desktop → macOS/
+    Windows/Linux, mobile → iOS/Android), `device_brand` best-effort
+    untuk mobile saja (model Android kalau ada, mis. `SM-G991B`; iPhone/
+    iPad cuma bisa dapat token generik "iPhone"/"iPad" — keterbatasan
+    UA Apple, bukan parser yang kurang), dan browser (Chrome/Safari/
+    Firefox/Edge). IP+city+country dari `ipapi.co/json/` dibungkus
+    try/catch + timeout 3 detik — gagal/timeout tetap insert row, cuma
+    tanpa 3 kolom itu (nullable), tanpa retry, tanpa toast error ke
+    user.
+  - **Sessions card** (`user_detail.html` + `user-detail.js`): tadinya
+    1 baris hardcoded dari `profiles.last_login_device` + lokasi
+    "Indonesia" hardcoded. Sekarang query 5 row terakhir dari
+    `login_history` (`profile_id` = user yang dilihat, order
+    `logged_in_at desc`), render device+brand+os / browser / lokasi
+    asli per baris. Hardcode "Indonesia" dihapus total.
+  - **"Sign out all"**: wired ke `supabase.auth.signOut({ scope:
+    'global' })` pakai shared client (`src/lib/supabaseClient.js`).
+    Catatan penting: method ini cuma bisa invalidate refresh token milik
+    user yang SEDANG login di browser itu sendiri — frontend cuma
+    punya anon key, tidak ada service-role/admin API buat paksa logout
+    user lain dari jarak jauh. Jadi tombol ini otomatis di-disable
+    dengan tooltip penjelasan kalau admin sedang melihat profil ORANG
+    LAIN (`?id=` beda dari akun sendiri), dan cuma aktif (dengan modal
+    konfirmasi via `showModal()`) kalau lihat profil sendiri.
+  - **Account Stats → "Logins"**: tadinya `'1+'`/`'0'` (bukan angka
+    asli, cuma nebak dari ada/tidaknya `last_sign_in_at`). Sekarang
+    `COUNT(*)` beneran dari `login_history` untuk user itu.
+  - **Account Security → "Last activity"** (baru): `MAX(created_at)`
+    dari tabel `activities` (`by_user` = user yang dilihat) — beda dari
+    "Last sign in" (itu login terakhir), ini kapan terakhir user
+    melakukan APAPUN di sistem (catat aktivitas, dsb). Kolom
+    `activities` diverifikasi dari `src/v4/client-activities.js`
+    (`id, client_id, case_id, type, notes, by_user, created_at`) karena
+    tabel ini sendiri tidak punya migration file di repo (dibuat di
+    luar `psql` seperti kasus 5 kolom `profiles` di v2.24.0 — di luar
+    scope sesi ini untuk diperbaiki).
+  - Achievements card sengaja TIDAK disentuh (task terpisah). Tidak ada
+    UI baru buat admin lihat `login_history` user lain di luar yang
+    sudah tampil di User Detail (RLS `login_history_admin_select` sudah
+    izinkan admin SELECT semua, tapi tidak dibuatkan halaman/export
+    tambahan).
+  - `npm run lint` dan `npm run build` PASS.
+
+### Fixed
+- **Bug ditemukan Ray saat manual test Issue #125**: klik "Sign out all"
+  sempat pindah ke `login.html` lalu langsung ke-bounce balik ke
+  `index.html` — Ray tetap login penuh (sidebar masih tampil Ray/Admin).
+  Console nunjukin `Uncaught (in promise) AbortError: Transition was
+  skipped` di `index.html:1`.
+  - Root cause: `login.js` (`initLogin()`) selalu cek
+    `getSession()` di awal load — kalau ada session, langsung redirect
+    ke `index.html` (logic ini buat skip form login kalau user udah
+    login, bukan bug baru). Masalahnya: tepat sesudah
+    `await supabase.auth.signOut({ scope: 'global' })` resolve di
+    `signOutAllSessions()`, `login.html` yang baru di-load masih
+    sempat baca session lokal yang valid sebelum benar-benar bersih —
+    2 navigasi beruntun itu yang bikin cross-document view transition
+    Chrome (`@view-transition { navigation: auto; }` di
+    `_tokens.scss`) ke-abort dengan pesan persis yang Ray lihat.
+  - Ditelusuri source `node_modules/@supabase/auth-js`
+    (`GoTrueClient.js` `_signOut()`): `scope: 'global'` SEHARUSNYA
+    selalu memanggil `removeCurrentSession()` (hapus local storage)
+    sebelum promise-nya resolve, di semua jalur (sukses maupun error
+    dari network call revoke). Jadi secara kode SDK, tidak ada race —
+    tapi race itu tetap kejadian di test manual Ray, jadi fix-nya
+    tidak mengandalkan timing promise `signOut()` begitu saja.
+  - Fix: sesudah `signOut({ scope: 'global' })` resolve, `getSession()`
+    dipanggil ulang buat verifikasi eksplisit session lokal beneran
+    kosong; kalau ternyata masih ada, dipanggil
+    `signOut({ scope: 'local' })` sebagai fallback (hapus storage lokal
+    murni, tidak bergantung hasil network call revoke — dikonfirmasi
+    lewat tes langsung di browser: session palsu yang di-craft ke
+    `localStorage` berhasil bersih total lewat `signOut({scope:'local'})`
+    walau token-nya invalid di server / dapat 403). Baru sesudah itu
+    redirect ke `login.html`.
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Tes langsung
+    di browser (dev server) — craft session palsu ke `localStorage`,
+    konfirmasi `getSession()` mendeteksinya, lalu `signOut({scope:
+    'local'})` benar-benar mengosongkan storage (`getSession()` balik
+    null, raw storage key `null`) meski network call revoke-nya gagal
+    (403, token fiktif) — membuktikan fallback ini reliable independen
+    dari sukses/gagalnya panggilan revoke ke server. `login.html`
+    di-reload sesudahnya tetap nampilin form login, tidak bounce.
+    BELUM dicoba dengan session REAL milik Ray (masih blocker akses
+    email yang sama) — Ray perlu re-test tombol "Sign out all" beneran
+    buat konfirmasi fix ini nutup bug-nya di skenario asli.
+- **Bug PRE-EXISTING (bukan bagian Issue #125), ditemukan Ray sambil
+  test di atas — 2 commit terpisah, root cause AKHIRNYA ketemu di
+  commit ke-2**: tombol logout bounce balik ke dashboard, tetap login.
+  - **Commit pertama (dugaan awal, TERNYATA salah sasaran)**: sempat
+    dikira bug yang sama persis dengan "Sign out all" di atas
+    (`signOut()` di `src/lib/auth.js` dikasih fix defensif yang sama —
+    re-check `getSession()` + fallback `signOut({scope:'local'})`).
+    Fix itu SENDIRI valid dan tetap dipertahankan (diverifikasi Ray
+    lewat `import('/src/lib/auth.js').then(m => m.signOut())` langsung
+    di Console — sign-out sukses total). TAPI itu bukan penyebab bug
+    yang Ray alami — Ray konfirmasi lewat DevTools Application > Local
+    Storage: session di localStorage SAMA SEKALI TIDAK BERUBAH sesudah
+    klik tombol logout di UI, dan nol baris `[DEBUG signOut]` muncul
+    di Console pas klik lewat UI. Artinya `signOut()` di `auth.js`
+    TIDAK PERNAH terpanggil dari UI sama sekali — bug-nya di jalur
+    klik, bukan di `signOut()` itu sendiri.
+  - **Root cause sebenarnya (commit kedua)**: DUA bug terpisah, keduanya
+    di `src/v4/shell.js`:
+    1. Tombol yang Ray SEBENARNYA klik adalah avatar "Account menu" di
+       topbar (`.tb-avatar`, pojok kanan atas — cocok sama deskripsi
+       Ray sendiri "top-right") → dropdown `USER_MENU` → "Sign out" →
+       `openSignOutModal()`. Modal konfirmasinya cuma tampilan demo
+       peninggalan template Gentelella asli — tombol "Sign out" di
+       modal itu cuma nampilin toast "Signed out" lalu redirect pakai
+       `setTimeout`, TIDAK PERNAH manggil `supabase.auth.signOut()`
+       sama sekali. Ini persis jelasin SEMUA bukti: storage tidak
+       berubah, nol debug log, dan kenapa redirect ke `login.html`
+       selalu bounce balik (session asli tidak pernah kehapus).
+    2. Terpisah dari itu: `shell.js` JUGA masang listener klik-nya
+       sendiri (demo, `USER_MENU`) di `.sidebar-user .more-btn` —
+       tombol yang SAMA yang dipakai `auth-guard.js` buat "Keluar"
+       (real). Dua listener nempel di elemen yang sama, dua-duanya
+       kepanggil tiap klik; karena `openMenu()` toggle-tutup kalau
+       dipanggil 2x buat trigger yang sama, panggilan kedua langsung
+       nutup menu yang baru dibuka panggilan pertama — sinkron, dalam
+       tick yang sama, sebelum sempat ke-render — jadi menu-nya
+       TIDAK PERNAH kelihatan sama sekali kalau klik tombol sidebar
+       itu. Dikonfirmasi lewat reproduksi persis (dua listener
+       ditempel ke elemen yang sama, di-klik via script) sebelum
+       listener demo-nya dihapus.
+  - Fix: listener demo `shell.js` di `.sidebar-user .more-btn` dihapus
+    total (`auth-guard.js` sudah pegang tombol itu sendirian). Action
+    "Sign out" di `openSignOutModal()` diganti manggil `signOut()` asli
+    dari `src/lib/auth.js` (bukan toast+timer palsu lagi).
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Dua tes
+    end-to-end lewat MODUL ASLI (bukan tiruan) di browser, pakai
+    session palsu: (a) sidebar — `openMenu()` + item Keluar sekarang
+    beneran ke-render dan persist (sebelumnya langsung hilang); (b)
+    topbar — `mountShell()` beneran dipanggil di DOM buatan, avatar
+    di-klik → dropdown muncul → klik "Sign out" → modal muncul → klik
+    "Sign out" di modal → `signOut()` asli kepanggil, storage
+    kehapus, mendarat bersih di `login.html` tanpa bounce (skrip-nya
+    sendiri sampai "terputus" di tengah karena halaman beneran
+    ke-navigate — bukti paling kuat kalau alurnya jalan). BELUM dicoba
+    dengan session REAL milik Ray (blocker akses email yang sama) —
+    Ray perlu re-test tombol logout (baik avatar topbar maupun
+    "Keluar" sidebar) beneran buat konfirmasi final.
+- **Bug ditemukan Ray: `login_history` selalu 0 row sesudah login
+  berhasil**, padahal login-nya sendiri jalan mulus dan nol error di
+  Console (dicek dari sebelum login sampai landing di dashboard).
+  - Root cause: di `src/v4/login.js`, `recordLoginHistory(userId)`
+    dipanggil fire-and-forget (tanpa `await`, sesuai desain awal), TAPI
+    baris SETELAHNYA langsung `window.location.href = 'index.html'`
+    TANPA jeda sama sekali. `recordLoginHistory()` sendiri, sebelum
+    fix ini, `await fetchIpLocation()` DULU (bisa sampai 3 detik kalau
+    API IP-nya lambat/timeout) SEBELUM sempat sampai ke baris
+    `insert()`-nya. Navigasi ke halaman lain motong context halaman di
+    tengah jalan — fetch/promise yang belum selesai kena cancel oleh
+    browser. Insert-nya nyaris tidak pernah kesampaian, jadi row-nya
+    memang beneran tidak pernah ke-tulis — dan karena code belum
+    sampai baris `insert()`, `try/catch`-nya juga tidak pernah nangkep
+    apapun (makanya nol error di Console, bukan error yang
+    ke-swallow).
+  - Fix (opsi 1 dari 2 yang didiskusikan — row-nya dijamin selalu ada
+    apapun kecepatan jaringan API IP-nya): `recordLoginHistory()`
+    sekarang DI-`await` oleh `login.js` sebelum redirect, tapi cuma
+    buat INSERT row inti (`device_type`/`device_brand`/`os`/`browser`)
+    — 1 request cepat, jadi delay ke login tetap minimal (bukan lagi
+    fire-and-forget, tapi juga bukan "await 3 detik ip lookup" seperti
+    sebelumnya). Pengayaan IP/city/country dipisah jadi fungsi sendiri
+    (`enrichLoginHistoryLocation()`) yang dipanggil TANPA `await` dari
+    dalam `recordLoginHistory()` sesudah insert sukses — ini yang
+    beneran fire-and-forget sekarang, UPDATE row yang sama by `id`
+    begitu lookup-nya selesai. Kalau navigasi motong proses ini di
+    tengah jalan, yang hilang cuma IP/city/country (nullable, sama
+    seperti skenario "API-nya gagal/timeout" yang sudah ditangani dari
+    awal) — bukan row-nya sendiri.
+  - Diverifikasi: `npm run lint` + `npm run build` PASS. Module
+    ke-load bersih tanpa error import/sintaks di browser (dev server).
+    BELUM dicoba insert sungguhan (blocker akses email yang sama,
+    RLS `login_history_own_insert` juga makan `auth.uid()` beneran
+    jadi tidak bisa dites pakai anon key kosongan) — Ray perlu login
+    sungguhan dan cek: (a) row muncul LANGSUNG sesudah landing di
+    dashboard (bukan "eventually"), (b) beberapa detik kemudian, query
+    ulang row yang sama buat pastikan `ip_address`/`city`/`country`
+    sudah keisi (asumsi ipapi.co tidak diblokir jaringannya).
+
+### Belum diverifikasi manual
+- Login OTP butuh akses email yang tidak tersedia buat AI agent (blocker
+  sama seperti sesi-sesi sebelumnya, lihat v2.16.0/v2.18.0/v2.19.0/
+  v2.20.0/v2.21.0). Sudah dicek: `login.html` dan `user_detail.html`
+  load bersih tanpa console error, `src/lib/login-history.js` ke-load
+  sebagai module tanpa error 404/import, `user_detail.html` tanpa
+  sesi login benar ke-redirect ke `login.html` (guard jalan), dan fix
+  "Sign out all" di atas sudah diverifikasi lewat session palsu di
+  browser (lihat bagian Fixed). Yang masih perlu dicek manual oleh Ray
+  dengan login OTP sungguhan: pastikan 1 row baru muncul di
+  `login_history` dengan device/os/browser yang masuk akal dan (kalau
+  jaringan ipapi.co tidak diblokir) IP/city/country terisi; Sessions
+  card di User Detail menampilkan row itu; tombol "Sign out all" di
+  profil sendiri benar-benar sign out semua device lalu redirect ke
+  login TANPA bounce balik (re-test khusus buat bug yang barusan
+  di-fix); tombol itu ter-disable saat admin melihat profil user lain;
+  angka "Logins" di Account Stats naik sesuai jumlah login sungguhan;
+  "Last activity" di Account Security menampilkan waktu aktivitas
+  terakhir yang benar (atau "No activity recorded" kalau belum pernah
+  ada aktivitas tercatat untuk user itu); avatar "Account menu" di
+  topbar (pojok kanan atas) → "Sign out" → confirm di modal → beneran
+  sign out dan mendarat di `login.html` tanpa bounce (re-test khusus
+  bug yang barusan ketemu akar masalahnya); tombol "Keluar" di sidebar
+  (footer sidebar, dropdown user) sekarang beneran kebuka dan bisa
+  diklik (sebelumnya menu-nya tidak pernah kelihatan sama sekali
+  karena konflik listener).
 
 ## [Unreleased] - Database
 

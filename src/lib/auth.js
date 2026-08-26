@@ -55,5 +55,19 @@ export async function getProfile() {
 /** Sign out and send the user back to the login page. */
 export async function signOut() {
   await supabase.auth.signOut();
+
+  // Belt-and-suspenders against the same race found in the "Sign out all"
+  // button (Issue #125 session-tracking work, src/v4/user-detail.js):
+  // login.html's own "already got a session? bounce to index.html" check
+  // (initLogin() in src/v4/login.js) sometimes still read a session
+  // immediately after signOut() resolved and redirected straight back.
+  // Explicitly re-verify local session state and force a local-only clear
+  // (storage removal only — no dependency on a second network round trip)
+  // before navigating.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+
   window.location.href = 'login.html';
 }
