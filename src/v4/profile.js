@@ -1,22 +1,55 @@
 // SMA-app — Profile page (production/profile.html): view/edit the logged-in
-// user's own `profiles` row (name, phone, company, bio) + notification
-// preferences. Avatar upload is intentionally not implemented — `profiles`
-// has no `avatar_url` column yet; needs a future migration + Supabase
-// Storage bucket before that capability can be added. Avatar display falls
-// back to a generated ui-avatars.com image in the meantime.
+// user's own `profiles` row (full_name, phone) + notification preferences.
+// Hero + Personal information layout mirrors production/user_detail.html's
+// left-card/right-panel pattern (Issue #117) — same `pf-*` CSS classes as
+// user_detail.html's `ud-*` ones, kept as separate classes since the two
+// pages don't share a stylesheet (see the <style> block in profile.html).
+// Avatar upload is intentionally not implemented — `profiles` has no
+// `avatar_url` column yet; needs a future migration + Supabase Storage
+// bucket before that capability can be added. Avatar display falls back to
+// a generated ui-avatars.com image in the meantime. Role is read-only here:
+// the `prevent_profile_privilege_escalation` trigger only lets
+// admin/supervisor change it, and a self-service profile page is not the
+// right place for a role-change UI even for admins — that belongs to the
+// dedicated User Management / User Detail flow.
 //
-// User-facing strings here (alerts) are in English, matching
-// profile.html — a deliberate, page-scoped exception to this project's
-// normal Bahasa Indonesia UI convention (see AGENTS.md and the
-// LANGUAGE NOTE in profile.html's <head>). Don't copy this English-only
-// pattern into other pages' JS.
+// User-facing strings here (toasts) are in English, matching profile.html
+// — a deliberate, page-scoped exception to this project's normal Bahasa
+// Indonesia UI convention (see AGENTS.md and the LANGUAGE NOTE in
+// profile.html's <head>). Don't copy this English-only pattern into other
+// pages' JS.
 
 import { supabase } from '../lib/supabaseClient.js';
+import { showToast } from './toast.js';
 
-const roleLabels = { admin: 'Admin', supervisor: 'Supervisor', internal: 'Internal/Team', client: 'Client' };
-const roleColors = { admin: 'danger', supervisor: 'warning', internal: 'primary', client: 'info' };
+const roleLabels = {
+  admin: 'Admin',
+  supervisor: 'Supervisor',
+  internal: 'Internal / Team',
+  client: 'Client'
+};
+
+const roleClasses = {
+  admin: 'pf-role-admin',
+  supervisor: 'pf-role-supervisor',
+  internal: 'pf-role-internal',
+  client: 'pf-role-client'
+};
+
+const statusLabels = {
+  ACTIVE: 'Active',
+  SUSPENDED: 'Suspended',
+  DISABLED: 'Disabled'
+};
+
+function avatarUrl(name) {
+  return 'https://ui-avatars.com/api/?name=' +
+    encodeURIComponent(name || 'User') +
+    '&background=1abb9c&color=fff&size=256&bold=true';
+}
 
 let currentProfileId = null;
+let loadedProfile = null;
 
 async function getCurrentProfile() {
   const { data: { user }, error } = await supabase.auth.getUser();
@@ -49,25 +82,29 @@ async function loadProfile() {
       return;
     }
 
-    document.getElementById('profileAvatar').src =
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'User')}&background=0d6efd&color=fff&size=128`;
+    const role = String(profile.role || 'internal').toLowerCase();
+    const status = String(profile.account_status || 'ACTIVE').toUpperCase();
+    const name = profile.full_name || 'User';
 
-    document.getElementById('displayName').textContent = profile.full_name || 'User';
-    document.getElementById('displayRole').textContent = roleLabels[profile.role] || profile.role;
-    document.getElementById('userRoleBadge').textContent = roleLabels[profile.role] || profile.role;
-    document.getElementById('userRoleBadge').className = `badge bg-${roleColors[profile.role] || 'secondary'}`;
-    document.getElementById('displayEmail').lastChild.textContent = ` ${profile.email || '-'}`;
+    /* HERO */
+    document.getElementById('profileAvatar').src = avatarUrl(name);
+    document.getElementById('displayName').textContent = name;
+    document.getElementById('displayRole').textContent = roleLabels[role] || role;
+    document.getElementById('displayEmail').textContent = profile.email || '-';
 
-    const nameParts = (profile.full_name || '').trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const roleBadge = document.getElementById('userRoleBadge');
+    roleBadge.textContent = roleLabels[role] || role;
+    roleBadge.className = 'pf-badge ' + (roleClasses[role] || 'pf-role-internal');
 
-    document.getElementById('editFirstName').value = firstName;
-    document.getElementById('editLastName').value = lastName;
-    document.getElementById('editEmail').value = profile.email || '';
+    const statusBadge = document.getElementById('userStatusBadge');
+    statusBadge.className = 'pf-badge ' + (status === 'ACTIVE' ? 'pf-status-active' : 'pf-status-inactive');
+    statusBadge.innerHTML = '<span>●</span> ' + (statusLabels[status] || status);
+
+    /* PERSONAL INFORMATION */
+    document.getElementById('editFullName').value = profile.full_name || '';
+    document.getElementById('editEmail').textContent = profile.email || '-';
     document.getElementById('editPhone').value = profile.phone || '';
-    document.getElementById('editRole').value = roleLabels[profile.role] || profile.role;
-    // Company/Bio editing intentionally disabled; fields are not part of the supported Profile UI.
+    document.getElementById('editRole').textContent = roleLabels[role] || role;
 
     const notif = profile.preferences?.notifications || {};
     document.getElementById('notifProductUpdates').checked = notif.product_updates !== false;
@@ -96,6 +133,7 @@ async function loadProfile() {
     `).join('');
 
     currentProfileId = profile.id;
+    loadedProfile = profile;
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error:', error);
@@ -103,26 +141,37 @@ async function loadProfile() {
   }
 }
 
-async function saveProfile() {
-  if (!currentProfileId) {alert('User not found'); return;}
+async function saveProfile(saveBtn) {
+  if (!currentProfileId || saveBtn.disabled) {return;}
 
-  const firstName = document.getElementById('editFirstName').value.trim();
-  const lastName = document.getElementById('editLastName').value.trim();
-  const fullName = [firstName, lastName].filter(Boolean).join(' ');
+  const fullName = document.getElementById('editFullName').value.trim();
+  const phone = document.getElementById('editPhone').value.trim();
 
-  const data = {
-    full_name: fullName,
-    phone: document.getElementById('editPhone').value
-    // Company/Bio intentionally excluded; no schema change is required.
-  };
+  if (!fullName) {
+    showToast('Full name is required.', { variant: 'error' });
+    return;
+  }
 
+  const data = { full_name: fullName, phone };
+  saveBtn.disabled = true;
+  const originalLabel = saveBtn.textContent;
+  saveBtn.textContent = 'Saving…';
   try {
     await updateProfile(currentProfileId, data);
-    alert('Profile saved successfully! ✅');
     await loadProfile();
+    showToast('Profile saved successfully.', { variant: 'success' });
   } catch (error) {
-    alert('Failed to save: ' + error.message);
+    showToast('Failed to save: ' + error.message, { variant: 'error' });
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalLabel;
   }
+}
+
+function discardProfile() {
+  if (!loadedProfile) {return;}
+  document.getElementById('editFullName').value = loadedProfile.full_name || '';
+  document.getElementById('editPhone').value = loadedProfile.phone || '';
 }
 
 async function saveNotifications() {
@@ -155,9 +204,10 @@ export async function initProfile() {
 
   await loadProfile();
 
-  document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+  const saveBtn = document.getElementById('saveProfileBtn');
+  if (saveBtn) {saveBtn.addEventListener('click', () => saveProfile(saveBtn));}
+  document.getElementById('discardProfileBtn').addEventListener('click', discardProfile);
   document.getElementById('saveNotifBtn').addEventListener('click', saveNotifications);
-  document.getElementById('cancelBtn').addEventListener('click', loadProfile);
 
   document.querySelectorAll('.connect-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
