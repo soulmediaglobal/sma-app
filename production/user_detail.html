@@ -1202,7 +1202,12 @@ body[data-page="user_detail"] h5 {
 
               <div class="ud-form-field full">
                 <label class="ud-form-label">Role</label>
-                <div class="ud-form-value ud-role-select" id="detailInfoRole">-</div>
+                <select id="detailInfoRole" class="ud-form-value ud-form-input ud-role-select">
+                  <option value="admin">Admin</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="internal">Internal / Team</option>
+                  <option value="client">Client</option>
+                </select>
               </div>
 
               <!-- `profiles` has no `position` column yet — display-only,
