@@ -149,16 +149,14 @@ a:hover { text-decoration: underline; }
 // override (.icon-cell svg, .feature .icon svg, etc.) wins cleanly.
 :where(svg):not([width]):not([height]) { width: 1em; height: 1em; }
 
-// Cross-document view transitions: smooth cross-fade between same-origin
-// pages in Chrome 126+. Other browsers ignore the at-rule. The default
-// transition duration (250ms) feels slightly heavy; trim to 180ms.
-@view-transition { navigation: auto; }
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 180ms;
-  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) { animation-duration: 0s; }
-}
+// Cross-document view transitions (@view-transition navigation: auto)
+// was tried here for a smooth cross-fade between pages in Chrome 126+,
+// but caused a worse problem than it solved: a brief flash of fully
+// unstyled HTML (no dark theme, default browser link colors) on every
+// navigation — the new document's CSS wasn't consistently ready before
+// the browser started painting the transition. Setting an explicit
+// background-color on ::view-transition-group(root) did not fix this
+// (that only addresses a plain white background, not raw unstyled
+// content). Removed entirely rather than chase further CSS/timing
+// workarounds for what was a nice-to-have animation, not a core
+// feature.
