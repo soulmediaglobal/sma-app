@@ -38,10 +38,10 @@ export const NAV = [
   {
     label: 'Sistem',
     items: [
-      { key: 'user_management', href: 'user_management.html', text: 'User Management', icon: 'profile',  roles: ['admin'] },
+      { key: 'user_management', href: 'user_management.html', text: 'User Management', icon: 'profile',  roles: ['admin', 'supervisor'] },
       { key: 'project_setting', href: 'project_setting.html', text: 'Project Setting', icon: 'projects', roles: ['admin'] },
       { key: 'settings',        href: 'settings.html',        text: 'Settings',        icon: 'settings', roles: ['admin', 'internal'] },
-      { key: 'profile',         href: 'profile.html',         text: 'Profil Saya',     icon: 'profile',  roles: ['admin', 'internal', 'client'] }
+      { key: 'profile',         href: 'user_detail.html',     text: 'Profil Saya',     icon: 'profile',  roles: ['internal', 'client'] }
     ]
   }
 ];

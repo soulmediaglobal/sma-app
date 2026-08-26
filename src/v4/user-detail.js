@@ -20,6 +20,7 @@
 // English-only pattern into other pages' JS.
 
 import { supabase } from '../lib/supabaseClient.js';
+import { getProfile } from '../lib/auth.js';
 import { updateProfile } from './profile.js';
 import { showToast } from './toast.js';
 
@@ -143,7 +144,7 @@ function renderActivity(profile) {
 
 let loadedProfile = null;
 
-async function loadUserDetail(userId) {
+async function loadUserDetail(userId, canEditRole) {
   if (!userId) {
     setText('detailName', 'User ID not found');
     return;
@@ -191,7 +192,12 @@ async function loadUserDetail(userId) {
     setText('detailInfoEmail', profile.email);
     setText('detailInfoCompany', profile.company);
     setValue('detailInfoPhone', profile.phone || '');
-    setText('detailInfoRole', roleLabels[role] || role);
+    const roleSelect = document.getElementById('detailInfoRole');
+    if (roleSelect) {
+      roleSelect.value = role;
+      roleSelect.disabled = !canEditRole;
+      roleSelect.classList.toggle('ud-form-input', canEditRole);
+    }
     setText('detailInfoPosition', profile.position);
     setText('detailInfoCreated', formatDateTime(profile.created_at));
     setText('detailInfoBio', profile.bio);
@@ -252,6 +258,10 @@ async function saveUserDetail(userId, saveBtn) {
   }
 
   const data = { full_name: fullName, phone };
+  const roleSelect = document.getElementById('detailInfoRole');
+  if (roleSelect && !roleSelect.disabled) {
+    data.role = roleSelect.value;
+  }
   saveBtn.disabled = true;
   const originalLabel = saveBtn.textContent;
   saveBtn.textContent = 'Menyimpan…';
@@ -272,6 +282,8 @@ function discardUserDetail() {
   if (!loadedProfile) {return;}
   setValue('detailInfoName', loadedProfile.full_name || '');
   setValue('detailInfoPhone', loadedProfile.phone || '');
+  const roleSelect = document.getElementById('detailInfoRole');
+  if (roleSelect) {roleSelect.value = loadedProfile.role || 'internal';}
 }
 
 let initialized = false;
@@ -280,8 +292,16 @@ export async function initUserDetail() {
   if (!document.querySelector('.user-detail-page') || initialized) {return;}
   initialized = true;
 
-  const userId = new URLSearchParams(window.location.search).get('id');
-  await loadUserDetail(userId);
+  // ?id= absent -> viewing own profile ("Profil Saya" nav item links
+  // here without an id). Fall back to the logged-in user's own id.
+  let userId = new URLSearchParams(window.location.search).get('id');
+  const me = await getProfile();
+  if (!userId) {
+    userId = me?.id || null;
+  }
+
+  const canEditRole = ['admin', 'supervisor'].includes(me?.role);
+  await loadUserDetail(userId, canEditRole);
 
   const saveBtn = document.getElementById('userDetailSaveBtn');
   const discardBtn = document.getElementById('userDetailDiscardBtn');

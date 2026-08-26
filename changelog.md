@@ -15,7 +15,42 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - User Profile & Detail Pages
+## [Unreleased] - App
+
+### Changed
+- **Issue #119: Konsolidasi profile.html ke user_detail.html.**
+  `production/profile.html` dihapus total — user_detail.html sekarang
+  satu-satunya halaman untuk lihat/edit info user, mode ditentukan dari
+  perbandingan `?id=` di URL dengan ID user yang login:
+  - Tanpa `?id=` (atau `?id=` sama dengan ID sendiri) → mode "profil
+    sendiri"
+  - `?id=` beda + viewer admin/supervisor → mode "kelola user lain"
+  - Menu sidebar berbasis role: admin/supervisor tampil "User
+    Management" (tidak lagi "Profil Saya" — akses profil sendiri lewat
+    User Management), internal/client tampil "Profil Saya" (mengarah
+    ke user_detail.html tanpa `?id=`)
+  - `src/v4/profile.js` disederhanakan — hanya menyisakan
+    `updateProfile()` yang dipakai bersama oleh user-detail.js, seluruh
+    fungsi khusus halaman lama (loadProfile, saveProfile,
+    saveNotifications, dll) dihapus
+- **Role field kini bisa diedit untuk admin/supervisor.** Sebelumnya
+  (Issue #113) role dikunci read-only karena khawatir lockout — proteksi
+  itu sudah ada di level database sejak Issue #109 (trigger menolak
+  kalau perubahan akan menyisakan 0 admin aktif), jadi penguncian di UI
+  tidak diperlukan lagi untuk role admin/supervisor. Role tetap
+  read-only untuk internal/client (mereka tidak berwenang mengubah role
+  siapapun, termasuk diri sendiri).
+- Email dan Company/Position/Bio TETAP read-only permanen — Email
+  disinkron dari `auth.users` (butuh alur verifikasi terpisah, bukan
+  UPDATE biasa), Company/Position/Bio karena kolomnya belum ada di
+  schema (keputusan Issue #115, tidak menambah schema tanpa kebutuhan
+  jelas).
+- Diverifikasi VISUAL langsung di browser oleh Ray: menu "Profil Saya"
+  hilang untuk admin, klik dari sidebar (tanpa `?id=`) menampilkan data
+  sendiri dengan benar, Role sekarang jadi dropdown yang bisa diedit
+  dan disimpan.
+
+## [2.23.0] - 2026-08-25
 
 ### Fixed
 - **Issue #113: Koreksi struktur teknis halaman Profile & User Detail**.
@@ -171,7 +206,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   (restrukturisasi layout, di luar scope task ini) dibatalkan, tidak
   ikut di-commit.
 
-## [Unreleased] - Profile Page Layout
+## [2.24.0] - 2026-08-25
 
 ### Changed
 - **Issue #117: Samakan layout `profile.html` dengan `user_detail.html`.**
@@ -243,7 +278,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   toast sukses/error muncul, Discard reset ke nilai lama, dan badge role
   + status akun menampilkan data yang benar.
 
-## [Unreleased] - Database
+## [2.22.0] - 2026-08-24
 
 ### Added
 - **Issue #109: Role Management & Account Status**. Kolom baru

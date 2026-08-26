@@ -33,9 +33,6 @@ guardAdminPage().then(() => {
   if (document.getElementById('project-setting-root')) {
     import('./v4/project-setting.js').then((m) => m.initProjectSetting());
   }
-  if (document.getElementById('profile-root')) {
-    import('./v4/profile.js').then((m) => m.initProfile());
-  }
   if (document.querySelector('.user-detail-page')) {
     import('./v4/user-detail.js').then((m) => m.initUserDetail());
   }
