@@ -171,6 +171,78 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   (restrukturisasi layout, di luar scope task ini) dibatalkan, tidak
   ikut di-commit.
 
+## [Unreleased] - Profile Page Layout
+
+### Changed
+- **Issue #117: Samakan layout `profile.html` dengan `user_detail.html`.**
+  Halaman "Profil Saya" (punya user sendiri) sekarang pakai pola visual yang
+  sama dengan halaman User Detail admin (Issue #113): kartu foto/badge di
+  kiri + panel "Personal information" di kanan.
+  - `production/profile.html`: kartu "Your Profile" (avatar Bootstrap +
+    nama/role/email/lokasi) dan form "Personal Information" (First
+    name/Last name/Email/Phone/Role/Company/Bio) diganti jadi 1 section
+    grid 2 kolom (`pf-row`/`pf-card`/dst — nama class beda dari
+    `user_detail.html` yang pakai `ud-*` karena kedua halaman ini masih
+    punya `<style>` masing-masing, tidak share satu stylesheet), meniru
+    persis struktur & style `ud-row-main`/`ud-card`/`ud-form-value`
+    (termasuk state read-only dengan dimmed background + glyph 🔒, dan
+    state editable dengan input standar) di `user_detail.html`. CSS-nya
+    disalin (bukan di-import) supaya `user_detail.html` sendiri tidak
+    ikut disentuh, sesuai permintaan Ray.
+  - Field kiri: avatar (fallback ui-avatars.com, warna teal `#1abb9c`
+    disamakan dengan `user-detail.js` — sebelumnya biru `#0d6efd`), nama,
+    role, email, badge role + badge status akun (`account_status`, kolom
+    yang sudah ada tapi belum pernah ditampilkan di `profile.html`). Tidak
+    ada link "Manage Account" (halaman ini punya user sendiri, tidak ada
+    tempat lain untuk redirect) dan tidak ada tombol upload avatar (masih
+    sama seperti sebelumnya — `profiles` belum punya kolom `avatar_url`).
+    Field lokasi ("Indonesia", teks statis tidak terhubung ke data apapun)
+    dihapus karena `user_detail.html` juga tidak menampilkannya.
+  - Field kanan ("Personal information"): cuma 4 field — **Full name**
+    (editable, gabungan First/Last name lama jadi 1 field sesuai
+    kolom asli `full_name`), **Email** (read-only), **Phone** (editable),
+    **Role** (read-only, gaya lock-icon sama seperti field read-only
+    lain). `Company`/`Bio` TIDAK ditambah balik — sudah sengaja dihapus
+    di Issue #115 karena kolomnya tidak ada di schema, di luar scope
+    perbaikan ini. `Role` sengaja tetap read-only untuk semua orang
+    (termasuk admin yang lihat profil sendiri) — trigger
+    `prevent_profile_privilege_escalation` cuma izinin ubah role dari
+    alur User Management/User Detail yang memang didesain untuk itu,
+    bukan dari halaman self-service ini.
+  - Card "Notifications", "Account stats", "Connected accounts", "Recent
+    activity" di bawahnya TIDAK diubah — di luar scope task ini (task
+    cuma minta samakan bagian hero + Personal Information).
+  - `src/v4/profile.js`: `saveProfile()` tetap kirim `{ full_name, phone }`
+    saja ke `updateProfile()` (payload dari Issue #115, tidak diubah),
+    sekarang baca dari 1 field `editFullName` (bukan gabung
+    `editFirstName`+`editLastName`). Ditambah validasi "Full name is
+    required" dan disable-tombol-saat-menyimpan, meniru pola
+    `saveUserDetail()` di `user-detail.js`. Tombol "Cancel" diganti jadi
+    "Discard" (nama tombol sama seperti `user_detail.html`) dan sekarang
+    reset ke nilai terakhir yang berhasil di-load di memory (state lokal,
+    fungsi baru `discardProfile()`), bukan reload penuh dari DB seperti
+    sebelumnya — sama seperti `discardUserDetail()`. Pesan sukses/gagal
+    save diganti dari `alert()` ke `showToast()` (`src/v4/toast.js`) biar
+    konsisten dengan `user-detail.js` — bagian lain file ini (Notifications,
+    tombol Connect) masih pakai `alert()`, sengaja tidak disentuh karena
+    di luar scope.
+- Diverifikasi: `npm run lint` (0 error, warning yang ada cuma `no-alert`
+  di kode yang memang sengaja tidak disentuh + `no-console` di file lain
+  yang tidak diubah) dan `npm run build` (sukses, chunk `profile.js`
+  ter-generate). Klik-lewat browser di dev server terblokir oleh auth
+  guard (redirect ke `login.html`, sama persis seperti yang dilaporkan di
+  entry Issue #113 sebelumnya — environment ini tidak punya sesi login
+  yang tervalidasi) — jadi Save/Discard belum bisa diklik-tes langsung
+  di environment ini. Sebagai gantinya, layout & CSS diverifikasi visual
+  lewat mock HTML statis terpisah (bukan bagian dari app, tidak
+  di-commit) yang me-render markup+CSS `profile.html` dan
+  `user_detail.html` berdampingan dengan data contoh — dikonfirmasi kartu
+  profil kiri dan form kanan (termasuk state read-only vs editable)
+  benar-benar cocok secara visual. **Perlu dicek manual oleh Ray**: login
+  ke `profile.html`, cek field Full name/Phone bisa diedit & tersimpan,
+  toast sukses/error muncul, Discard reset ke nilai lama, dan badge role
+  + status akun menampilkan data yang benar.
+
 ## [Unreleased] - Database
 
 ### Added
