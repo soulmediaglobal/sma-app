@@ -76,11 +76,15 @@ function formatDateTime(value) {
 }
 
 function formatSessionDevice(row) {
-  const parts = [];
-  parts.push(row.device_type === 'mobile' ? 'Mobile' : 'Desktop');
-  if (row.device_brand) {parts.push(row.device_brand);}
-  if (row.os) {parts.push(row.os);}
-  return parts.join(' · ');
+  const type = row.device_type === 'mobile' ? 'Mobile' : 'Desktop';
+  const os = row.os || 'Unknown OS';
+  return `${type} · ${os}`;
+}
+
+function formatSessionBrand(row) {
+  const brand = row.device_brand || (row.os === 'macOS' ? 'Mac' : 'Generic');
+  const browser = row.browser || 'Browser';
+  return `${brand} · ${browser}`;
 }
 
 function formatSessionLocation(row) {
@@ -93,17 +97,17 @@ function renderSessionHistory(rows) {
   if (!tbody) {return;}
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
     return;
   }
 
   tbody.innerHTML = rows.map((row) => `
     <tr>
-      <td>
-        <span class="ud-session-device">${escapeHtml(formatSessionDevice(row))}</span>
-        <span class="ud-session-meta">${escapeHtml(row.browser || 'Browser')}</span>
-      </td>
+      <td>${escapeHtml(formatSessionDevice(row))}</td>
+      <td>${escapeHtml(formatSessionBrand(row))}</td>
+      <td>${escapeHtml(row.ip_address || '-')}</td>
       <td>${escapeHtml(formatSessionLocation(row))}</td>
+      <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
       <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
     </tr>
   `).join('');
@@ -115,14 +119,14 @@ async function loadSessionHistory(userId) {
   try {
     const { data, error } = await supabase
       .from('login_history')
-      .select('device_type, device_brand, os, browser, city, country, logged_in_at')
+      .select('device_type, device_brand, os, browser, ip_address, city, country, logged_in_at')
       .eq('profile_id', userId)
       .order('logged_in_at', { ascending: false })
       .limit(5);
     if (error) {throw error;}
     renderSessionHistory(data || []);
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:#ff747d;">${escapeHtml(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#ff747d;">${escapeHtml(error.message)}</td></tr>`;
   }
 }
 
@@ -146,44 +150,30 @@ function calculateProfileCompletion(profile) {
   return Math.round((completed / fields.length) * 100);
 }
 
-function renderActivity(profile) {
-  const events = [];
-
-  if (profile.created_at) {
-    events.push({ title: 'Account created', time: formatDateTime(profile.created_at), meta: 'SMA App' });
-  }
-  if (profile.last_sign_in_at) {
-    events.push({
-      title: 'Signed in',
-      time: formatDateTime(profile.last_sign_in_at),
-      meta: profile.last_login_device || 'Device not recorded'
-    });
-  }
-  if (profile.status_changed_at) {
-    events.push({
-      title: 'Account status changed to ' + (statusLabels[profile.account_status] || profile.account_status),
-      time: formatDateTime(profile.status_changed_at),
-      meta: profile.status_reason || 'Status update'
-    });
-  }
-  if (profile.updated_at && profile.updated_at !== profile.created_at) {
-    events.push({ title: 'Profile updated', time: formatDateTime(profile.updated_at), meta: 'Profile information' });
-  }
-
-  events.sort((a, b) => new Date(b.time) - new Date(a.time));
+/** Real activity log from the `activities` table (same query/formatting
+ * pattern as dashboard.js's loadRecentActivity() — kept consistent so the
+ * two pages don't drift). The most recent row here IS "last activity" for
+ * this user; no separate field is needed elsewhere for that. */
+async function renderActivity(userId) {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('id, type, notes, created_at, clients(name)')
+    .eq('by_user', userId)
+    .order('created_at', { ascending: false })
+    .limit(8);
 
   const container = document.getElementById('detailActivity');
-  if (!events.length) {
+  if (error || !data || data.length === 0) {
     container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No activity recorded.</div>';
     return;
   }
 
-  container.innerHTML = events.map((event) => `
+  container.innerHTML = data.map((a) => `
     <div class="ud-event">
       <span class="ud-event-dot"></span>
-      <div class="ud-event-time">${escapeHtml(event.time)}</div>
-      <div class="ud-event-title">${escapeHtml(event.title)}</div>
-      <div class="ud-event-meta">${escapeHtml(event.meta)}</div>
+      <div class="ud-event-time">${escapeHtml(formatDateTime(a.created_at))}</div>
+      <div class="ud-event-title">${escapeHtml(a.type)}${a.clients?.name ? escapeHtml(' dengan ' + a.clients.name) : ''}</div>
+      <div class="ud-event-meta">${escapeHtml(a.notes || '-')}</div>
     </div>
   `).join('');
 }
@@ -248,12 +238,6 @@ async function loadUserDetail(userId, canEditRole) {
     setText('detailInfoCreated', formatDateTime(profile.created_at));
     setText('detailInfoBio', profile.bio);
 
-    /* SECURITY */
-    setText('securityStatus', statusLabels[status] || status);
-    setText('securityRole', roleLabels[role] || role);
-    setText('securityLogin', formatDateTime(profile.last_sign_in_at));
-    setText('securityDevice', profile.last_login_device || 'Not recorded');
-
     /* SESSION */
     await loadSessionHistory(userId);
 
@@ -261,26 +245,21 @@ async function loadUserDetail(userId, canEditRole) {
     setText('connectedEmail', profile.email || 'No email');
 
     /* STATS */
-    const [{ count: assignmentCount }, { count: createdCaseCount }, { count: loginCount }, lastActivityResult] = await Promise.all([
+    const [{ count: assignmentCount }, { count: createdCaseCount }, { count: loginCount }] = await Promise.all([
       supabase.from('case_assignees').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('cases').select('*', { count: 'exact', head: true }).eq('created_by', userId),
-      supabase.from('login_history').select('*', { count: 'exact', head: true }).eq('profile_id', userId),
-      supabase.from('activities').select('created_at').eq('by_user', userId).order('created_at', { ascending: false }).limit(1)
+      supabase.from('login_history').select('*', { count: 'exact', head: true }).eq('profile_id', userId)
     ]);
 
     setText('detailStatProjects', (assignmentCount || 0) + (createdCaseCount || 0));
     setText('detailStatTeam', assignmentCount || 0);
     setText('detailStatCommits', loginCount || 0);
 
-    /* LAST ACTIVITY */
-    const lastActivityAt = lastActivityResult.data?.[0]?.created_at || null;
-    setText('securityLastActivity', lastActivityAt ? formatDateTime(lastActivityAt) : 'No activity recorded');
-
     const days = profile.created_at ? Math.floor((Date.now() - new Date(profile.created_at).getTime()) / 86400000) : 0;
     setText('detailStatRating', days);
 
     /* ACTIVITY */
-    renderActivity(profile);
+    renderActivity(userId);
 
     loadedProfile = profile;
   } catch (error) {

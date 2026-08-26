@@ -1243,71 +1243,16 @@ body[data-page="user_detail"] h5 {
       </section>
 
       <!-- =====================================================
-           ACCOUNT SECURITY + SESSIONS
+           SESSIONS
+           Card "Account security" (Issue #128) dihapus - field-nya
+           duplikat dengan badge status/role (card kiri) dan Personal
+           Information/Sessions. Last activity dipindah jadi baris
+           teratas di card Recent Activity (di bawah), yang sekarang
+           query nyata ke tabel activities, bukan lagi rekonstruksi
+           dari kolom profiles.
            ===================================================== -->
 
-      <section class="ud-row ud-row-half">
-
-        <article class="ud-card">
-
-          <div class="ud-card-header">
-            <h2>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3a6 6 0 00-6 6c0 6-3 7-3 7h18s-3-1-3-7a6 6 0 00-6-6z"/><path d="M10.5 21a1.5 1.5 0 003 0"/></svg>
-              Account security
-            </h2>
-
-            <p>
-              Account access and security state.
-            </p>
-          </div>
-
-          <div class="ud-list">
-
-            <div class="ud-list-row">
-              <div>
-                <div class="ud-list-title">Account status</div>
-                <div id="securityStatusMeta" class="ud-list-meta">
-                  Current account access
-                </div>
-              </div>
-              <strong id="securityStatus">-</strong>
-            </div>
-
-            <div class="ud-list-row">
-              <div>
-                <div class="ud-list-title">Role</div>
-                <div class="ud-list-meta">Authorization level</div>
-              </div>
-              <strong id="securityRole">-</strong>
-            </div>
-
-            <div class="ud-list-row">
-              <div>
-                <div class="ud-list-title">Last sign in</div>
-                <div class="ud-list-meta">Most recent authentication</div>
-              </div>
-              <strong id="securityLogin">-</strong>
-            </div>
-
-            <div class="ud-list-row">
-              <div>
-                <div class="ud-list-title">Last login device</div>
-                <div class="ud-list-meta">Recorded device and browser</div>
-              </div>
-              <strong id="securityDevice">-</strong>
-            </div>
-
-            <div class="ud-list-row">
-              <div>
-                <div class="ud-list-title">Last activity</div>
-                <div class="ud-list-meta">Most recent action in the system</div>
-              </div>
-              <strong id="securityLastActivity">-</strong>
-            </div>
-
-          </div>
-
-        </article>
+      <section class="ud-row">
 
         <article class="ud-card">
 
@@ -1330,12 +1275,15 @@ body[data-page="user_detail"] h5 {
 
           <table class="ud-session-table">
             <thead>
-              <tr>
-                <th>Device</th>
-                <th>Location</th>
-                <th>Last seen</th>
-              </tr>
-            </thead>
+                  <tr>
+                    <th style="width: 20%;">Device</th>
+                    <th style="width: 18%;">Brand</th>
+                    <th style="width: 17%;">IP Address</th>
+                    <th style="width: 18%;">Location</th>
+                    <th style="width: 14%;">Last seen</th>
+                    <th style="width: 13%;">Last activity</th>
+                  </tr>
+                </thead>
 
             <tbody id="sessionHistoryBody">
               <tr>
@@ -1460,7 +1408,7 @@ body[data-page="user_detail"] h5 {
            CONNECTED ACCOUNTS + RECENT ACTIVITY
            ===================================================== -->
 
-      <section class="ud-row ud-row-half">
+      <section class="ud-row">
 
         <article class="ud-card">
 

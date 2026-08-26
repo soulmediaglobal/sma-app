@@ -17,6 +17,28 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] - App
 
+### Changed
+- **Issue #128: rapikan card Sessions & Recent Activity.** Tabel
+  Sessions diperluas jadi 6 kolom (Device, Brand, IP Address,
+  Location, Last seen, Last activity) dengan strategi lookup IP yang
+  diperbaiki (ipify untuk IPv4, fallback ipwho.is untuk geolocation) —
+  mengatasi masalah Location/IP yang sebelumnya selalu kosong.
+- Card "Account security" dihapus sepenuhnya — field-nya
+  (Account status, Role, Last sign in, Last login device) duplikat
+  dengan badge di card kiri dan Personal Information/Sessions.
+- Card "Recent Activity" sekarang query nyata ke tabel `activities`
+  (WHERE by_user = id), bukan lagi rekonstruksi generik dari kolom
+  profiles ("Account created"/"Signed in"/dst). Pola query & formatting
+  disamakan dengan `loadRecentActivity()` di dashboard.js supaya
+  konsisten. Baris teratas hasil query ini otomatis merepresentasikan
+  "last activity" — tidak ada lagi field terpisah untuk itu.
+- Fix lint: `AbortController` ditambahkan ke daftar globals
+  `eslint.config.js` (dipakai untuk timeout fetch lookup IP di
+  `login-history.js`).
+- Diverifikasi visual langsung di browser oleh Ray.
+
+## [2.27.0] - 2026-08-26
+
 ### Added
 - **Session Tracking & Login History (Issue #125)**:
   - Tabel `login_history` untuk mencatat aktivitas login per user (perangkat, OS, browser, IP, lokasi).
@@ -273,7 +295,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   diklik (sebelumnya menu-nya tidak pernah kelihatan sama sekali
   karena konflik listener).
 
-## [Unreleased] - Database
+## [2.26.0] - 2026-08-26
 
 ### Fixed
 - **5 kolom `profiles` tanpa migration file (`avatar_url`, `bio`,
