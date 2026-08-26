@@ -75,11 +75,6 @@ function formatDateTime(value) {
   });
 }
 
-function formatSessionDevice(row) {
-  const type = row.device_type === 'mobile' ? 'Mobile' : 'Desktop';
-  const os = row.os || 'Unknown OS';
-  return `${type} · ${os}`;
-}
 
 function formatSessionBrand(row) {
   const brand = row.device_brand || (row.os === 'macOS' ? 'Mac' : 'Generic');
@@ -97,20 +92,31 @@ function renderSessionHistory(rows) {
   if (!tbody) {return;}
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);">No sessions recorded.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = rows.map((row) => `
+  tbody.innerHTML = rows.map((row, index) => {
+    const chipClass = row.device_type === 'mobile' ? 'chip-blue' : 'chip-primary';
+    const deviceLabel = row.device_type === 'mobile' ? 'Mobile' : 'Desktop';
+    const loginTime = escapeHtml(formatDateTime(row.logged_in_at));
+    const loginCell = index === 0
+      ? `<span class="status status-green">Aktif sekarang</span><span class="ud-session-meta">${loginTime}</span>`
+      : loginTime;
+
+    return `
     <tr>
-      <td>${escapeHtml(formatSessionDevice(row))}</td>
+      <td class="ud-session-device-cell">
+        <span class="chip ${chipClass}">${escapeHtml(deviceLabel)}</span>
+        <span class="ud-session-meta">${escapeHtml(row.os || 'Unknown OS')}</span>
+      </td>
       <td>${escapeHtml(formatSessionBrand(row))}</td>
       <td>${escapeHtml(row.ip_address || '-')}</td>
       <td>${escapeHtml(formatSessionLocation(row))}</td>
-      <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
-      <td>${escapeHtml(formatDateTime(row.logged_in_at))}</td>
+      <td>${loginCell}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function loadSessionHistory(userId) {

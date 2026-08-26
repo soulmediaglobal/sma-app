@@ -529,6 +529,17 @@
       font-size: 10px;
     }
 
+    .ud-session-device-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ud-session-device-cell .ud-session-meta {
+      display: inline;
+      margin-top: 0;
+    }
+
     .ud-live {
       color: #2fd49d;
       font-weight: 600;
@@ -1277,17 +1288,16 @@ body[data-page="user_detail"] h5 {
             <thead>
                   <tr>
                     <th style="width: 20%;">Device</th>
-                    <th style="width: 18%;">Brand</th>
-                    <th style="width: 17%;">IP Address</th>
-                    <th style="width: 18%;">Location</th>
-                    <th style="width: 14%;">Last seen</th>
-                    <th style="width: 13%;">Last activity</th>
+                    <th style="width: 20%;">Brand</th>
+                    <th style="width: 20%;">IP Address</th>
+                    <th style="width: 20%;">Location</th>
+                    <th style="width: 20%;">Login Session</th>
                   </tr>
                 </thead>
 
             <tbody id="sessionHistoryBody">
               <tr>
-                <td colspan="3" style="color:var(--text-muted);">-</td>
+                <td colspan="5" style="color:var(--text-muted);">-</td>
               </tr>
             </tbody>
           </table>

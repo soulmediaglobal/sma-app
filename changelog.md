@@ -18,6 +18,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ## [Unreleased] - App
 
 ### Changed
+- **Issue #132: kosmetik tabel Sessions.** Kolom Device dari teks polos
+  jadi chip (Desktop/Mobile) sejajar dengan OS. Kolom "Last seen"
+  diganti nama jadi "Login Session", baris terbaru mendapat badge
+  status hijau "Aktif sekarang". Kolom "Last activity" dihapus dari
+  tabel — redundan dengan card Recent Activity yang lebih detail.
+  Tabel sekarang 5 kolom (dari 6).
+- Diverifikasi visual langsung di browser oleh Ray.
+
+## [2.29.0] - 2026-08-26
+
+### Changed
 - **Issue #130: coba provider IP geolocation lain (BigDataCloud).**
   fetchIpLocation() di login-history.js sekarang mencoba BigDataCloud
   Client Info API dulu (client-side, gratis, tanpa API key, tanpa rate
