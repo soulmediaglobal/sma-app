@@ -11,6 +11,10 @@ export function clientCallbackUrl() {
   return clientPortalUrl('client-auth-callback.html');
 }
 
+export function clientSetPasswordUrl() {
+  return clientPortalUrl('client-set-password.html');
+}
+
 export function internalCmsUrl() {
   if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
     return clientPortalUrl('index.html');
@@ -25,14 +29,18 @@ export async function signInClientWithGoogle() {
   });
 }
 
-export async function requestClientMagicLink(email) {
-  return supabase.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: clientCallbackUrl()
-    }
+export async function signInClientWithPassword(email, password) {
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function requestClientPasswordReset(email) {
+  return supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: clientSetPasswordUrl()
   });
+}
+
+export async function setClientPassword(password) {
+  return supabase.auth.updateUser({ password });
 }
 
 export async function restoreClientSession() {
@@ -94,8 +102,23 @@ export function isClientProfileComplete(profile) {
 }
 
 export async function signOutClient() {
-  await supabase.auth.signOut();
-  window.location.replace(clientPortalUrl('client-portal-login.html'));
+  const loginUrl = clientPortalUrl('client-portal-login.html');
+
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {return { error };}
+    window.location.replace(loginUrl);
+    return { error: null };
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        window.location.replace(loginUrl);
+        return { error: null };
+      }
+    }
+    return { error };
+  }
 }
 
 export async function updateClientProfile(profileId, name, phone) {

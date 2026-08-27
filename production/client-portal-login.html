@@ -34,7 +34,7 @@
       <div>
         <p class="client-auth-eyebrow">Selamat datang</p>
         <h2 id="client-login-form-title">Masuk ke Client Portal</h2>
-        <p class="client-auth-description">Gunakan akun Google atau tautan aman yang dikirim ke email.</p>
+        <p class="client-auth-description">Gunakan akun Google atau email dan password Client Portal.</p>
       </div>
 
       <button type="button" class="client-auth-google" data-client-google>
@@ -49,14 +49,18 @@
 
       <div class="client-auth-divider"><span>atau</span></div>
 
-      <form class="client-auth-form" data-client-magic-form novalidate>
+      <form class="client-auth-form" data-client-password-form novalidate>
         <label for="client-email">Email</label>
         <input id="client-email" type="email" autocomplete="email" placeholder="nama@email.com" required data-client-email>
-        <button type="submit" class="client-auth-primary">Kirim tautan masuk</button>
+        <label for="client-password">Password</label>
+        <input id="client-password" type="password" autocomplete="current-password" placeholder="Masukkan password" required data-client-password>
+        <button type="submit" class="client-auth-primary">Masuk</button>
       </form>
 
+      <button type="button" class="client-auth-text-button" data-client-forgot-password>Lupa password?</button>
+
       <p class="client-auth-feedback" role="status" aria-live="polite" data-client-auth-feedback hidden></p>
-      <p class="client-auth-privacy">Dengan melanjutkan, kamu menyetujui penggunaan akun untuk layanan Client Portal SMA. Kami tidak menyediakan login dengan password.</p>
+      <p class="client-auth-privacy">Belum memiliki password? Gunakan email pengaturan password yang dikirim Tim SMA.</p>
     </section>
   </main>
 </body>

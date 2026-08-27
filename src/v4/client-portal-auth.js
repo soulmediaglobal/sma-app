@@ -3,14 +3,17 @@ import {
   clientPortalUrl,
   internalCmsUrl,
   isClientProfileComplete,
-  requestClientMagicLink,
+  requestClientPasswordReset,
   restoreClientSession,
   routeForClientProfile,
+  setClientPassword,
   signInClientWithGoogle,
+  signInClientWithPassword,
   signOutClient,
   updateClientProfile,
   waitForClientProfile
 } from '../lib/client-portal-auth.js';
+import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 
 let initializedRoot = null;
@@ -33,6 +36,82 @@ function friendlyAuthError(error) {
   return 'Proses masuk belum berhasil. Silakan coba lagi.';
 }
 
+function bindClientLogout(button) {
+  if (!button || button.dataset.logoutBound === 'true') {return;}
+  button.dataset.logoutBound = 'true';
+  button.addEventListener('click', () => {
+    if (button.disabled) {return;}
+    setButtonBusy(button, true, 'Keluar…');
+    signOutClient()
+      .then(({ error }) => {
+        if (!error) {return;}
+        setButtonBusy(button, false, '');
+        showToast('Sesi belum dapat diakhiri. Silakan coba lagi.', { variant: 'error' });
+      })
+      .catch(() => {
+        setButtonBusy(button, false, '');
+        showToast('Sesi belum dapat diakhiri. Silakan coba lagi.', { variant: 'error' });
+      });
+  });
+}
+
+function openForgotPasswordModal() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'client-forgot-password';
+
+  const description = document.createElement('p');
+  description.textContent = 'Masukkan email Client Portal. Jika akun tersedia, kami akan mengirim tautan untuk membuat atau mengatur ulang password.';
+
+  const form = document.createElement('form');
+  form.className = 'client-auth-form';
+  form.noValidate = true;
+  const label = document.createElement('label');
+  label.htmlFor = 'client-reset-email';
+  label.textContent = 'Email';
+  const input = document.createElement('input');
+  input.id = 'client-reset-email';
+  input.type = 'email';
+  input.autocomplete = 'email';
+  input.required = true;
+  input.placeholder = 'nama@email.com';
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.className = 'client-auth-primary';
+  submit.textContent = 'Kirim Tautan';
+  const feedback = document.createElement('p');
+  feedback.className = 'client-auth-feedback';
+  feedback.setAttribute('role', 'status');
+  feedback.setAttribute('aria-live', 'polite');
+  feedback.hidden = true;
+
+  form.append(label, input, submit);
+  wrapper.append(description, form, feedback);
+  let pending = false;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (pending || !form.reportValidity()) {return;}
+    pending = true;
+    setButtonBusy(submit, true, 'Mengirim…');
+    try {
+      await requestClientPasswordReset(input.value.trim());
+      form.hidden = true;
+      feedback.dataset.variant = 'success';
+      feedback.textContent = 'Jika akun tersedia, tautan pengaturan password akan dikirim ke email tersebut.';
+      feedback.hidden = false;
+    } catch {
+      form.hidden = true;
+      feedback.dataset.variant = 'success';
+      feedback.textContent = 'Jika akun tersedia, tautan pengaturan password akan dikirim ke email tersebut.';
+      feedback.hidden = false;
+    } finally {
+      pending = false;
+      setButtonBusy(submit, false, '');
+    }
+  });
+
+  showModal({ title: 'Lupa password?', body: wrapper, size: 'sm' });
+}
+
 async function initClientLogin(root) {
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
@@ -41,9 +120,11 @@ async function initClientLogin(root) {
   }
 
   const googleButton = root.querySelector('[data-client-google]');
-  const magicForm = root.querySelector('[data-client-magic-form]');
+  const passwordForm = root.querySelector('[data-client-password-form]');
   const emailInput = root.querySelector('[data-client-email]');
+  const passwordInput = root.querySelector('[data-client-password]');
   const feedback = root.querySelector('[data-client-auth-feedback]');
+  const forgotPasswordButton = root.querySelector('[data-client-forgot-password]');
   let requestPending = false;
 
   googleButton.addEventListener('click', async () => {
@@ -72,35 +153,37 @@ async function initClientLogin(root) {
     }
   });
 
-  magicForm.addEventListener('submit', async (event) => {
+  passwordForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (requestPending || !magicForm.reportValidity()) {return;}
+    if (requestPending || !passwordForm.reportValidity()) {return;}
 
     requestPending = true;
-    const submitButton = magicForm.querySelector('button[type="submit"]');
-    setButtonBusy(submitButton, true, 'Mengirim…');
+    const submitButton = passwordForm.querySelector('button[type="submit"]');
+    setButtonBusy(submitButton, true, 'Memverifikasi…');
     try {
-      const { error } = await requestClientMagicLink(emailInput.value.trim());
+      const { error } = await signInClientWithPassword(
+        emailInput.value.trim(),
+        passwordInput.value
+      );
       feedback.hidden = false;
       if (error) {
         feedback.dataset.variant = 'error';
-        feedback.textContent = friendlyAuthError(error);
+        feedback.textContent = 'Email atau password belum sesuai.';
         return;
       }
-
-      feedback.dataset.variant = 'success';
-      feedback.textContent = 'Tautan masuk sudah dikirim. Silakan periksa email kamu.';
-      emailInput.value = '';
-    } catch (error) {
+      window.location.replace(clientPortalUrl('client-auth-callback.html'));
+    } catch {
       feedback.hidden = false;
       feedback.dataset.variant = 'error';
-      feedback.textContent = friendlyAuthError(error);
+      feedback.textContent = 'Email atau password belum sesuai.';
     } finally {
       setButtonBusy(submitButton, false, '');
       requestPending = false;
     }
   });
+
+  forgotPasswordButton.addEventListener('click', openForgotPasswordModal);
 }
 
 function cleanCallbackUrl() {
@@ -179,8 +262,69 @@ async function initClientCallback(root) {
   }
 
   retryButton.addEventListener('click', resolveCallback);
-  logoutButton.addEventListener('click', signOutClient);
+  bindClientLogout(logoutButton);
   await resolveCallback();
+}
+
+async function initClientSetPassword(root) {
+  const card = root.querySelector('.client-set-password-card');
+  const spinner = root.querySelector('[data-set-password-spinner]');
+  const loading = root.querySelector('[data-set-password-loading]');
+  const form = root.querySelector('[data-set-password-form]');
+  const errorState = root.querySelector('[data-set-password-error]');
+  const feedback = root.querySelector('[data-set-password-feedback]');
+  const passwordInput = root.querySelector('[data-client-new-password]');
+  const confirmInput = root.querySelector('[data-client-confirm-password]');
+  let pending = false;
+
+  const callbackError = new URL(window.location.href).searchParams.get('error');
+  const { user, error } = callbackError
+    ? { user: null, error: new Error('Tautan ditolak.') }
+    : await restoreClientSession();
+  cleanCallbackUrl();
+  spinner.hidden = true;
+  loading.hidden = true;
+  card.setAttribute('aria-busy', 'false');
+
+  if (error || !user) {
+    errorState.hidden = false;
+    return;
+  }
+
+  form.hidden = false;
+  passwordInput.focus();
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (pending || !form.reportValidity()) {return;}
+    if (passwordInput.value !== confirmInput.value) {
+      feedback.dataset.variant = 'error';
+      feedback.textContent = 'Ulangi password dengan nilai yang sama.';
+      feedback.hidden = false;
+      confirmInput.focus();
+      return;
+    }
+
+    pending = true;
+    const submitButton = form.querySelector('button[type="submit"]');
+    setButtonBusy(submitButton, true, 'Menyimpan…');
+    try {
+      const { error: updateError } = await setClientPassword(passwordInput.value);
+      if (updateError) {
+        feedback.dataset.variant = 'error';
+        feedback.textContent = 'Password belum dapat disimpan. Periksa ketentuan password lalu coba lagi.';
+        feedback.hidden = false;
+        return;
+      }
+      window.location.replace(clientPortalUrl('client-auth-callback.html'));
+    } catch {
+      feedback.dataset.variant = 'error';
+      feedback.textContent = 'Password belum dapat disimpan. Silakan coba lagi.';
+      feedback.hidden = false;
+    } finally {
+      pending = false;
+      setButtonBusy(submitButton, false, '');
+    }
+  });
 }
 
 function renderClientPortal(root, profile) {
@@ -215,7 +359,7 @@ async function initClientPortalHome(root) {
   const completeButtons = root.querySelectorAll('[data-complete-profile]');
 
   root.querySelectorAll('[data-client-logout]').forEach((button) => {
-    button.addEventListener('click', signOutClient);
+    bindClientLogout(button);
   });
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -322,5 +466,6 @@ export async function initClientPortalAuth() {
   const page = root.dataset.clientAuthPage;
   if (page === 'login') {await initClientLogin(root);}
   if (page === 'callback') {await initClientCallback(root);}
+  if (page === 'set-password') {await initClientSetPassword(root);}
   if (page === 'portal') {await initClientPortalHome(root);}
 }

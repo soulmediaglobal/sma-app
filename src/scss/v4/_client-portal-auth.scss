@@ -223,6 +223,38 @@
 
 .client-auth-form .client-auth-primary { margin-top: var(--space-2); }
 
+.client-auth-text-button {
+  display: block;
+  margin: var(--space-3) 0 0 auto;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+
+.client-auth-text-button:hover { text-decoration: underline; }
+
+.client-auth-text-button:focus-visible {
+  outline: 3px solid var(--primary-lt);
+  outline-offset: 3px;
+}
+
+.client-forgot-password {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.client-forgot-password > p:first-child {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .client-auth-feedback {
   margin-top: var(--space-4);
   padding: var(--space-3);
@@ -260,6 +292,25 @@
 }
 
 .client-callback-card .client-auth-brand-mark { margin: 0 auto var(--space-5); }
+
+.client-set-password-card .client-auth-form {
+  text-align: left;
+}
+
+.client-set-password-card .client-auth-form h1,
+.client-set-password-card .client-auth-form p {
+  text-align: center;
+}
+
+.client-set-password-card [hidden] { display: none; }
+
+.client-auth-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-4);
+  text-decoration: none;
+}
 
 .client-auth-spinner {
   width: 30px;

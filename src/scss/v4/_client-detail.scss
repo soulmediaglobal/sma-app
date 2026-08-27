@@ -68,6 +68,84 @@ body[data-page='client-detail'].modal-open .toast-host {
   font-weight: var(--font-weight-bold);
 }
 
+.client-portal-access {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-secondary);
+}
+
+.client-portal-access-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.client-portal-access-heading h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+}
+
+.client-portal-access-heading p,
+.client-portal-access-state > p,
+.client-portal-access-copy,
+.client-portal-access-help,
+.client-portal-access-warning {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.client-portal-access-state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.client-portal-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.client-portal-access .status-gray {
+  color: var(--text-muted);
+}
+
+.client-portal-access .status-gray::before {
+  background: var(--text-muted);
+}
+
+.client-portal-access-modal {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.client-portal-access-modal label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.client-portal-access-modal input[readonly] {
+  cursor: default;
+  background: var(--bg-surface-secondary);
+  color: var(--text-secondary);
+}
+
+.client-portal-access-warning {
+  padding: var(--space-3);
+  border: 1px solid var(--yellow);
+  border-radius: var(--radius);
+  background: var(--yellow-lt);
+  color: var(--yellow);
+}
+
 .client-info-list {
   display: grid;
   gap: 0;
@@ -1098,6 +1176,16 @@ body[data-page='client-detail'].modal-open .toast-host {
   .client-info-list > div {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+  }
+
+  .client-portal-access-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .client-portal-access-actions .btn {
+    width: 100%;
+    min-height: 44px;
   }
 
   .client-document-project-header,
