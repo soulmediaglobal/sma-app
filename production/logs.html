@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs &amp; Activity | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="logs" data-breadcrumb="Home &gt; Logs &amp; Activity">
+
+<main class="main">
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-row">
+      <div>
+        <div class="page-pretitle">Sistem</div>
+        <h1 class="page-title">Logs &amp; Activity</h1>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs-underline" role="tablist" aria-label="Logs dan keamanan" aria-orientation="horizontal">
+      <button class="tab active" id="logs-tab-dashboard" type="button" role="tab" aria-selected="true" aria-controls="logs-panel-dashboard" tabindex="0" data-logs-tab="dashboard">Dashboard</button>
+      <button class="tab" id="logs-tab-activity" type="button" role="tab" aria-selected="false" aria-controls="logs-panel-activity" tabindex="-1" data-logs-tab="activity">Activity</button>
+      <button class="tab" id="logs-tab-security" type="button" role="tab" aria-selected="false" aria-controls="logs-panel-security" tabindex="-1" data-logs-tab="security">Security</button>
+    </div>
+
+    <section id="logs-panel-dashboard" role="tabpanel" aria-labelledby="logs-tab-dashboard" data-logs-panel="dashboard">
+      <div class="card-body" id="logs-dashboard-root" aria-live="polite" aria-busy="true">
+        <div class="row col-3">
+          <div class="card"><div class="stat"><div class="stat-content"><div class="stat-label">Total Login</div><div class="stat-value-row"><span class="stat-value" id="logs-stat-total">—</span></div><div class="stat-subtext">Seluruh login yang tercatat</div></div></div></div>
+          <div class="card"><div class="stat"><div class="stat-content"><div class="stat-label">Login Hari Ini</div><div class="stat-value-row"><span class="stat-value" id="logs-stat-today">—</span></div><div class="stat-subtext">Sejak pukul 00.00 waktu lokal</div></div></div></div>
+          <div class="card"><div class="stat"><div class="stat-content"><div class="stat-label">7 Hari Terakhir</div><div class="stat-value-row"><span class="stat-value" id="logs-stat-week">—</span></div><div class="stat-subtext">Termasuk hari ini</div></div></div></div>
+        </div>
+        <div class="row col-3">
+          <div class="card"><div class="stat"><div class="stat-content"><div class="stat-label">Desktop</div><div class="stat-value-row"><span class="stat-value" id="logs-stat-desktop">—</span></div><div class="stat-subtext">Login dari perangkat desktop</div></div></div></div>
+          <div class="card"><div class="stat"><div class="stat-content"><div class="stat-label">Mobile</div><div class="stat-value-row"><span class="stat-value" id="logs-stat-mobile">—</span></div><div class="stat-subtext">Login dari perangkat mobile</div></div></div></div>
+        </div>
+        <div id="logs-dashboard-state" class="stat-subtext"></div>
+      </div>
+    </section>
+
+    <section id="logs-panel-activity" role="tabpanel" aria-labelledby="logs-tab-activity" data-logs-panel="activity" hidden>
+      <div class="card-header">
+        <div>
+          <div class="card-title">Riwayat Login</div>
+          <div class="card-subtitle">Catatan login global; baris terbaru bukan penanda sesi aktif.</div>
+        </div>
+      </div>
+      <div id="logs-activity-root" class="card-body p-0" aria-live="polite" aria-busy="true">
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Pengguna</th><th>Role</th><th>Perangkat</th><th>Browser</th><th>IP</th><th>Lokasi</th><th>Waktu</th></tr></thead>
+            <tbody id="logs-activity-body"><tr><td colspan="7">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" aria-label="Paginasi riwayat login">
+          <button class="page-btn" id="logs-page-prev" type="button" aria-label="Halaman sebelumnya">‹</button>
+          <span class="page-info" id="logs-page-info">Halaman 1</span>
+          <button class="page-btn" id="logs-page-next" type="button" aria-label="Halaman berikutnya">›</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="logs-panel-security" role="tabpanel" aria-labelledby="logs-tab-security" data-logs-panel="security" hidden>
+      <div class="card-body"><div class="stat-subtext">Segera hadir.</div></div>
+    </section>
+  </div>
+
+</div>
+</main>
+
+</body>
+</html>

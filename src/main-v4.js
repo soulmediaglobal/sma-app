@@ -33,6 +33,9 @@ guardAdminPage().then(() => {
   if (document.getElementById('project-setting-root')) {
     import('./v4/project-setting.js').then((m) => m.initProjectSetting());
   }
+  if (document.body.dataset.page === 'logs') {
+    import('./v4/logs.js').then((m) => m.initLogs());
+  }
   if (document.querySelector('.user-detail-page')) {
     import('./v4/user-detail.js').then((m) => m.initUserDetail());
   }
