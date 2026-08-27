@@ -167,6 +167,20 @@ function formPayload(form) {
   }));
 }
 
+async function loadClientPortalAccess() {
+  try {
+    const { initClientPortalAccess } = await import('./client-portal-access.js');
+    await initClientPortalAccess({ clientId, profile: currentProfile });
+  } catch {
+    const accessRoot = document.querySelector('[data-client-portal-access-root]');
+    if (accessRoot) {
+      accessRoot.querySelector('[data-client-portal-access-message]').textContent =
+        'Status akses Client Portal belum dapat dimuat.';
+      accessRoot.setAttribute('aria-busy', 'false');
+    }
+  }
+}
+
 async function saveClient(root, form) {
   if (!form.reportValidity()) {return;}
   const saveButton = root.querySelector('#client-save-btn');
@@ -189,6 +203,7 @@ async function saveClient(root, form) {
     client = data;
     renderReadView(root);
     setEditMode(root, false);
+    await loadClientPortalAccess();
     showToast('Info client berhasil diperbarui.', { variant: 'success' });
   } catch {
     showToast('Gagal menyimpan perubahan client.', { variant: 'error' });
@@ -642,6 +657,7 @@ async function loadClient(root) {
 
     client = data;
     renderReadView(root);
+    await loadClientPortalAccess();
     try {
       const { initClientWorkflow } = await import('./client-workflow.js');
       await initClientWorkflow({ clientId, profile: currentProfile });
