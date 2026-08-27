@@ -358,7 +358,3 @@ export async function initClientPortalAccess(options) {
   }
   await loadStatus();
 }
-
-export async function refreshClientPortalAccess(options) {
-  await initClientPortalAccess(options);
-}
