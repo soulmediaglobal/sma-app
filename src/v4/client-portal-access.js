@@ -238,16 +238,11 @@ function openAccessChangeModal(action) {
   });
 }
 
-function authProviderLabel(providers) {
-  const hasEmail = providers.includes('email');
-  const hasGoogle = providers.includes('google');
-  if (hasEmail && hasGoogle) {
-    return 'Email & Password + Google';
+function providerChip(provider) {
+  if (provider === 'google') {
+    return { label: 'Google', chipClass: 'chip-blue' };
   }
-  if (hasGoogle) {
-    return 'Google';
-  }
-  return 'Email & Password';
+  return { label: 'Email & Password', chipClass: 'chip-primary' };
 }
 
 function button(label, variant, action) {
@@ -326,13 +321,14 @@ function renderStatus() {
   } else if (snapshot.status === 'INVITED') {
     actions.appendChild(button('Kirim Ulang', 'outline', openResendModal));
   } else if (snapshot.status === 'ACTIVE') {
-    if (snapshot.authProviders) {
-      const authMethod = element(
-        'p',
-        'client-portal-access-copy',
-        `Metode login: ${authProviderLabel(snapshot.authProviders)}`
-      );
+    if (snapshot.authProviders && snapshot.authProviders.length) {
+      const authMethod = element('div', 'client-portal-auth-method');
       authMethod.setAttribute('data-client-portal-access-auth-method', '');
+      authMethod.appendChild(element('span', 'client-portal-auth-method-label', 'Metode login'));
+      snapshot.authProviders.forEach(provider => {
+        const { label, chipClass } = providerChip(provider);
+        authMethod.appendChild(element('span', `chip ${chipClass}`, label));
+      });
       message.insertAdjacentElement('afterend', authMethod);
     }
     actions.appendChild(button('Kelola Akses', 'outline', openManageModal));
