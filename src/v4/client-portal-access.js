@@ -238,6 +238,18 @@ function openAccessChangeModal(action) {
   });
 }
 
+function authProviderLabel(providers) {
+  const hasEmail = providers.includes('email');
+  const hasGoogle = providers.includes('google');
+  if (hasEmail && hasGoogle) {
+    return 'Email & Password + Google';
+  }
+  if (hasGoogle) {
+    return 'Google';
+  }
+  return 'Email & Password';
+}
+
 function button(label, variant, action) {
   const control = element('button', `btn btn-${variant}`, label);
   control.type = 'button';
@@ -257,10 +269,20 @@ function openManageModal() {
     )
   );
 
+  if (snapshot?.authProviders && !snapshot.authProviders.includes('email')) {
+    body.appendChild(
+      element(
+        'p',
+        'client-portal-access-copy',
+        'Client ini masuk lewat Google, tidak ada password untuk direset.'
+      )
+    );
+  }
+
   const actions = [{ label: 'Tutup', variant: 'outline' }];
-  if (snapshot?.emailMatches !== false) {
+  if (snapshot?.emailMatches !== false && snapshot?.authProviders?.includes('email')) {
     actions.push({
-      label: 'Kirim Ulang',
+      label: 'Reset Password',
       variant: 'primary',
       closeOnAction: false,
       action: context =>
@@ -287,6 +309,11 @@ function renderStatus() {
   const actions = root.querySelector('[data-client-portal-access-actions]');
   actions.replaceChildren();
 
+  const existingAuthMethod = root.querySelector('[data-client-portal-access-auth-method]');
+  if (existingAuthMethod) {
+    existingAuthMethod.remove();
+  }
+
   const view = STATUS_VIEW[snapshot?.status] || STATUS_VIEW.NOT_INVITED;
   badge.className = `status ${view.className}`;
   badge.textContent = view.label;
@@ -299,6 +326,15 @@ function renderStatus() {
   } else if (snapshot.status === 'INVITED') {
     actions.appendChild(button('Kirim Ulang', 'outline', openResendModal));
   } else if (snapshot.status === 'ACTIVE') {
+    if (snapshot.authProviders) {
+      const authMethod = element(
+        'p',
+        'client-portal-access-copy',
+        `Metode login: ${authProviderLabel(snapshot.authProviders)}`
+      );
+      authMethod.setAttribute('data-client-portal-access-auth-method', '');
+      message.insertAdjacentElement('afterend', authMethod);
+    }
     actions.appendChild(button('Kelola Akses', 'outline', openManageModal));
   } else if (snapshot.status === 'DISABLED' && snapshot.canManageAccess) {
     actions.appendChild(
