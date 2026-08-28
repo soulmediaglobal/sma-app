@@ -96,6 +96,7 @@ type LinkedSnapshot = {
   emailMatches: boolean;
   profile: Profile;
   user: User;
+  authProviders: string[];
   status: AccessStatus;
 };
 
@@ -381,6 +382,7 @@ async function accessSnapshot(clientId: string): Promise<AccessSnapshot> {
       emailMatches: Boolean(email && linkedEmail === email),
       profile,
       user,
+      authProviders: (user.identities ?? []).map(identity => identity.provider),
       status
     };
   }
@@ -678,6 +680,7 @@ Deno.serve(async request => {
           email: snapshot.email || null,
           linkedEmail: snapshot.kind === 'linked' ? snapshot.linkedEmail : null,
           emailMatches: snapshot.kind === 'linked' ? snapshot.emailMatches : true,
+          authProviders: snapshot.kind === 'linked' ? snapshot.authProviders : null,
           requiresLinkConfirmation:
             snapshot.kind === 'linked' ? false : snapshot.requiresLinkConfirmation,
           canManageAccess: ACCESS_ROLES.has(caller.role),
