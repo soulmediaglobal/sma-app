@@ -468,6 +468,15 @@ async function initClientPortalHome(root) {
   let profileUpdatePending = false;
   renderClientPortal(root, currentProfile);
   content.hidden = false;
+  const { initClientPortalProjects } = await import('./client-portal-projects.js');
+  initClientPortalProjects({ root, profile: currentProfile });
+
+  if (currentProfile.client_id) {
+    root.querySelector('[data-project-entry-title]').textContent = 'Project Saya';
+    root.querySelector('[data-project-entry-description]').textContent =
+      'Pantau status dan perkembangan layanan yang sedang ditangani oleh Tim SMA.';
+    projectButton.textContent = 'Lihat Project Saya';
+  }
 
   completeButtons.forEach(button =>
     button.addEventListener('click', () => {
@@ -523,6 +532,10 @@ async function initClientPortalHome(root) {
   });
 
   projectButton.addEventListener('click', () => {
+    if (currentProfile.client_id) {
+      window.location.hash = 'projects';
+      return;
+    }
     if (!isClientProfileComplete(currentProfile)) {
       profilePanel.hidden = false;
       const firstMissing = currentProfile.name?.trim()

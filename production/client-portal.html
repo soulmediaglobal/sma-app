@@ -15,8 +15,47 @@
         <span class="client-auth-brand-mark" aria-hidden="true">SMA</span>
         <span>Client Portal</span>
       </a>
-      <button type="button" class="client-auth-secondary" data-client-logout>Keluar</button>
+      <div class="client-portal-header-actions">
+        <button
+          type="button"
+          class="client-portal-menu-toggle"
+          aria-controls="client-portal-sidebar"
+          aria-expanded="false"
+          aria-label="Buka menu Client Portal"
+          data-portal-menu-toggle
+          hidden
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        <button type="button" class="client-auth-secondary" data-client-logout>Keluar</button>
+      </div>
     </header>
+
+    <div class="client-portal-layout">
+    <aside
+      id="client-portal-sidebar"
+      class="client-portal-nav-shell"
+      aria-label="Menu Client Portal"
+      data-client-portal-nav-shell
+      hidden
+    >
+      <nav class="client-portal-nav" aria-label="Navigasi Client Portal">
+        <a href="#home" data-portal-route="home"><span aria-hidden="true">⌂</span>Beranda</a>
+        <a href="#projects" data-portal-route="projects"><span aria-hidden="true">▦</span>Project Saya</a>
+        <a href="#documents" data-portal-route="documents"><span aria-hidden="true">▤</span>Dokumen</a>
+        <a href="#payments" data-portal-route="payments"><span aria-hidden="true">◫</span>Pembayaran</a>
+        <a href="#help" data-portal-route="help"><span aria-hidden="true">?</span>Bantuan</a>
+      </nav>
+    </aside>
+    <button
+      type="button"
+      class="client-portal-drawer-backdrop"
+      aria-label="Tutup menu Client Portal"
+      data-portal-drawer-backdrop
+      hidden
+    ></button>
+
+    <div class="client-portal-main">
 
     <section class="client-portal-state" data-portal-loading aria-live="polite">
       <div class="client-auth-spinner" aria-hidden="true"></div>
@@ -38,6 +77,7 @@
         <button type="button" class="client-auth-primary" data-complete-profile>Lengkapi profil</button>
       </section>
 
+      <section class="client-portal-view" data-portal-view="home">
       <section class="client-portal-welcome">
         <div>
           <p class="client-auth-eyebrow">Beranda</p>
@@ -73,8 +113,8 @@
       <section class="client-portal-grid" aria-label="Layanan portal">
         <article class="client-portal-card client-portal-card-primary">
           <span class="client-portal-icon" aria-hidden="true">＋</span>
-          <h2>Ajukan project baru</h2>
-          <p>Sampaikan kebutuhan perizinan atau legalitas yang ingin dibantu oleh Tim SMA.</p>
+          <h2 data-project-entry-title>Ajukan project baru</h2>
+          <p data-project-entry-description>Sampaikan kebutuhan perizinan atau legalitas yang ingin dibantu oleh Tim SMA.</p>
           <button type="button" class="client-auth-primary" data-create-project>Buat Project</button>
         </article>
         <article class="client-portal-card">
@@ -88,6 +128,71 @@
           <p>Hubungi pendamping SMA bila ada kendala saat masuk atau menyiapkan pengajuan.</p>
         </article>
       </section>
+
+      <section class="client-project-summary" aria-labelledby="client-project-summary-title">
+        <div class="client-project-summary__heading">
+          <div>
+            <p class="client-auth-eyebrow">Ringkasan Project</p>
+            <h2 id="client-project-summary-title">Project Aktif atau Terbaru</h2>
+          </div>
+          <a href="#projects">Lihat Semua Project</a>
+        </div>
+        <div
+          class="client-project-summary__content"
+          data-client-project-summary
+          aria-live="polite"
+        ></div>
+      </section>
+      </section>
+
+      <section class="client-portal-view" data-portal-view="projects" hidden>
+        <div class="client-portal-view-header">
+          <p class="client-auth-eyebrow">Project Saya</p>
+          <h1 tabindex="-1" data-projects-heading>Project yang sedang ditangani</h1>
+          <p>Pantau status dan perkembangan tahapan seluruh project milikmu.</p>
+        </div>
+        <div class="client-projects" data-client-projects aria-live="polite"></div>
+      </section>
+
+      <section class="client-portal-view" data-portal-view="documents" hidden>
+        <div class="client-portal-view-header">
+          <p class="client-auth-eyebrow">Dokumen</p>
+          <h1 tabindex="-1">Dokumen Project</h1>
+          <p>Dokumen project akan tersedia di area ini.</p>
+        </div>
+        <div class="client-portal-placeholder">
+          <h2>Dokumen tetap tersimpan bersama project</h2>
+          <p>Pengelolaan dokumen lengkap akan hadir pada tahap berikutnya.</p>
+          <a class="client-auth-primary" href="#projects">Lihat Project Saya</a>
+        </div>
+      </section>
+
+      <section class="client-portal-view" data-portal-view="payments" hidden>
+        <div class="client-portal-view-header">
+          <p class="client-auth-eyebrow">Pembayaran</p>
+          <h1 tabindex="-1">Pembayaran Project</h1>
+          <p>Informasi pembayaran project akan tersedia di area ini.</p>
+        </div>
+        <div class="client-portal-placeholder">
+          <h2>Ringkasan pembayaran sedang disiapkan</h2>
+          <p>Tidak ada tindakan pembayaran yang tersedia dari halaman ini saat ini.</p>
+        </div>
+      </section>
+
+      <section class="client-portal-view" data-portal-view="help" hidden>
+        <div class="client-portal-view-header">
+          <p class="client-auth-eyebrow">Bantuan</p>
+          <h1 tabindex="-1">Kami siap membantu</h1>
+          <p>Sampaikan kendala penggunaan portal kepada pendamping Tim SMA.</p>
+        </div>
+        <div class="client-portal-placeholder">
+          <h2>Hubungi Tim SMA</h2>
+          <p>Sertakan nama dan konteks project agar tim kami dapat membantu lebih cepat.</p>
+          <a class="client-auth-primary" href="mailto:hello@soulmitra.id">Kirim Email</a>
+        </div>
+      </section>
+    </div>
+    </div>
     </div>
   </main>
 </body>
