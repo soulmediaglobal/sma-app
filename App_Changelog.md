@@ -17,6 +17,31 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+> **Catatan (Mike, 2026-08-31):** Konten "Issue #99" di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file. Tidak pernah diberi nomor versi resmi, dan tidak ada commit/tag yang cocok persis dengan kontennya di antara 9 tag yang sebelumnya tanpa entry changelog — jadi tetap tercatat sebagai Unreleased sampai Ray/Dimas konfirmasi versi rilisnya.
+
+### Added
+- Integrated dynamic Supabase data fetching for `production/user_management.html`.
+- Added automated device tracking (`last_login_device` & `last_sign_in_at`) on user session initialization via `trackCurrentSession()`.
+- Added dynamic project count calculations aggregated from `case_assignees` and `cases.client_id`.
+- Added custom inline color coding for user role badges (`admin`, `supervisor`, `internal`, `client`) and randomized initial avatars.
+
+### Database
+- Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
+
+## [2.32.0] - 2026-08-28
+
+### Added
+- **Issue #141**: tampilkan metode login & reset password di client portal access (tab Info).
+- **Issue #138**: menu Logs — dashboard activity login.
+- **Issue #126**: invitation & login password untuk existing client di auth.
+
+### Fixed
+- Enforce staff OTP-only access (bagian dari Issue #126).
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history (`git log v2.31.0..v2.32.0`) karena sebelumnya tidak pernah didokumentasikan di changelog. Detail konteks kerja lebih lengkap bisa ditambahkan Ray/Dimas kalau diperlukan._
+
+## [2.31.0] - 2026-08-26
+
 ### Fixed
 - **Issue #135: hapus `@view-transition`, penyebab flash HTML tanpa
   CSS saat navigasi.** Setiap pindah halaman menampilkan flash <1
@@ -29,17 +54,6 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   (diverifikasi via grep), murni animasi kosmetik antar-halaman,
   bukan fitur inti.
 - Diverifikasi visual langsung di browser oleh Ray.
-
-> **Catatan (Mike, 2026-08-31):** Bagian di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file (setelah reference-links block). Digabung ke sini saat perapihan struktural karena tidak pernah diberi nomor versi resmi. Berdasarkan referensi di entry `[2.21.1]` (fix data yang dihasilkan dari kerjaan ini), pekerjaan ini kemungkinan besar sudah shipped sebelum v2.21.1 — perlu konfirmasi Ray/Dimas untuk nomor versi yang tepat.
-
-### Added
-- Integrated dynamic Supabase data fetching for `production/user_management.html`.
-- Added automated device tracking (`last_login_device` & `last_sign_in_at`) on user session initialization via `trackCurrentSession()`.
-- Added dynamic project count calculations aggregated from `case_assignees` and `cases.client_id`.
-- Added custom inline color coding for user role badges (`admin`, `supervisor`, `internal`, `client`) and randomized initial avatars.
-
-### Database
-- Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
 ## [2.30.0] - 2026-08-26
 
@@ -370,6 +384,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 - Diverifikasi ke database: 5 profile, `bio`/`position`/`company`
   sekarang kosong semua.
 
+## [2.25.0] - 2026-08-26
+
+### Changed
+- **Issue #119**: konsolidasi `profile.html` ke `user_detail.html`, role editable untuk admin/supervisor.
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
+
 ## [2.24.0] - 2026-08-25
 
 ### Changed
@@ -441,6 +462,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   ke `profile.html`, cek field Full name/Phone bisa diedit & tersimpan,
   toast sukses/error muncul, Discard reset ke nilai lama, dan badge role
   + status akun menampilkan data yang benar.
+
+## [2.23.1] - 2026-08-26
+
+### Fixed
+- **Issue #115**: hapus field company/bio dari `updateProfile()` — field tidak didukung.
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
 
 ## [2.23.0] - 2026-08-25
 
@@ -1445,6 +1473,13 @@ _Catatan: section "Fixed" di bawah (RLS case_quotations) sebenarnya bagian dari 
   1 user di sistem): Ray tetap `admin`, Tomy akan jadi `supervisor`
   begitu ada mekanisme invite (roadmap #10 atau manual via SQL).
 
+## [2.3.1] - 2026-08-22
+
+### Changed
+- **Issue #38**: sync `cases.status` otomatis dari `case_stages` (kecuali batal).
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
+
 ## [2.3.0] - 2026-08-22
 
 ### Changed
@@ -1468,6 +1503,13 @@ _Catatan: section "Fixed" di bawah (RLS case_quotations) sebenarnya bagian dari 
 - Asumsi yang perlu dikonfirmasi: RLS `document_versions` untuk role
   `supervisor` disamakan dengan `admin` (PRD tidak menyebutkan
   `supervisor` secara eksplisit untuk tabel ini).
+
+## [2.2.0] - 2026-08-22
+
+### Added
+- **Issue #33**: workflow engine core schema — template & instance (schema only, belum terhubung ke UI).
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
 
 ## [2.1.2] - 2026-08-22
 
@@ -1578,6 +1620,27 @@ gabungan manual + auto-log.
 
 ---
 
+## [1.10.0] - 2026-08-21
+
+### Added
+- **Issue #10**: tab Aktivitas — log manual & auto-log client.
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog. `v1.10.1` tidak memiliki entry terpisah — tag tersebut menunjuk commit yang sama persis dengan `v2.0.0` (bump versi ganda pada commit yang sama)._
+
+## [1.9.0] - 2026-08-21
+
+### Added
+- **Issue #9**: tab Pembayaran — termin, tandai lunas per project.
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
+
+## [1.8.0] - 2026-08-21
+
+### Added
+- **Issue #8**: tab Dokumen — checklist per project.
+
+> _Catatan: entry ini disusun ulang oleh Mike (2026-08-31) dari commit/PR history karena sebelumnya tidak pernah didokumentasikan di changelog._
+
 ## [1.7.2] - 2026-08-20
 
 ### Changed
@@ -1681,8 +1744,50 @@ Rilis fondasi pertama.
 - **2026-08-20**: Judul Issue #6, #8, #9 diupdate ke istilah "Project".
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
-[Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.7.2...v2.0.0
+[Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.31.0...v2.32.0
+[2.31.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.30.0...v2.31.0
+[2.30.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.29.0...v2.30.0
+[2.29.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.28.0...v2.29.0
+[2.28.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.27.0...v2.28.0
+[2.27.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.26.0...v2.27.0
+[2.26.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.25.0...v2.26.0
+[2.25.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.24.0...v2.25.0
+[2.24.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.23.1...v2.24.0
+[2.23.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.23.0...v2.23.1
+[2.23.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.22.0...v2.23.0
+[2.22.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.21.1...v2.22.0
+[2.21.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.21.0...v2.21.1
+[2.21.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.20.1...v2.21.0
+[2.20.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.20.0...v2.20.1
+[2.20.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.19.0...v2.20.0
+[2.19.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.18.0...v2.19.0
+[2.18.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.17.1...v2.18.0
+[2.17.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.17.0...v2.17.1
+[2.17.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.16.0...v2.17.0
+[2.16.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.15.0...v2.16.0
+[2.15.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.14.0...v2.15.0
+[2.14.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.13.0...v2.14.0
+[2.13.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.12.0...v2.13.0
+[2.12.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.11.0...v2.12.0
+[2.11.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.10.0...v2.11.0
+[2.10.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.9.0...v2.10.0
+[2.9.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.8.0...v2.9.0
+[2.8.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.7.0...v2.8.0
+[2.7.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.6.0...v2.7.0
+[2.6.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.3.1...v2.4.0
+[2.3.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.3.0...v2.3.1
+[2.3.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.1.2...v2.2.0
+[2.1.2]: https://github.com/soulmediaglobal/sma-app/compare/v2.1.1...v2.1.2
+[2.1.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.1.0...v2.1.1
+[2.1.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.10.0...v2.0.0
+[1.10.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/soulmediaglobal/sma-app/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/soulmediaglobal/sma-app/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.6.0...v1.7.0
