@@ -1,4 +1,4 @@
-# Changelog
+# App_Changelog
 
 Semua perubahan penting pada project ini didokumentasikan di file ini.
 
@@ -15,7 +15,7 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] - App
+## [Unreleased]
 
 ### Fixed
 - **Issue #135: hapus `@view-transition`, penyebab flash HTML tanpa
@@ -29,6 +29,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   (diverifikasi via grep), murni animasi kosmetik antar-halaman,
   bukan fitur inti.
 - Diverifikasi visual langsung di browser oleh Ray.
+
+> **Catatan (Mike, 2026-08-31):** Bagian di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file (setelah reference-links block). Digabung ke sini saat perapihan struktural karena tidak pernah diberi nomor versi resmi. Berdasarkan referensi di entry `[2.21.1]` (fix data yang dihasilkan dari kerjaan ini), pekerjaan ini kemungkinan besar sudah shipped sebelum v2.21.1 — perlu konfirmasi Ray/Dimas untuk nomor versi yang tepat.
+
+### Added
+- Integrated dynamic Supabase data fetching for `production/user_management.html`.
+- Added automated device tracking (`last_login_device` & `last_sign_in_at`) on user session initialization via `trackCurrentSession()`.
+- Added dynamic project count calculations aggregated from `case_assignees` and `cases.client_id`.
+- Added custom inline color coding for user role badges (`admin`, `supervisor`, `internal`, `client`) and randomized initial avatars.
+
+### Database
+- Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
 ## [2.30.0] - 2026-08-26
 
@@ -359,6 +370,78 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 - Diverifikasi ke database: 5 profile, `bio`/`position`/`company`
   sekarang kosong semua.
 
+## [2.24.0] - 2026-08-25
+
+### Changed
+- **Issue #117: Samakan layout `profile.html` dengan `user_detail.html`.**
+  Halaman "Profil Saya" (punya user sendiri) sekarang pakai pola visual yang
+  sama dengan halaman User Detail admin (Issue #113): kartu foto/badge di
+  kiri + panel "Personal information" di kanan.
+  - `production/profile.html`: kartu "Your Profile" (avatar Bootstrap +
+    nama/role/email/lokasi) dan form "Personal Information" (First
+    name/Last name/Email/Phone/Role/Company/Bio) diganti jadi 1 section
+    grid 2 kolom (`pf-row`/`pf-card`/dst — nama class beda dari
+    `user_detail.html` yang pakai `ud-*` karena kedua halaman ini masih
+    punya `<style>` masing-masing, tidak share satu stylesheet), meniru
+    persis struktur & style `ud-row-main`/`ud-card`/`ud-form-value`
+    (termasuk state read-only dengan dimmed background + glyph 🔒, dan
+    state editable dengan input standar) di `user_detail.html`. CSS-nya
+    disalin (bukan di-import) supaya `user_detail.html` sendiri tidak
+    ikut disentuh, sesuai permintaan Ray.
+  - Field kiri: avatar (fallback ui-avatars.com, warna teal `#1abb9c`
+    disamakan dengan `user-detail.js` — sebelumnya biru `#0d6efd`), nama,
+    role, email, badge role + badge status akun (`account_status`, kolom
+    yang sudah ada tapi belum pernah ditampilkan di `profile.html`). Tidak
+    ada link "Manage Account" (halaman ini punya user sendiri, tidak ada
+    tempat lain untuk redirect) dan tidak ada tombol upload avatar (masih
+    sama seperti sebelumnya — `profiles` belum punya kolom `avatar_url`).
+    Field lokasi ("Indonesia", teks statis tidak terhubung ke data apapun)
+    dihapus karena `user_detail.html` juga tidak menampilkannya.
+  - Field kanan ("Personal information"): cuma 4 field — **Full name**
+    (editable, gabungan First/Last name lama jadi 1 field sesuai
+    kolom asli `full_name`), **Email** (read-only), **Phone** (editable),
+    **Role** (read-only, gaya lock-icon sama seperti field read-only
+    lain). `Company`/`Bio` TIDAK ditambah balik — sudah sengaja dihapus
+    di Issue #115 karena kolomnya tidak ada di schema, di luar scope
+    perbaikan ini. `Role` sengaja tetap read-only untuk semua orang
+    (termasuk admin yang lihat profil sendiri) — trigger
+    `prevent_profile_privilege_escalation` cuma izinin ubah role dari
+    alur User Management/User Detail yang memang didesain untuk itu,
+    bukan dari halaman self-service ini.
+  - Card "Notifications", "Account stats", "Connected accounts", "Recent
+    activity" di bawahnya TIDAK diubah — di luar scope task ini (task
+    cuma minta samakan bagian hero + Personal Information).
+  - `src/v4/profile.js`: `saveProfile()` tetap kirim `{ full_name, phone }`
+    saja ke `updateProfile()` (payload dari Issue #115, tidak diubah),
+    sekarang baca dari 1 field `editFullName` (bukan gabung
+    `editFirstName`+`editLastName`). Ditambah validasi "Full name is
+    required" dan disable-tombol-saat-menyimpan, meniru pola
+    `saveUserDetail()` di `user-detail.js`. Tombol "Cancel" diganti jadi
+    "Discard" (nama tombol sama seperti `user_detail.html`) dan sekarang
+    reset ke nilai terakhir yang berhasil di-load di memory (state lokal,
+    fungsi baru `discardProfile()`), bukan reload penuh dari DB seperti
+    sebelumnya — sama seperti `discardUserDetail()`. Pesan sukses/gagal
+    save diganti dari `alert()` ke `showToast()` (`src/v4/toast.js`) biar
+    konsisten dengan `user-detail.js` — bagian lain file ini (Notifications,
+    tombol Connect) masih pakai `alert()`, sengaja tidak disentuh karena
+    di luar scope.
+- Diverifikasi: `npm run lint` (0 error, warning yang ada cuma `no-alert`
+  di kode yang memang sengaja tidak disentuh + `no-console` di file lain
+  yang tidak diubah) dan `npm run build` (sukses, chunk `profile.js`
+  ter-generate). Klik-lewat browser di dev server terblokir oleh auth
+  guard (redirect ke `login.html`, sama persis seperti yang dilaporkan di
+  entry Issue #113 sebelumnya — environment ini tidak punya sesi login
+  yang tervalidasi) — jadi Save/Discard belum bisa diklik-tes langsung
+  di environment ini. Sebagai gantinya, layout & CSS diverifikasi visual
+  lewat mock HTML statis terpisah (bukan bagian dari app, tidak
+  di-commit) yang me-render markup+CSS `profile.html` dan
+  `user_detail.html` berdampingan dengan data contoh — dikonfirmasi kartu
+  profil kiri dan form kanan (termasuk state read-only vs editable)
+  benar-benar cocok secara visual. **Perlu dicek manual oleh Ray**: login
+  ke `profile.html`, cek field Full name/Phone bisa diedit & tersimpan,
+  toast sukses/error muncul, Discard reset ke nilai lama, dan badge role
+  + status akun menampilkan data yang benar.
+
 ## [2.23.0] - 2026-08-25
 
 ### Fixed
@@ -514,78 +597,6 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   memerlukan migration baru. Perubahan `production/profile.html`
   (restrukturisasi layout, di luar scope task ini) dibatalkan, tidak
   ikut di-commit.
-
-## [2.24.0] - 2026-08-25
-
-### Changed
-- **Issue #117: Samakan layout `profile.html` dengan `user_detail.html`.**
-  Halaman "Profil Saya" (punya user sendiri) sekarang pakai pola visual yang
-  sama dengan halaman User Detail admin (Issue #113): kartu foto/badge di
-  kiri + panel "Personal information" di kanan.
-  - `production/profile.html`: kartu "Your Profile" (avatar Bootstrap +
-    nama/role/email/lokasi) dan form "Personal Information" (First
-    name/Last name/Email/Phone/Role/Company/Bio) diganti jadi 1 section
-    grid 2 kolom (`pf-row`/`pf-card`/dst — nama class beda dari
-    `user_detail.html` yang pakai `ud-*` karena kedua halaman ini masih
-    punya `<style>` masing-masing, tidak share satu stylesheet), meniru
-    persis struktur & style `ud-row-main`/`ud-card`/`ud-form-value`
-    (termasuk state read-only dengan dimmed background + glyph 🔒, dan
-    state editable dengan input standar) di `user_detail.html`. CSS-nya
-    disalin (bukan di-import) supaya `user_detail.html` sendiri tidak
-    ikut disentuh, sesuai permintaan Ray.
-  - Field kiri: avatar (fallback ui-avatars.com, warna teal `#1abb9c`
-    disamakan dengan `user-detail.js` — sebelumnya biru `#0d6efd`), nama,
-    role, email, badge role + badge status akun (`account_status`, kolom
-    yang sudah ada tapi belum pernah ditampilkan di `profile.html`). Tidak
-    ada link "Manage Account" (halaman ini punya user sendiri, tidak ada
-    tempat lain untuk redirect) dan tidak ada tombol upload avatar (masih
-    sama seperti sebelumnya — `profiles` belum punya kolom `avatar_url`).
-    Field lokasi ("Indonesia", teks statis tidak terhubung ke data apapun)
-    dihapus karena `user_detail.html` juga tidak menampilkannya.
-  - Field kanan ("Personal information"): cuma 4 field — **Full name**
-    (editable, gabungan First/Last name lama jadi 1 field sesuai
-    kolom asli `full_name`), **Email** (read-only), **Phone** (editable),
-    **Role** (read-only, gaya lock-icon sama seperti field read-only
-    lain). `Company`/`Bio` TIDAK ditambah balik — sudah sengaja dihapus
-    di Issue #115 karena kolomnya tidak ada di schema, di luar scope
-    perbaikan ini. `Role` sengaja tetap read-only untuk semua orang
-    (termasuk admin yang lihat profil sendiri) — trigger
-    `prevent_profile_privilege_escalation` cuma izinin ubah role dari
-    alur User Management/User Detail yang memang didesain untuk itu,
-    bukan dari halaman self-service ini.
-  - Card "Notifications", "Account stats", "Connected accounts", "Recent
-    activity" di bawahnya TIDAK diubah — di luar scope task ini (task
-    cuma minta samakan bagian hero + Personal Information).
-  - `src/v4/profile.js`: `saveProfile()` tetap kirim `{ full_name, phone }`
-    saja ke `updateProfile()` (payload dari Issue #115, tidak diubah),
-    sekarang baca dari 1 field `editFullName` (bukan gabung
-    `editFirstName`+`editLastName`). Ditambah validasi "Full name is
-    required" dan disable-tombol-saat-menyimpan, meniru pola
-    `saveUserDetail()` di `user-detail.js`. Tombol "Cancel" diganti jadi
-    "Discard" (nama tombol sama seperti `user_detail.html`) dan sekarang
-    reset ke nilai terakhir yang berhasil di-load di memory (state lokal,
-    fungsi baru `discardProfile()`), bukan reload penuh dari DB seperti
-    sebelumnya — sama seperti `discardUserDetail()`. Pesan sukses/gagal
-    save diganti dari `alert()` ke `showToast()` (`src/v4/toast.js`) biar
-    konsisten dengan `user-detail.js` — bagian lain file ini (Notifications,
-    tombol Connect) masih pakai `alert()`, sengaja tidak disentuh karena
-    di luar scope.
-- Diverifikasi: `npm run lint` (0 error, warning yang ada cuma `no-alert`
-  di kode yang memang sengaja tidak disentuh + `no-console` di file lain
-  yang tidak diubah) dan `npm run build` (sukses, chunk `profile.js`
-  ter-generate). Klik-lewat browser di dev server terblokir oleh auth
-  guard (redirect ke `login.html`, sama persis seperti yang dilaporkan di
-  entry Issue #113 sebelumnya — environment ini tidak punya sesi login
-  yang tervalidasi) — jadi Save/Discard belum bisa diklik-tes langsung
-  di environment ini. Sebagai gantinya, layout & CSS diverifikasi visual
-  lewat mock HTML statis terpisah (bukan bagian dari app, tidak
-  di-commit) yang me-render markup+CSS `profile.html` dan
-  `user_detail.html` berdampingan dengan data contoh — dikonfirmasi kartu
-  profil kiri dan form kanan (termasuk state read-only vs editable)
-  benar-benar cocok secara visual. **Perlu dicek manual oleh Ray**: login
-  ke `profile.html`, cek field Full name/Phone bisa diedit & tersimpan,
-  toast sukses/error muncul, Discard reset ke nilai lama, dan badge role
-  + status akun menampilkan data yang benar.
 
 ## [2.22.0] - 2026-08-24
 
@@ -875,34 +886,6 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   dan Preview menampilkan rekening yang benar (termasuk kasus
   `bank_account_id` null menampilkan placeholder, bukan error).
 
-## [2.15.0] - 2026-08-24
-
-### Added
-- **PROJECT — Part VI: Alur Terima/Tolak/Nego**. Menutup lingkaran
-  7-part PROJECT feature. Schema only — UI tombol Terima/Tolak/Nego
-  dibangun di sisi client (mitra.soulmitra.id, tanggung jawab Dimas).
-  - RLS write untuk role `client` di `case_quotations` — client bisa
-    UPDATE quotation miliknya sendiri, cuma dari status SENT, cuma
-    boleh transisi ke ACCEPTED/REJECTED/NEGOTIATING.
-  - Trigger `prevent_client_quotation_tampering` — proteksi kolom,
-    client cuma boleh ubah status/responded_at/client_response_notes,
-    tidak bisa menyelipkan perubahan total_amount/quotation_number/dst
-    lewat request yang sama. Pola sama seperti
-    `profiles_prevent_privilege_escalation` dan
-    `payments_prevent_invoice_receipt_tampering` yang sudah ada.
-  - Trigger `handle_quotation_response` — otomasi saat status berubah:
-    ACCEPTED → `cases.intake_status` jadi ACCEPTED, generate `payments`
-    dari `case_quotation_items` (1:1 per termin), generate 6
-    `case_stages` (idempotent — skip kalau case sudah punya stages)
-    + set `current_stage_id`. REJECTED → `cases.intake_status` jadi
-    REJECTED.
-- Diverifikasi lewat transaction test manual (BEGIN...ROLLBACK):
-  ACCEPTED menghasilkan 4 payments (sesuai 4 termin asli), 6 case_stages
-  urut dengan owner benar, current_stage_id ter-set. REJECTED
-  menghasilkan intake_status yang benar. Idempotency case_stages
-  dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
-  sebelum & sesudah).
-
 ## [2.17.1] - 2026-08-24
 
 ### Fixed
@@ -998,6 +981,34 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   multi-select (search, tambah/hapus chip), simpan per-baris beneran
   ke-update di `document_templates` dan toast sukses/error muncul benar,
   serta visibilitas nav item cuma untuk admin.
+
+## [2.15.0] - 2026-08-24
+
+### Added
+- **PROJECT — Part VI: Alur Terima/Tolak/Nego**. Menutup lingkaran
+  7-part PROJECT feature. Schema only — UI tombol Terima/Tolak/Nego
+  dibangun di sisi client (mitra.soulmitra.id, tanggung jawab Dimas).
+  - RLS write untuk role `client` di `case_quotations` — client bisa
+    UPDATE quotation miliknya sendiri, cuma dari status SENT, cuma
+    boleh transisi ke ACCEPTED/REJECTED/NEGOTIATING.
+  - Trigger `prevent_client_quotation_tampering` — proteksi kolom,
+    client cuma boleh ubah status/responded_at/client_response_notes,
+    tidak bisa menyelipkan perubahan total_amount/quotation_number/dst
+    lewat request yang sama. Pola sama seperti
+    `profiles_prevent_privilege_escalation` dan
+    `payments_prevent_invoice_receipt_tampering` yang sudah ada.
+  - Trigger `handle_quotation_response` — otomasi saat status berubah:
+    ACCEPTED → `cases.intake_status` jadi ACCEPTED, generate `payments`
+    dari `case_quotation_items` (1:1 per termin), generate 6
+    `case_stages` (idempotent — skip kalau case sudah punya stages)
+    + set `current_stage_id`. REJECTED → `cases.intake_status` jadi
+    REJECTED.
+- Diverifikasi lewat transaction test manual (BEGIN...ROLLBACK):
+  ACCEPTED menghasilkan 4 payments (sesuai 4 termin asli), 6 case_stages
+  urut dengan owner benar, current_stage_id ter-set. REJECTED
+  menghasilkan intake_status yang benar. Idempotency case_stages
+  dikonfirmasi via 2 pengecekan independen (case yang sama, exists-check
+  sebelum & sesudah).
 
 ## [2.14.0] - 2026-08-24
 
@@ -1161,6 +1172,31 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.11.0] - 2026-08-24
+
+_Catatan: header ini sempat tertinggal sebagai "[Unreleased] - Database" walau tag `v2.11.0` sudah dibuat saat merge — direname supaya konsisten dengan tag git, pola yang sama seperti fix header 2.8.0/2.9.0/2.10.0 di atas._
+
+### Added
+- **PROJECT — Part V.2: RAB Formal (schema)**. Lampiran PRD
+  (`SPEC_PROJECT_Part_V2_RAB_Formal.md`), bukan revisi Part V —
+  penambahan. `case_quotation_items` (termin pembayaran, Part V) tetap
+  dipakai, tidak diubah.
+  - Tabel baru `service_type_codes` — mapping `service_type` ke kode
+    3 huruf untuk nomor RAB (format `SMA/YYYY-MM/{kode}/{urutan}`),
+    di-seed 21 kode. Admin manage, supervisor/internal select-only,
+    tidak ada akses client (tabel konfigurasi internal).
+  - Tabel baru `case_quotation_line_items` — rincian pekerjaan
+    (description, detail, qty, rate, amount, order_index) — BEDA dari
+    `case_quotation_items` (termin pembayaran). RLS identik dengan
+    `case_quotation_items`: admin ALL, supervisor setara, internal
+    dibatasi ke quotation berstatus DRAFT, client SELECT-only.
+  - Kolom baru `case_quotations.quotation_number` dan
+    `case_quotations.description`.
+  - Belum ada logic generate nomor RAB (trigger/function) atau
+    perubahan frontend — task terpisah setelah ini.
+- Diverifikasi ke database: 21 kode layanan masuk, tabel
+  `case_quotation_line_items` ada, 2 kolom baru ada di `case_quotations`.
+
 ## [2.9.0] & [2.10.0] - 2026-08-23
 
 _Catatan: entry ini mencakup 2 tag (Part VII dirilis sebagai v2.9.0, Part V sebagai v2.10.0) karena header sempat tidak di-rename di antara keduanya._
@@ -1283,31 +1319,6 @@ _Catatan: entry ini mencakup 2 tag (Part VII dirilis sebagai v2.9.0, Part V seba
   - Query `case_quotations` yang embed `profiles!created_by` sudah
     pakai hint FK eksplisit dari awal (mengikuti pola fix di v2.7.0),
     tapi belum bisa dikonfirmasi jalan di browser sungguhan.
-
-## [2.11.0] - 2026-08-24
-
-_Catatan: header ini sempat tertinggal sebagai "[Unreleased] - Database" walau tag `v2.11.0` sudah dibuat saat merge — direname supaya konsisten dengan tag git, pola yang sama seperti fix header 2.8.0/2.9.0/2.10.0 di atas._
-
-### Added
-- **PROJECT — Part V.2: RAB Formal (schema)**. Lampiran PRD
-  (`SPEC_PROJECT_Part_V2_RAB_Formal.md`), bukan revisi Part V —
-  penambahan. `case_quotation_items` (termin pembayaran, Part V) tetap
-  dipakai, tidak diubah.
-  - Tabel baru `service_type_codes` — mapping `service_type` ke kode
-    3 huruf untuk nomor RAB (format `SMA/YYYY-MM/{kode}/{urutan}`),
-    di-seed 21 kode. Admin manage, supervisor/internal select-only,
-    tidak ada akses client (tabel konfigurasi internal).
-  - Tabel baru `case_quotation_line_items` — rincian pekerjaan
-    (description, detail, qty, rate, amount, order_index) — BEDA dari
-    `case_quotation_items` (termin pembayaran). RLS identik dengan
-    `case_quotation_items`: admin ALL, supervisor setara, internal
-    dibatasi ke quotation berstatus DRAFT, client SELECT-only.
-  - Kolom baru `case_quotations.quotation_number` dan
-    `case_quotations.description`.
-  - Belum ada logic generate nomor RAB (trigger/function) atau
-    perubahan frontend — task terpisah setelah ini.
-- Diverifikasi ke database: 21 kode layanan masuk, tabel
-  `case_quotation_line_items` ada, 2 kolom baru ada di `case_quotations`.
 
 ## [2.8.0] - 2026-08-22
 
@@ -1683,14 +1694,3 @@ Rilis fondasi pertama.
 [1.1.1]: https://github.com/soulmediaglobal/sma-app/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/soulmediaglobal/sma-app/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/soulmediaglobal/sma-app/releases/tag/v1.0.0
-
-## [Unreleased] - Issue #99
-
-### Added
-- Integrated dynamic Supabase data fetching for `production/user_management.html`.
-- Added automated device tracking (`last_login_device` & `last_sign_in_at`) on user session initialization via `trackCurrentSession()`.
-- Added dynamic project count calculations aggregated from `case_assignees` and `cases.client_id`.
-- Added custom inline color coding for user role badges (`admin`, `supervisor`, `internal`, `client`) and randomized initial avatars.
-
-### Database
-- Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
