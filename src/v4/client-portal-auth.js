@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabaseClient.js';
 import {
   clientPortalUrl,
-  internalCmsUrl,
   isClientProfileComplete,
   requestClientPasswordReset,
   restoreClientSession,
@@ -17,6 +16,49 @@ import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 
 let initializedRoot = null;
+const STAFF_ROLES = new Set(['admin', 'supervisor', 'internal']);
+const APPLICATION_CARD_STATES = {
+  DRAFT: {
+    badge: 'Draft',
+    description: 'Pengajuan belum dikirim. Lanjutkan dan periksa kembali datanya.',
+    action: 'Lanjutkan Draft'
+  },
+  SUBMITTED: {
+    badge: 'Menunggu Review',
+    description: 'Pengajuan sudah terkirim dan menunggu pemeriksaan Tim SMA.',
+    action: 'Lihat Pengajuan'
+  },
+  UNDER_REVIEW: {
+    badge: 'Sedang Ditinjau',
+    description: 'Tim SMA sedang memeriksa pengajuanmu.',
+    action: 'Lihat Status'
+  },
+  REVISION_REQUIRED: {
+    badge: 'Perlu Revisi',
+    description: 'Tim SMA meminta beberapa perbaikan pada pengajuanmu.',
+    action: 'Perbaiki Pengajuan'
+  },
+  APPROVED: {
+    badge: 'Disetujui',
+    description: 'Pengajuan disetujui. Aktivasi akses client sedang diproses.',
+    action: 'Lihat Pengajuan'
+  },
+  REJECTED: {
+    badge: 'Tidak Disetujui',
+    description: 'Pengajuan ini tidak disetujui oleh Tim SMA.',
+    action: 'Lihat Pengajuan'
+  },
+  CANCELLED: {
+    badge: 'Dibatalkan',
+    description: 'Pengajuan ini telah dibatalkan.',
+    action: 'Lihat Pengajuan'
+  }
+};
+const APPLICATION_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric'
+});
 
 function setButtonBusy(button, busy, busyLabel) {
   if (!button) {
@@ -301,11 +343,18 @@ async function initClientCallback(root) {
       return;
     }
 
-    const destination = routeForClientProfile(profile);
-    if (destination === 'internal') {
-      window.location.replace(internalCmsUrl());
+    if (STAFF_ROLES.has(profile.role)) {
+      await supabase.auth.signOut().catch(() => {});
+      callbackCard.setAttribute('aria-busy', 'false');
+      spinner.hidden = true;
+      title.textContent = 'Akun tidak dapat mengakses portal';
+      message.textContent = 'Gunakan jalur masuk yang sesuai untuk akun kamu.';
+      retryButton.hidden = false;
+      callbackPending = false;
       return;
     }
+
+    const destination = routeForClientProfile(profile);
     if (destination === 'client') {
       window.location.replace(clientPortalUrl('client-portal.html'));
       return;
@@ -422,14 +471,149 @@ function renderClientPortal(root, profile) {
   root.querySelector('[data-client-phone]').value = profile.phone || '';
 }
 
+function formatApplicationDate(application) {
+  const timestamp =
+    application.status === 'SUBMITTED' ? application.submitted_at : application.updated_at;
+  if (!timestamp) {
+    return null;
+  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const prefix = application.status === 'SUBMITTED' ? 'Dikirim' : 'Diperbarui';
+  return `${prefix} ${APPLICATION_DATE_FORMATTER.format(date)}`;
+}
+
+function applicationUrl(applicationId = null) {
+  const url = new URL(clientPortalUrl('client-application.html'));
+  if (applicationId) {
+    url.searchParams.set('id', applicationId);
+  }
+  return url.href;
+}
+
+function createApplicationState(title, message, action) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'client-application-list-state';
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  const copy = document.createElement('p');
+  copy.textContent = message;
+  wrapper.append(heading, copy);
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'client-auth-secondary';
+    button.textContent = action.label;
+    button.addEventListener('click', action.handler);
+    wrapper.append(button);
+  }
+  return wrapper;
+}
+
+function setApplicationListsLoading(root) {
+  root.querySelectorAll('[data-application-list], [data-application-list-home]').forEach(list => {
+    list.setAttribute('aria-busy', 'true');
+    list.replaceChildren(createApplicationState('Memuat pengajuan…', 'Mohon tunggu sebentar.'));
+  });
+}
+
+function createApplicationCard(application, { onDelete, profile }) {
+  const state = APPLICATION_CARD_STATES[application.status] || {
+    badge: 'Status tersedia',
+    description: 'Buka pengajuan untuk melihat informasi terbaru.',
+    action: 'Lihat Pengajuan'
+  };
+  const card = document.createElement('article');
+  card.className = 'client-application-summary';
+
+  const main = document.createElement('div');
+  main.className = 'client-application-summary-main';
+  const badge = document.createElement('span');
+  badge.className = 'client-application-summary-status';
+  badge.dataset.status = application.status;
+  badge.textContent = state.badge;
+  const copy = document.createElement('div');
+  const title = document.createElement('h3');
+  title.textContent = application.service_type?.trim() || 'Pengajuan layanan';
+  const description = document.createElement('p');
+  description.textContent =
+    application.status === 'APPROVED' && profile.client_id
+      ? 'Pengajuan telah disetujui dan akun client sudah aktif.'
+      : state.description;
+  const date = document.createElement('time');
+  const formattedDate = formatApplicationDate(application);
+  date.textContent = formattedDate || '';
+  date.hidden = !formattedDate;
+  copy.append(title, description, date);
+  main.append(badge, copy);
+
+  const actions = document.createElement('div');
+  actions.className = 'client-application-summary-actions';
+  const open = document.createElement('a');
+  open.className = 'client-auth-primary';
+  open.href = applicationUrl(application.id);
+  open.textContent = state.action;
+  actions.append(open);
+  if (application.status === 'DRAFT') {
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'client-auth-secondary client-application-delete';
+    remove.textContent = 'Hapus Draft';
+    remove.setAttribute(
+      'aria-label',
+      `Hapus draft ${application.service_type?.trim() || 'pengajuan layanan'}`
+    );
+    remove.addEventListener('click', () => onDelete(application, remove));
+    actions.append(remove);
+  }
+  card.append(main, actions);
+  return card;
+}
+
+function renderApplicationLists(root, applications, handlers) {
+  const lists = root.querySelectorAll('[data-application-list], [data-application-list-home]');
+  lists.forEach(list => {
+    list.setAttribute('aria-busy', 'false');
+    if (!applications.length) {
+      list.replaceChildren(
+        createApplicationState(
+          'Belum ada pengajuan',
+          'Ajukan layanan baru saat kamu siap menyampaikan kebutuhan kepada Tim SMA.'
+        )
+      );
+      return;
+    }
+    list.replaceChildren(
+      ...applications.map(application => createApplicationCard(application, handlers))
+    );
+  });
+}
+
+function renderApplicationListError(root, retry) {
+  root.querySelectorAll('[data-application-list], [data-application-list-home]').forEach(list => {
+    list.setAttribute('aria-busy', 'false');
+    list.replaceChildren(
+      createApplicationState(
+        'Pengajuan belum dapat dimuat',
+        'Daftar pengajuan belum tersedia. Coba lagi beberapa saat.',
+        { label: 'Coba Lagi', handler: retry }
+      )
+    );
+  });
+}
+
 async function initClientPortalHome(root) {
   const loading = root.querySelector('[data-portal-loading]');
   const content = root.querySelector('[data-portal-content]');
   const blocked = root.querySelector('[data-portal-blocked]');
   const profilePanel = root.querySelector('[data-profile-panel]');
   const phoneForm = root.querySelector('[data-phone-form]');
-  const projectButton = root.querySelector('[data-create-project]');
   const completeButtons = root.querySelectorAll('[data-complete-profile]');
+  const createApplicationControls = root.querySelectorAll(
+    '[data-create-application], [data-create-application-link]'
+  );
 
   root.querySelectorAll('[data-client-logout]').forEach(button => {
     bindClientLogout(button);
@@ -452,12 +636,15 @@ async function initClientPortalHome(root) {
     return;
   }
 
-  const destination = routeForClientProfile(profile);
-  if (destination === 'internal') {
-    window.location.replace(internalCmsUrl());
+  if (STAFF_ROLES.has(profile.role)) {
+    await supabase.auth.signOut().catch(() => {});
+    blocked.hidden = false;
+    blocked.querySelector('[data-blocked-message]').textContent =
+      'Akun tidak dapat mengakses Client Portal melalui jalur ini.';
     return;
   }
-  if (destination !== 'client') {
+
+  if (routeForClientProfile(profile) !== 'client') {
     blocked.hidden = false;
     blocked.querySelector('[data-blocked-message]').textContent =
       'Akun sedang dinonaktifkan. Hubungi Tim SMA untuk bantuan.';
@@ -466,17 +653,225 @@ async function initClientPortalHome(root) {
 
   let currentProfile = profile;
   let profileUpdatePending = false;
+  let applicationLoadPending = false;
+  let applicationMutationPending = false;
+
+  const requestNewApplication = event => {
+    event?.preventDefault();
+    if (applicationMutationPending) {
+      return;
+    }
+    if (!isClientProfileComplete(currentProfile)) {
+      profilePanel.hidden = false;
+      const firstMissing = currentProfile.name?.trim()
+        ? root.querySelector('[data-client-phone]')
+        : root.querySelector('[data-client-profile-name]');
+      firstMissing.focus();
+      showToast('Lengkapi nama dan nomor WhatsApp sebelum membuat pengajuan.', {
+        variant: 'warning'
+      });
+      return;
+    }
+    window.location.assign(applicationUrl());
+  };
+
+  createApplicationControls.forEach(control => {
+    if (control.tagName === 'BUTTON') {
+      control.disabled = false;
+    }
+    control.addEventListener('click', requestNewApplication);
+  });
+
+  async function deleteDraft(application) {
+    const { data: documents, error: documentsError } = await supabase
+      .from('client_application_documents')
+      .select('id, application_id, storage_path')
+      .eq('application_id', application.id);
+    if (documentsError || !Array.isArray(documents)) {
+      return { ok: false, partial: false };
+    }
+
+    const expectedPrefix = `${currentProfile.id}/${application.id}/`;
+    const paths = documents.map(document => document.storage_path);
+    if (
+      documents.some(
+        document =>
+          document.application_id !== application.id ||
+          !document.storage_path.startsWith(expectedPrefix) ||
+          document.storage_path.slice(expectedPrefix.length).includes('/')
+      )
+    ) {
+      return { ok: false, partial: false };
+    }
+
+    let storageRemoved = false;
+    if (paths.length) {
+      const { error: storageError } = await supabase.storage
+        .from('client-application-documents')
+        .remove(paths);
+      if (storageError) {
+        return { ok: false, partial: true };
+      }
+      storageRemoved = true;
+    }
+
+    if (documents.length) {
+      const documentIds = documents.map(document => document.id);
+      const {
+        data: removedMetadata,
+        error: metadataError,
+        count: metadataCount
+      } = await supabase
+        .from('client_application_documents')
+        .delete({ count: 'exact' })
+        .eq('application_id', application.id)
+        .in('id', documentIds)
+        .select('id');
+      if (
+        metadataError ||
+        metadataCount !== documents.length ||
+        removedMetadata?.length !== documents.length
+      ) {
+        return { ok: false, partial: storageRemoved };
+      }
+    }
+
+    const {
+      data: removedApplication,
+      error: applicationError,
+      count: applicationCount
+    } = await supabase
+      .from('client_applications')
+      .delete({ count: 'exact' })
+      .eq('id', application.id)
+      .eq('applicant_profile_id', currentProfile.id)
+      .eq('status', 'DRAFT')
+      .select('id');
+    if (applicationError || applicationCount !== 1 || removedApplication?.length !== 1) {
+      return { ok: false, partial: documents.length > 0 };
+    }
+    return { ok: true, partial: false };
+  }
+
+  const refreshApplications = async () => {
+    if (applicationLoadPending) {
+      return;
+    }
+    applicationLoadPending = true;
+    setApplicationListsLoading(root);
+    try {
+      const { data, error } = await supabase
+        .from('client_applications')
+        .select('id, service_type, status, submitted_at, updated_at, created_at')
+        .eq('applicant_profile_id', user.id)
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      if (error || !Array.isArray(data)) {
+        renderApplicationListError(root, refreshApplications);
+        return;
+      }
+      renderApplicationLists(root, data, {
+        profile: currentProfile,
+        onDelete(application, trigger) {
+          if (applicationMutationPending || application.status !== 'DRAFT') {
+            return;
+          }
+          const body = document.createElement('div');
+          const copy = document.createElement('p');
+          copy.textContent =
+            'Draft dan seluruh dokumen pendukungnya akan dihapus. Tindakan ini tidak dapat dibatalkan.';
+          const feedback = document.createElement('p');
+          feedback.className = 'client-auth-feedback';
+          feedback.setAttribute('role', 'status');
+          feedback.setAttribute('aria-live', 'polite');
+          feedback.hidden = true;
+          body.append(copy, feedback);
+          const modal = showModal({
+            title: 'Hapus draft?',
+            body,
+            actions: [
+              { label: 'Batal', variant: 'ghost' },
+              {
+                label: 'Hapus Draft',
+                variant: 'danger',
+                closeOnAction: false,
+                action: ({ dialog, close }) => {
+                  if (applicationMutationPending) {
+                    return false;
+                  }
+                  applicationMutationPending = true;
+                  const buttons = dialog.querySelectorAll('button');
+                  buttons.forEach(button => {
+                    button.disabled = true;
+                  });
+                  deleteDraft(application)
+                    .then(async result => {
+                      if (result.ok) {
+                        close();
+                        showToast('Draft berhasil dihapus.', { variant: 'success' });
+                        await refreshApplications();
+                        return;
+                      }
+                      feedback.textContent = result.partial
+                        ? 'Sebagian data sudah terhapus, tetapi proses belum selesai. Muat ulang daftar dan hubungi Tim SMA bila draft masih tampil.'
+                        : 'Draft belum dapat dihapus. Coba lagi beberapa saat.';
+                      feedback.hidden = false;
+                      if (result.partial) {
+                        await refreshApplications();
+                      }
+                      buttons.forEach(button => {
+                        button.disabled = false;
+                      });
+                    })
+                    .catch(async () => {
+                      feedback.textContent =
+                        'Status penghapusan belum dapat dipastikan. Muat ulang daftar sebelum mencoba lagi.';
+                      feedback.hidden = false;
+                      await refreshApplications();
+                      buttons.forEach(button => {
+                        button.disabled = false;
+                      });
+                    })
+                    .finally(() => {
+                      applicationMutationPending = false;
+                    });
+                  return false;
+                }
+              }
+            ],
+            onClose: () => trigger.focus()
+          });
+          modal.dialog.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && applicationMutationPending) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          });
+          modal.dialog.parentElement.addEventListener(
+            'click',
+            event => {
+              if (applicationMutationPending && event.target === modal.dialog.parentElement) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+              }
+            },
+            { capture: true }
+          );
+        }
+      });
+    } catch {
+      renderApplicationListError(root, refreshApplications);
+    } finally {
+      applicationLoadPending = false;
+    }
+  };
+
   renderClientPortal(root, currentProfile);
   content.hidden = false;
   const { initClientPortalProjects } = await import('./client-portal-projects.js');
   initClientPortalProjects({ root, profile: currentProfile });
-
-  if (currentProfile.client_id) {
-    root.querySelector('[data-project-entry-title]').textContent = 'Project Saya';
-    root.querySelector('[data-project-entry-description]').textContent =
-      'Pantau status dan perkembangan layanan yang sedang ditangani oleh Tim SMA.';
-    projectButton.textContent = 'Lihat Project Saya';
-  }
+  await refreshApplications();
 
   completeButtons.forEach(button =>
     button.addEventListener('click', () => {
@@ -518,7 +913,6 @@ async function initClientPortalHome(root) {
         showToast('Nomor WhatsApp belum dapat disimpan. Coba lagi.', { variant: 'error' });
         return;
       }
-
       currentProfile = data;
       renderClientPortal(root, currentProfile);
       profilePanel.hidden = true;
@@ -529,25 +923,6 @@ async function initClientPortalHome(root) {
       profileUpdatePending = false;
       setButtonBusy(submitButton, false, '');
     }
-  });
-
-  projectButton.addEventListener('click', () => {
-    if (currentProfile.client_id) {
-      window.location.hash = 'projects';
-      return;
-    }
-    if (!isClientProfileComplete(currentProfile)) {
-      profilePanel.hidden = false;
-      const firstMissing = currentProfile.name?.trim()
-        ? root.querySelector('[data-client-phone]')
-        : root.querySelector('[data-client-profile-name]');
-      firstMissing.focus();
-      showToast('Lengkapi nama dan nomor WhatsApp sebelum mengajukan project.', {
-        variant: 'warning'
-      });
-      return;
-    }
-    showToast('Form pengajuan project akan tersedia pada tahap berikutnya.', { variant: 'info' });
   });
 }
 

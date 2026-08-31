@@ -41,9 +41,11 @@
     >
       <nav class="client-portal-nav" aria-label="Navigasi Client Portal">
         <a href="#home" data-portal-route="home"><span aria-hidden="true">⌂</span>Beranda</a>
-        <a href="#projects" data-portal-route="projects"><span aria-hidden="true">▦</span>Project Saya</a>
-        <a href="#documents" data-portal-route="documents"><span aria-hidden="true">▤</span>Dokumen</a>
-        <a href="#payments" data-portal-route="payments"><span aria-hidden="true">◫</span>Pembayaran</a>
+        <a href="#projects" data-portal-route="projects" data-client-linked-only><span aria-hidden="true">▦</span>Project Saya</a>
+        <a href="#applications" data-portal-route="applications"><span aria-hidden="true">▧</span>Pengajuan Saya</a>
+        <a href="client-application.html" data-create-application-link><span aria-hidden="true">＋</span>Ajukan Layanan</a>
+        <a href="#documents" data-portal-route="documents" data-client-linked-only><span aria-hidden="true">▤</span>Dokumen</a>
+        <a href="#payments" data-portal-route="payments" data-client-linked-only><span aria-hidden="true">◫</span>Pembayaran</a>
         <a href="#help" data-portal-route="help"><span aria-hidden="true">?</span>Bantuan</a>
       </nav>
     </aside>
@@ -71,7 +73,7 @@
     <div class="client-portal-content" data-portal-content hidden>
       <section class="client-profile-banner" data-profile-banner hidden>
         <div>
-          <strong>Lengkapi <span data-profile-missing>profil</span> agar kamu dapat mengajukan project.</strong>
+          <strong>Lengkapi <span data-profile-missing>profil</span> agar kamu dapat membuat pengajuan.</strong>
           <p>Portal tetap dapat digunakan. Data ini baru diwajibkan saat membuat pengajuan.</p>
         </div>
         <button type="button" class="client-auth-primary" data-complete-profile>Lengkapi profil</button>
@@ -113,9 +115,9 @@
       <section class="client-portal-grid" aria-label="Layanan portal">
         <article class="client-portal-card client-portal-card-primary">
           <span class="client-portal-icon" aria-hidden="true">＋</span>
-          <h2 data-project-entry-title>Ajukan project baru</h2>
-          <p data-project-entry-description>Sampaikan kebutuhan perizinan atau legalitas yang ingin dibantu oleh Tim SMA.</p>
-          <button type="button" class="client-auth-primary" data-create-project>Buat Project</button>
+          <h2 data-create-application-title>Ajukan layanan baru</h2>
+          <p data-create-application-description>Sampaikan kebutuhan perizinan atau legalitas yang ingin dibantu oleh Tim SMA.</p>
+          <button type="button" class="client-auth-primary" data-create-application disabled>Buat Pengajuan</button>
         </article>
         <article class="client-portal-card">
           <span class="client-portal-icon" aria-hidden="true">◎</span>
@@ -129,7 +131,7 @@
         </article>
       </section>
 
-      <section class="client-project-summary" aria-labelledby="client-project-summary-title">
+      <section class="client-project-summary" aria-labelledby="client-project-summary-title" data-client-linked-only>
         <div class="client-project-summary__heading">
           <div>
             <p class="client-auth-eyebrow">Ringkasan Project</p>
@@ -143,6 +145,17 @@
           aria-live="polite"
         ></div>
       </section>
+
+      <section class="client-application-latest" data-application-latest aria-labelledby="client-application-latest-title">
+        <header class="client-application-latest-heading">
+          <div>
+            <p class="client-auth-eyebrow">Pengajuan layanan</p>
+            <h2 id="client-application-latest-title">Pengajuan Saya</h2>
+          </div>
+          <button type="button" class="client-auth-secondary" data-create-application>Ajukan Layanan Baru</button>
+        </header>
+        <div class="client-application-list" data-application-list-home aria-busy="true" aria-live="polite"></div>
+      </section>
       </section>
 
       <section class="client-portal-view" data-portal-view="projects" hidden>
@@ -152,6 +165,18 @@
           <p>Pantau status dan perkembangan tahapan seluruh project milikmu.</p>
         </div>
         <div class="client-projects" data-client-projects aria-live="polite"></div>
+      </section>
+
+      <section class="client-portal-view" data-portal-view="applications" hidden>
+        <div class="client-portal-view-header client-application-view-header">
+          <div>
+            <p class="client-auth-eyebrow">Pengajuan Saya</p>
+            <h1 tabindex="-1">Seluruh pengajuan layanan</h1>
+            <p>Setiap pengajuan mewakili satu layanan dan dapat dipantau secara terpisah.</p>
+          </div>
+          <button type="button" class="client-auth-primary" data-create-application>Ajukan Layanan Baru</button>
+        </div>
+        <div class="client-application-list" data-application-list aria-busy="true" aria-live="polite"></div>
       </section>
 
       <section class="client-portal-view" data-portal-view="documents" hidden>

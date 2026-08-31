@@ -1,0 +1,431 @@
+.client-application {
+  min-height: 100vh;
+  background: var(--body-bg);
+}
+
+.client-application-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.client-application .client-portal-state > p:not(.client-auth-eyebrow) {
+  max-width: 560px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.client-application-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.client-application-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.client-application-content {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: var(--space-5) 0 var(--space-8);
+}
+
+.client-application-documents {
+  min-width: 0;
+}
+
+.client-application-documents-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.client-application-documents-heading h2 {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: 20px;
+}
+
+.client-application-documents-heading > div > p:last-child,
+.client-application-document-notice,
+.client-application-document-empty,
+.client-application-document-details span {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.client-application-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding-inline: var(--space-4);
+  gap: var(--space-2);
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+}
+
+.client-application-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.client-application-upload:focus-within {
+  outline: 3px solid var(--primary-lt);
+  outline-offset: 2px;
+}
+
+.client-application-upload.is-disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.client-application-document-notice {
+  margin-top: var(--space-3);
+}
+
+.client-application-document-progress {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--primary-lt);
+  color: var(--primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.client-application-document-list {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.client-application-document-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-surface-secondary);
+}
+
+.client-application-document-details {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.client-application-document-details strong {
+  overflow-wrap: anywhere;
+}
+
+.client-application-document-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+.client-application-document-actions button,
+.client-application-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: var(--space-4);
+  gap: var(--space-2);
+  line-height: 1.25;
+  text-align: center;
+}
+
+.client-application-document-delete {
+  color: var(--red);
+}
+
+.client-application-content[hidden],
+.client-application [hidden] {
+  display: none;
+}
+
+.client-application-back {
+  margin-bottom: var(--space-4);
+  font-weight: var(--font-weight-medium);
+}
+
+.client-application-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.client-application-heading h1 {
+  margin-bottom: var(--space-2);
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: -0.035em;
+}
+
+.client-application-heading > div > p:last-child,
+.client-application-section-heading p,
+.client-application-actions > p {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.client-application-status {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary-lt);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+.client-application-revision {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--yellow);
+  border-radius: var(--radius-lg);
+  background: var(--yellow-lt);
+}
+
+.client-application-revision p {
+  margin-top: var(--space-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.client-application-modal-feedback {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--red-lt);
+  color: var(--red);
+}
+
+.client-application-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.client-application-card {
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow);
+}
+
+.client-application-section-heading {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.client-application-section-heading > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--primary-lt);
+  color: var(--primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.client-application-section-heading h2 {
+  margin-bottom: var(--space-1);
+  font-size: 18px;
+}
+
+.client-application-choice-grid,
+.client-application-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.client-application-choice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 76px;
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-secondary);
+  cursor: pointer;
+}
+
+.client-application-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-lt);
+}
+
+.client-application-choice input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--primary);
+}
+
+.client-application-choice span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.client-application-choice small,
+.client-application-field small {
+  color: var(--text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.client-application-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+.client-application-field-wide {
+  margin-top: var(--space-4);
+}
+
+.client-application-field b {
+  color: var(--red);
+}
+
+.client-application-field input,
+.client-application-field select,
+.client-application-field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.client-application-field textarea {
+  min-height: 120px;
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+.client-application-field select:disabled {
+  background: var(--bg-surface-secondary);
+  color: var(--text-muted);
+}
+
+.client-application-choice:focus-within,
+.client-application-field input:focus-visible,
+.client-application-field select:focus-visible,
+.client-application-field textarea:focus-visible {
+  outline: 3px solid var(--primary-lt);
+  outline-offset: 2px;
+  border-color: var(--primary);
+}
+
+.client-application-field input.is-invalid {
+  border-color: var(--red);
+}
+
+.client-application-field input.is-invalid:focus-visible {
+  outline-color: var(--red-lt);
+  border-color: var(--red);
+}
+
+.client-application-field .form-error {
+  margin-top: 0;
+  font-weight: var(--font-weight-normal);
+}
+
+.client-application-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.client-application-actions > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .client-application-heading,
+  .client-application-actions,
+  .client-application-documents-heading,
+  .client-application-document-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .client-application-choice-grid,
+  .client-application-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .client-application-status {
+    width: fit-content;
+  }
+
+  .client-application-actions > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .client-application-upload {
+    align-self: flex-start;
+    min-height: 44px;
+  }
+
+  .client-application-document-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .client-application-content {
+    width: min(100% - 24px, 960px);
+  }
+
+  .client-application-card,
+  .client-application-actions {
+    padding: var(--space-4);
+  }
+
+  .client-application-actions > div {
+    grid-template-columns: 1fr;
+  }
+}
