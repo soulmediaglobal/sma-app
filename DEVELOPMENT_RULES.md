@@ -3,7 +3,7 @@
 **Document Version:** v2.2.0
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
-**Status:** DRAFT — belum disinkronkan ke repository
+**Status:** SYNCED — commit `68859ca` di `origin/main` (2026-08-31)
 **Bahasa:** Indonesia
 **Terakhir diupdate:** 2026-08-31
 

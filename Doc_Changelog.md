@@ -29,7 +29,7 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 - **C6P6 — AI Onboarding SOP & Escalation Criteria**: langkah 1 (baca dokumen) disesuaikan referensinya ke C6P2 dan model tiered reading.
 - **C7P2**: tabel peta dokumen diperbarui untuk mencerminkan Chapter 10 dan penghapusan `AGENTS.md`/`CONTRIBUTING.md`/`docs/*.md`/`examples/` dari struktur dokumentasi project.
 
-**Status:** DRAFT — belum disinkronkan ke repository. Menunggu approval Ray.
+**Status:** SYNCED — commit `68859ca` di `origin/main` (2026-08-31).
 
 ---
 
