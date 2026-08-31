@@ -16,6 +16,16 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.1] - 2026-08-31
+
+### Corrected
+- **C6P1**: catatan status implementasi diperbaiki — sebelumnya menyatakan stub `CLAUDE.md`/`.cursor/rules/project.mdc`/`.github/copilot-instructions.md` belum diupdate secara fisik di repo. Faktanya ketiganya sudah diupdate sejak commit `68859ca` (Tahap C selesai). Kalimat diperbarui untuk mencerminkan kondisi aktual.
+- **C7P2**: baris `App_Changelog.md` di tabel peta dokumen diperbaiki — sebelumnya menyatakan status "draft lokal, belum diterapkan ke repo". Faktanya sudah live di repo sejak commit `78263ac` (rename dari `changelog.md`, struktur dirapikan).
+
+**Status:** DRAFT — perubahan ini belum disinkronkan ke repository.
+
+---
+
 ## [2.2.0] - 2026-08-31
 
 ### Added

@@ -1,9 +1,9 @@
 # Development-Rules
 
-**Document Version:** v2.2.0
+**Document Version:** v2.2.1
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
-**Status:** SYNCED — commit `68859ca` di `origin/main` (2026-08-31)
+**Status:** DRAFT — perubahan v2.2.1 belum disinkronkan ke repository
 **Bahasa:** Indonesia
 **Terakhir diupdate:** 2026-08-31
 
@@ -218,7 +218,7 @@ CLAUDE.md                     ← stub, mengarah ke DEVELOPMENT_RULES.md
 .github/copilot-instructions.md ← stub, mengarah ke DEVELOPMENT_RULES.md Chapter 10
 ```
 
-**Status implementasi**: `AGENTS.md` sudah tidak ada — isinya sudah dipangkas dan digabung jadi Chapter 10 di dokumen ini (lihat `Doc_Changelog.md` untuk detail perubahan). Isi stub `CLAUDE.md`, `.cursor/rules/project.mdc`, dan `.github/copilot-instructions.md` di repo **belum diupdate secara fisik** — masih menunjuk ke `AGENTS.md` yang lama. Penyesuaian isi ketiga stub ini adalah Tahap C, harus selesai **sebelum** `AGENTS.md` benar-benar dihapus dari repo (Tahap D), supaya tidak ada dangling reference.
+**Status implementasi**: `AGENTS.md` sudah tidak ada — isinya sudah dipangkas dan digabung jadi Chapter 10 di dokumen ini (lihat `Doc_Changelog.md` untuk detail perubahan). Isi stub `CLAUDE.md`, `.cursor/rules/project.mdc`, dan `.github/copilot-instructions.md` sudah diupdate secara fisik di repo (Tahap C, commit `68859ca`) — ketiganya sekarang mengarah ke `DEVELOPMENT_RULES.md`, tidak lagi ke `AGENTS.md` yang lama. Tahap B-D sudah selesai penuh dan tersinkron ke `origin/main`.
 
 ## C6P2 — Kewajiban AI Sebelum Mulai Kerja
 
@@ -294,7 +294,7 @@ Setiap artefak development penting harus memiliki lokasi dokumentasi yang jelas 
 |---|---|---|
 | `DEVELOPMENT_RULES.md` (dokumen ini) | Governance (Chapter 0-9) + technical reference (Chapter 10) | **Canonical tunggal** — untuk governance maupun technical how-to |
 | `CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md` | Stub per-tool, mengarah ke `DEVELOPMENT_RULES.md` | Bukan source of truth sendiri |
-| `App_Changelog.md` | History development/fitur produk (rename dari `changelog.md` — status: draft lokal, belum diterapkan ke repo, menunggu diskusi Ray dengan Dimas) | Canonical untuk riwayat fitur/rilis — jangan dicampur dengan governance changelog |
+| `App_Changelog.md` | History development/fitur produk (rename dari `changelog.md`, commit `78263ac`, live di repo) | Canonical untuk riwayat fitur/rilis — jangan dicampur dengan governance changelog |
 | `Doc_Changelog.md` | History perubahan governance (rename dari `NEW_CHANGELOG.md`) | Canonical untuk riwayat versi The Document |
 | `PRD_*.md` / `PRD_*.pdf` | Spesifikasi produk per fitur | Canonical untuk "apa yang dibangun" |
 | `CLIENT_SIDE_SYNC_SMA-app.md` | Handover Ray→Dimas soal domain/pembagian sisi admin vs client portal | Referensi konteks kerja, bukan governance — bukan pengganti C2P2 |

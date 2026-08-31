@@ -43,11 +43,12 @@ Format entri: **Status** (`Open` / `Deferred` / `Resolved`), **Ditemukan**, **De
 
 ---
 
-## 5. Inkonsistensi kecil di `changelog.md`
+## 5. Inkonsistensi struktural di changelog aplikasi
 
-- **Status**: Open (prioritas rendah)
-- **Deskripsi**: Beberapa entry versi tertahan di bawah header "Unreleased" yang belum di-rename, ada versi tanpa entry changelog sama sekali, dan satu versi yang kemungkinan tergabung ke header lain akibat proses rename sebelumnya.
-- **Keputusan saat ini**: Murni soal kerapian dokumentasi, tidak memengaruhi fungsi aplikasi. Bisa dirapikan kapan saja tanpa buru-buru.
+- **Status**: Resolved (2026-08-31)
+- **Deskripsi**: Beberapa entry versi tertahan di bawah header "Unreleased" yang belum di-rename, ada versi tanpa entry changelog sama sekali, dan satu versi yang kemungkinan tergabung ke header lain akibat proses rename sebelumnya. File juga masih bernama `changelog.md` (belum sesuai naming convention final).
+- **Keputusan saat ini**: Diselesaikan lewat commit `78263ac` — `changelog.md` di-rename jadi `App_Changelog.md` (sesuai naming convention C7P3), 2 section `[Unreleased]` digabung jadi satu, seluruh entry versi diurutkan ulang strict descending semver. Integritas konten diverifikasi (0 diff dari isi asli).
+- **Catatan sisa (bukan bagian gap ini, item baru)**: reference-links block di bagian bawah `App_Changelog.md` masih berhenti di v2.0.0 (belum update ke versi terbaru), ada gap versi `2.2.0` tanpa entry sama sekali, dan konten "Issue #99" yang digabung ke `[Unreleased]` perlu dikonfirmasi nomor versi pastinya oleh Ray/Dimas. Belum ditrack sebagai entry KNOWN_GAPS terpisah — tunggu keputusan apakah perlu.
 
 ---
 
