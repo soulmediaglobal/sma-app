@@ -9,7 +9,8 @@ const CASE_STATUS = {
 const COMPLETED_STAGE_STATUSES = new Set(['COMPLETED', 'SKIPPED']);
 const ACTIVE_STAGE_STATUSES = new Set(['IN_PROGRESS', 'WAITING', 'BLOCKED']);
 const ACTIVE_CASE_STATUSES = new Set(['Baru', 'Proses']);
-const ROUTES = new Set(['home', 'projects', 'documents', 'payments', 'help']);
+const PUBLIC_CLIENT_ROUTES = new Set(['home', 'applications', 'help']);
+const LINKED_CLIENT_ROUTES = new Set(['projects', 'documents', 'payments']);
 const dateFormatter = new Intl.DateTimeFormat('id-ID', {
   day: 'numeric',
   month: 'short',
@@ -292,12 +293,16 @@ export function initClientPortalProjects({ root, profile }) {
   const summaryContainer = root.querySelector('[data-client-project-summary]');
   const menuToggle = root.querySelector('[data-portal-menu-toggle]');
   const drawerBackdrop = root.querySelector('[data-portal-drawer-backdrop]');
+  const linkedOnlyElements = root.querySelectorAll('[data-client-linked-only]');
   let projects = null;
   let diagnostic = null;
   let loadingPromise = null;
 
   navShell.hidden = false;
   menuToggle.hidden = false;
+  linkedOnlyElements.forEach(element => {
+    element.hidden = !profile.client_id;
+  });
 
   function setDrawerOpen(open) {
     navShell.classList.toggle('is-open', open);
@@ -324,9 +329,13 @@ export function initClientPortalProjects({ root, profile }) {
   function routeFromHash() {
     const value = window.location.hash.slice(1);
     if (value.startsWith('project/')) {
-      return { view: 'projects', projectId: value.slice('project/'.length) };
+      return profile.client_id
+        ? { view: 'projects', projectId: value.slice('project/'.length) }
+        : { view: 'home', projectId: null };
     }
-    return { view: ROUTES.has(value) ? value : 'home', projectId: null };
+    const allowed =
+      PUBLIC_CLIENT_ROUTES.has(value) || (profile.client_id && LINKED_CLIENT_ROUTES.has(value));
+    return { view: allowed ? value : 'home', projectId: null };
   }
 
   function openDetail(projectId) {
@@ -490,7 +499,9 @@ export function initClientPortalProjects({ root, profile }) {
     });
 
     if (route.view === 'home') {
-      await loadProjects();
+      if (profile.client_id) {
+        await loadProjects();
+      }
       views.get(route.view)?.querySelector('h1')?.focus();
       return;
     }

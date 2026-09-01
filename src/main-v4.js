@@ -51,6 +51,9 @@ if (document.querySelector('[data-auth="otp"]')) {
 if (document.querySelector('[data-client-auth-page]')) {
   import('./v4/client-portal-auth.js').then((m) => m.initClientPortalAuth());
 }
+if (document.getElementById('client-application-root')) {
+  import('./v4/client-application.js').then((m) => m.initClientApplication());
+}
 
 // Service worker — only in production builds (skip on dev so HMR isn't fought
 // by the cache). Path uses Vite's BASE_URL so subpath deploys (e.g.

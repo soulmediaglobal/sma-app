@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Pengajuan Layanan | Client Portal SMA</title>
+  <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+  <script type="module" src="/src/main-v4.js"></script>
+</head>
+<body>
+  <main class="client-portal-shell client-application" id="client-application-root">
+    <header class="client-portal-header">
+      <a class="client-auth-brand" href="client-portal.html" aria-label="Beranda Client Portal">
+        <span class="client-auth-brand-mark" aria-hidden="true">SMA</span>
+        <span>Client Portal</span>
+      </a>
+      <div class="client-portal-header-actions">
+        <button
+          type="button"
+          class="client-portal-menu-toggle"
+          aria-controls="client-application-sidebar"
+          aria-expanded="false"
+          aria-label="Buka menu Client Portal"
+          data-portal-menu-toggle
+          hidden
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        <button type="button" class="client-auth-secondary" data-client-logout>Keluar</button>
+      </div>
+    </header>
+
+    <div class="client-portal-layout">
+      <aside
+        id="client-application-sidebar"
+        class="client-portal-nav-shell"
+        aria-label="Menu Client Portal"
+        data-client-portal-nav-shell
+        hidden
+      >
+        <nav class="client-portal-nav" aria-label="Navigasi Client Portal">
+          <a href="client-portal.html#home"><span aria-hidden="true">⌂</span>Beranda</a>
+          <a href="client-portal.html#projects" data-client-linked-only><span aria-hidden="true">▦</span>Project Saya</a>
+          <a href="client-portal.html#applications"><span aria-hidden="true">▧</span>Pengajuan Saya</a>
+          <a href="client-application.html" class="is-active" aria-current="page"><span aria-hidden="true">＋</span>Ajukan Layanan</a>
+          <a href="client-portal.html#documents" data-client-linked-only><span aria-hidden="true">▤</span>Dokumen</a>
+          <a href="client-portal.html#payments" data-client-linked-only><span aria-hidden="true">◫</span>Pembayaran</a>
+          <a href="client-portal.html#help"><span aria-hidden="true">?</span>Bantuan</a>
+        </nav>
+      </aside>
+      <button
+        type="button"
+        class="client-portal-drawer-backdrop"
+        aria-label="Tutup menu Client Portal"
+        data-portal-drawer-backdrop
+        hidden
+      ></button>
+
+      <div class="client-application-main">
+
+    <section class="client-portal-state" data-application-loading aria-live="polite">
+      <div class="client-auth-spinner" aria-hidden="true"></div>
+      <p>Menyiapkan pengajuan kamu…</p>
+    </section>
+
+    <section class="client-portal-state" data-application-state hidden aria-live="polite">
+      <p class="client-auth-eyebrow" data-state-eyebrow>Pengajuan layanan</p>
+      <h1 data-state-title tabindex="-1">Pengajuan belum dapat dibuka</h1>
+      <p data-state-message>Silakan coba lagi.</p>
+      <div class="client-application-state-actions">
+        <button type="button" class="client-auth-primary" data-state-primary hidden>Coba lagi</button>
+        <a class="client-auth-secondary client-application-link" href="client-portal.html#applications">Kembali ke Pengajuan Saya</a>
+        <button type="button" class="client-auth-secondary" data-state-logout hidden>Keluar</button>
+      </div>
+    </section>
+
+    <div class="client-application-content" data-application-content hidden>
+      <nav class="client-application-back" aria-label="Navigasi pengajuan">
+        <a href="client-portal.html#applications">← Kembali ke Pengajuan Saya</a>
+      </nav>
+
+      <header class="client-application-heading" data-application-editor>
+        <div>
+          <p class="client-auth-eyebrow">Pengajuan layanan</p>
+          <h1 data-application-title tabindex="-1">Sampaikan kebutuhan kamu</h1>
+          <p>Isi informasi berikut agar Tim SMA dapat meninjau kebutuhan layanan dengan tepat.</p>
+        </div>
+        <span class="client-application-status" data-application-status>Draft</span>
+      </header>
+
+      <aside class="client-application-revision" data-revision-panel hidden>
+        <strong>Perbaikan diperlukan</strong>
+        <p data-revision-notes></p>
+      </aside>
+
+      <form class="client-application-form" data-application-form data-reset-on-submit="false" novalidate>
+        <section class="client-application-card" data-application-editor aria-labelledby="applicant-kind-title">
+          <div class="client-application-section-heading">
+            <span>1</span>
+            <div>
+              <h2 id="applicant-kind-title">Jenis pemohon</h2>
+              <p>Pilih kategori yang paling sesuai.</p>
+            </div>
+          </div>
+          <div class="client-application-choice-grid" role="radiogroup" aria-labelledby="applicant-kind-title">
+            <label class="client-application-choice">
+              <input type="radio" name="applicant_type" value="INDIVIDUAL" checked>
+              <span><strong>Perorangan</strong><small>Pengajuan atas nama individu.</small></span>
+            </label>
+            <label class="client-application-choice">
+              <input type="radio" name="applicant_type" value="BUSINESS">
+              <span><strong>Badan Usaha</strong><small>PT, CV, Yayasan, atau badan usaha lainnya.</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="client-application-card" data-application-editor aria-labelledby="identity-title">
+          <div class="client-application-section-heading">
+            <span>2</span>
+            <div>
+              <h2 id="identity-title">Identitas pemohon</h2>
+              <p>Data utama pihak yang mengajukan layanan.</p>
+            </div>
+          </div>
+          <div class="client-application-fields">
+            <label class="client-application-field">
+              <span>Nama pemohon <b aria-hidden="true">*</b></span>
+              <input type="text" name="applicant_name" autocomplete="name" required>
+            </label>
+            <label class="client-application-field" data-entity-field hidden>
+              <span>Jenis badan usaha <b aria-hidden="true">*</b></span>
+              <select name="entity_type">
+                <option value="">Pilih jenis badan usaha</option>
+                <option value="PT">PT</option>
+                <option value="CV">CV</option>
+                <option value="YAYASAN">Yayasan</option>
+                <option value="OTHER">Lainnya</option>
+              </select>
+            </label>
+            <label class="client-application-field" data-business-field>
+              <span data-business-label>Nama usaha <small>(opsional)</small></span>
+              <input type="text" name="business_name" autocomplete="organization">
+            </label>
+            <label class="client-application-field">
+              <span>Jenis layanan <b aria-hidden="true">*</b></span>
+              <select name="service_type" required disabled>
+                <option value="">Memuat jenis layanan…</option>
+              </select>
+            </label>
+            <label class="client-application-field">
+              <span>NIB <small>(opsional)</small></span>
+              <input
+                type="text"
+                name="nib"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="13"
+                pattern="[0-9]{13}"
+                title="NIB harus terdiri dari 13 digit angka"
+                aria-describedby="nib-error"
+              >
+              <span class="form-error" id="nib-error" data-nib-error hidden>NIB harus berisi tepat 13 digit angka.</span>
+            </label>
+            <label class="client-application-field">
+              <span>NPWP <small>(opsional)</small></span>
+              <input
+                type="text"
+                name="npwp"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="21"
+                title="NPWP harus terdiri dari 15 atau 16 digit angka"
+                aria-describedby="npwp-error"
+              >
+              <span class="form-error" id="npwp-error" data-npwp-error hidden>NPWP harus berisi 15 atau 16 digit angka.</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="client-application-card" data-application-editor aria-labelledby="contact-title">
+          <div class="client-application-section-heading">
+            <span>3</span>
+            <div>
+              <h2 id="contact-title">Kontak PIC</h2>
+              <p>Kontak yang dapat dihubungi Tim SMA terkait pengajuan ini.</p>
+            </div>
+          </div>
+          <div class="client-application-fields">
+            <label class="client-application-field">
+              <span>Nama PIC <b aria-hidden="true">*</b></span>
+              <input type="text" name="pic_name" autocomplete="name" required>
+            </label>
+            <label class="client-application-field">
+              <span>Email PIC <b aria-hidden="true">*</b></span>
+              <input type="email" name="pic_email" autocomplete="email" required>
+            </label>
+            <label class="client-application-field">
+              <span>Nomor WhatsApp <b aria-hidden="true">*</b></span>
+              <input
+                type="tel"
+                name="whatsapp_number"
+                inputmode="numeric"
+                autocomplete="tel"
+                pattern="[0-9]+"
+                title="Nomor WhatsApp hanya boleh berisi angka"
+                aria-describedby="whatsapp-error"
+                required
+              >
+              <span class="form-error" id="whatsapp-error" data-whatsapp-error hidden>Nomor WhatsApp wajib diisi.</span>
+            </label>
+            <label class="client-application-field">
+              <span>Wilayah <b aria-hidden="true">*</b></span>
+              <input type="text" name="region" placeholder="Kota/kabupaten dan provinsi" required>
+            </label>
+          </div>
+          <label class="client-application-field client-application-field-wide">
+            <span>Jelaskan kebutuhan kamu <b aria-hidden="true">*</b></span>
+            <textarea name="needs_description" rows="5" required></textarea>
+          </label>
+        </section>
+
+        <section class="client-application-documents" data-application-documents hidden aria-labelledby="supporting-documents-title">
+          <div class="client-application-card">
+            <div class="client-application-documents-heading">
+              <div>
+                <p class="client-auth-eyebrow">Dokumen pendukung</p>
+                <h2 id="supporting-documents-title">Dokumen Pendukung (Opsional)</h2>
+                <p>Tambahkan dokumen yang membantu tim memahami kebutuhanmu. Dokumen persyaratan tambahan dapat diminta saat proses review.</p>
+              </div>
+              <label class="client-auth-primary client-application-upload" data-document-upload-control hidden>
+                <span data-document-upload-label>Pilih dokumen</span>
+                <input type="file" accept="application/pdf,image/jpeg,image/png" multiple data-document-input>
+              </label>
+            </div>
+
+            <p class="client-application-document-notice" data-document-notice role="status"></p>
+            <div class="client-application-document-progress" data-document-progress role="status" aria-live="polite" hidden></div>
+            <div class="client-application-document-list" data-document-list aria-live="polite"></div>
+          </div>
+        </section>
+
+        <div class="client-application-actions" data-application-editor>
+          <p>Pengajuan dapat disimpan sebagai draft dan dilanjutkan nanti.</p>
+          <div>
+            <button type="submit" class="client-auth-secondary" data-save-draft>Simpan Draft</button>
+            <button type="button" class="client-auth-primary" data-submit-application>Kirim Pengajuan</button>
+          </div>
+        </div>
+      </form>
+    </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
