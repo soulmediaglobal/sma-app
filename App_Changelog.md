@@ -28,6 +28,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.1] - 2026-09-01
+
+### Documentation
+- **Issue #147**: tambah `PRD_Workflow_Layer_SMA-app_v2.md` — hasil
+  rapat review sistem manajemen proyek & alur kerja RAB bersama
+  stakeholder, ditindaklanjuti lewat sesi perumusan mekanisme detail.
+  Menggantikan sebagian besar alur Iniciate/Approval/Process/
+  Finalisasi dari `PRD_Project_Intake_RAB_Workflow_SMA-app.md` v3.0
+  (sekarang berstatus pending). RAB Builder (Part V) sendiri TIDAK
+  dirombak.
+
 ## [2.32.0] - 2026-08-28
 
 ### Added
@@ -1745,6 +1756,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...v2.32.1
 [2.32.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.29.0...v2.30.0
