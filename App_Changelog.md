@@ -28,6 +28,23 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.3] - 2026-09-01
+
+### Database
+- **Issue #153** (Task 2/11, PRD_Workflow_Layer_SMA-app_v2.md): tambah
+  `case_quotation_line_items.parent_item_id`/`notes` (hierarki step/
+  sub-step/sub-sub-step, maks 3 level), `case_quotation_items.
+  required_before_line_item_id` (linkage termin ke step), dan 4 kolom
+  baru di `payments` (`verification_status`, `proof_url`,
+  `proof_uploaded_at`, `proof_rejected_reason`) untuk alur verifikasi
+  bukti transfer.
+- **RLS baru**: client sekarang punya akses UPDATE ke `payments`
+  (sebelumnya SELECT-only), dibatasi lewat trigger
+  `prevent_client_payment_tampering` ke kolom bukti transfer saja dan
+  cuma transisi BELUM_BAYAR→BUKTI_DIUPLOAD.
+- Schema-only — logic yang menulis ke kolom-kolom ini adalah task
+  terpisah (task 6-9/11).
+
 ## [2.32.2] - 2026-09-01
 
 ### Database
@@ -1766,6 +1783,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.3]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.2...v2.32.3
 [2.32.2]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.1...v2.32.2
 [2.32.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...v2.32.1
 [2.32.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.31.0...v2.32.0
