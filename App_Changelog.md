@@ -28,6 +28,32 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.6] - 2026-09-02
+
+### Database
+- **Issue #161** (Task 4/11, PRD_Workflow_Layer_SMA-app_v2.md): RLS baru
+  `case_quotations_internal_creator_reject` — melengkapi gap policy
+  `case_quotations_internal_update` yang sebelumnya cuma izinkan role
+  internal update saat status `DRAFT`. Policy baru mengizinkan internal
+  reject (`SENT` → `REJECTED`) khusus kalau dia creator project terkait
+  (`cases.created_by`). Admin/supervisor tidak perlu policy tambahan,
+  sudah unrestricted lewat policy existing.
+- Diverifikasi langsung ke database (`\d+ case_quotations`) setelah
+  dijalankan, sebelum file migration dicommit.
+
+### Added
+- Tombol "Tolak Penawaran" di sisi admin (`src/v4/client-quotations.js`)
+  untuk quotation berstatus `SENT` — sebelumnya reject cuma bisa
+  ditrigger dari client portal. Wajib isi alasan penolakan (disimpan di
+  kolom `case_quotations.notes`), tervalidasi sebelum submit. Tersedia
+  untuk role admin/supervisor, dan internal khusus project creator.
+- Badge counter negosiasi ("Nego: X/3") di header "Riwayat Versi",
+  menampilkan `cases.negotiation_count` (dari trigger Issue #157) —
+  reuse komponen `.chip` existing.
+- Diverifikasi manual: submit alasan kosong ditolak validasi, submit
+  dengan alasan berhasil update status/notes/responded_at dan
+  activity log, tercek langsung ke database.
+
 ## [2.32.5] - 2026-09-01
 
 ### Database
@@ -1809,6 +1835,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.6]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.5...v2.32.6
 [2.32.5]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.4...v2.32.5
 [2.32.4]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.3...v2.32.4
 [2.32.3]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.2...v2.32.3

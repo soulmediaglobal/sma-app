@@ -116,6 +116,23 @@ function canManageDocuments(role) {
   return ['admin', 'internal'].includes(role);
 }
 
+// Issue #161 (Task 4/11) — admin/supervisor selalu boleh reject (RLS
+// unrestricted). Role internal HANYA boleh kalau dia creator project
+// terkait (cases.created_by) — melengkapi gap RLS lewat migration
+// 20260902090000_case_quotations_internal_creator_reject.sql.
+function canRejectQuotation(profile, project) {
+  const role = profile?.role;
+  if (['admin', 'supervisor'].includes(role)) {return true;}
+  if (role === 'internal' && project?.created_by && project.created_by === profile?.id) {return true;}
+  return false;
+}
+
+function buildNegotiationBadge(count) {
+  const safeCount = Number(count) || 0;
+  const colorClass = safeCount >= 3 ? 'chip-red' : 'chip-yellow';
+  return element('span', `chip ${colorClass}`, `Nego: ${safeCount}/3`);
+}
+
 /** Bulk-load all case_quotations (every version) for a set of case ids. */
 export async function loadQuotationsForCases(caseIds) {
   quotationsByCaseId = new Map();
@@ -986,6 +1003,78 @@ async function sendQuotation(draft, ctx) {
   await ctx.refresh();
 }
 
+// Alasan reject disimpan di kolom `notes` (generic, belum dipakai
+// tempat lain) — keputusan Ray: reject wajib disertai alasan.
+async function rejectQuotation(quotation, reason, ctx) {
+  const { error, count } = await supabase
+    .from('case_quotations')
+    .update({ status: 'REJECTED', responded_at: new Date().toISOString(), notes: reason }, { count: 'exact' })
+    .eq('id', quotation.id)
+    .eq('status', 'SENT');
+
+  if (error || count !== 1) {
+    showToast('Gagal menolak penawaran.', { variant: 'error' });
+    return;
+  }
+
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Reject RAB (Admin)',
+    notes: `Penawaran RAB versi ${quotation.version} ditolak. Alasan: ${reason}`,
+    profile: ctx.profile
+  });
+
+  showToast('Penawaran berhasil ditolak.', { variant: 'success' });
+  await ctx.refresh();
+}
+
+function openRejectModal(quotation, ctx) {
+  const wrap = element('div', 'client-quotation-reject-modal-body');
+  wrap.appendChild(element('p', '', `Anda akan menolak penawaran RAB versi ${quotation.version} (${rupiah.format(quotation.total_amount || 0)}). Tindakan ini tidak bisa dibatalkan.`));
+
+  const fieldId = `reject-reason-${quotation.id}`;
+  const label = element('label', 'form-label', 'Alasan Penolakan (wajib diisi)');
+  label.htmlFor = fieldId;
+  wrap.appendChild(label);
+
+  const textarea = element('textarea', 'form-control');
+  textarea.id = fieldId;
+  textarea.rows = 4;
+  textarea.placeholder = 'Jelaskan alasan penolakan penawaran ini…';
+  wrap.appendChild(textarea);
+
+  const errorEl = element('div', 'client-quotation-reject-error', 'Alasan penolakan wajib diisi.');
+  errorEl.hidden = true;
+  wrap.appendChild(errorEl);
+
+  showModal({
+    title: 'Tolak Penawaran',
+    body: wrap,
+    size: 'md',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Tolak Penawaran',
+        variant: 'danger',
+        // Sync — modal.js hanya mengecek `result === false`, action async
+        // selalu return Promise (truthy) jadi validasi gagal-diam kalau
+        // fungsi ini di-mark async. Reject dikirim fire-and-forget setelah
+        // validasi lolos.
+        action: () => {
+          const reason = textarea.value.trim();
+          if (!reason) {
+            errorEl.hidden = false;
+            textarea.focus();
+            return false;
+          }
+          rejectQuotation(quotation, reason, ctx);
+        }
+      }
+    ]
+  });
+}
+
 // ============================================================================
 // Preview Dokumen Formal (Issue #66) — read-only, no status change.
 // ============================================================================
@@ -1408,13 +1497,30 @@ async function renderModalBody(bodyEl, ctx) {
 
   bodyEl.replaceChildren();
 
-  bodyEl.appendChild(element('h3', 'client-quotation-section-title', 'Riwayat Versi'));
+  const historyHeader = element('div', 'client-quotation-history-header');
+  historyHeader.appendChild(element('h3', 'client-quotation-section-title', 'Riwayat Versi'));
+  if (quotations.length > 0) {
+    historyHeader.appendChild(buildNegotiationBadge(ctx.project?.negotiation_count));
+  }
+  bodyEl.appendChild(historyHeader);
+
+  const latestQuotation = quotations[0] || null;
+
   if (quotations.length === 0) {
     bodyEl.appendChild(element('div', 'client-quotation-empty', 'Belum ada RAB dibuat untuk project ini.'));
   } else {
     const list = element('div', 'client-quotation-version-list');
     quotations.forEach((quotation) => list.appendChild(buildVersionRow(quotation, itemsCache, lineItemsCache, ctx, documents)));
     bodyEl.appendChild(list);
+  }
+
+  if (latestQuotation && latestQuotation.status === 'SENT' && canRejectQuotation(ctx.profile, ctx.project)) {
+    const rejectSection = element('div', 'client-quotation-reject-section');
+    const rejectBtn = element('button', 'btn btn-danger btn-sm', 'Tolak Penawaran');
+    rejectBtn.type = 'button';
+    rejectBtn.addEventListener('click', () => openRejectModal(latestQuotation, ctx));
+    rejectSection.appendChild(rejectBtn);
+    bodyEl.appendChild(rejectSection);
   }
 
   let draftEditor = null;

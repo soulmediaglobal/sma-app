@@ -505,6 +505,7 @@ async function loadProjects(root) {
         total_rab,
         created_at,
         created_by,
+        negotiation_count,
         creator:profiles!created_by(id, name)
       `)
       .eq('client_id', clientId)

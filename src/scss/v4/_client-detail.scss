@@ -397,6 +397,32 @@ body[data-page='client-detail'].modal-open .toast-host {
   background: var(--text-disabled);
 }
 
+.client-quotation-history-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.client-quotation-reject-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.client-quotation-reject-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.client-quotation-reject-error {
+  color: var(--red);
+  font-size: 12px;
+}
+
 .client-quotation-modal-body {
   display: flex;
   flex-direction: column;
