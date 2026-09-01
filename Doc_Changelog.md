@@ -16,6 +16,16 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.4] - 2026-08-31
+
+### Added
+- **C10P6 — Recipes**: sub-section baru "Cari info Supabase (session pooler / region)" — session pooler connection string dan region project dicatat langsung, supaya AI di sesi kerja baru tidak perlu tanya-tanya ulang tiap kali butuh export DB via terminal. Password sengaja tetap placeholder `[YOUR-PASSWORD]`, tidak pernah ditulis asli.
+- **C10P1**: baris index Recipes diperbarui untuk mencerminkan penambahan ini.
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.2.3] - 2026-08-31
 
 ### Changed

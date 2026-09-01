@@ -1,6 +1,6 @@
 # Development-Rules
 
-**Document Version:** v2.2.3
+**Document Version:** v2.2.4
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
@@ -367,7 +367,7 @@ Chapter ini adalah hasil merge dari `AGENTS.md` (yang sudah dipangkas dari konte
 | C10P3 | Directory Layout | Cari tahu file/folder mana untuk hal apa |
 | C10P4 | Conventions | Aturan penulisan kode day-to-day (DOM, CSS variables, spacing, dll) |
 | C10P5 | Anti-patterns | Cek sebelum melakukan sesuatu yang mungkin sudah dilarang |
-| C10P6 | Recipes | Langkah konkret: tambah halaman, chart, modal/toast, komponen baru |
+| C10P6 | Recipes | Langkah konkret: tambah halaman, chart, modal/toast, komponen baru, cari info Supabase (session pooler/region) |
 | C10P7 | Subpath / Deploy | Build dan deploy dengan `BASE_PATH` |
 | C10P8 | TypeScript / IntelliSense | Soal `types/gentelella.d.ts` |
 | C10P9 | Commands Reference | Daftar lengkap `npm run ...` |
@@ -490,6 +490,18 @@ if (document.querySelector('.reports-root')) {
 }
 ```
 Export satu `initReports()` dari `src/v4/reports.js`. Guard re-entry; idempotent.
+
+### Cari info Supabase (session pooler / region)
+
+**Session pooler** (buat export DB via terminal, `pg_dump` dsb.):
+```
+postgresql://postgres.qnxmtjbiglnjqjyfmdfy:[YOUR-PASSWORD]@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+```
+Ganti `[YOUR-PASSWORD]` dengan DB password project (Supabase Dashboard → Project Settings → Database → Connection string). Jangan pernah commit password asli ke repo/dokumen manapun.
+
+**Region:** `ap-northeast-1`
+
+Cek ulang kalau perlu verifikasi: Supabase Dashboard → Project Settings → General → Region.
 
 ## C10P7 — Subpath / Deploy
 
