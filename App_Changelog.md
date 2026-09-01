@@ -28,6 +28,16 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.2] - 2026-09-01
+
+### Database
+- **Issue #151** (Task 1/11, PRD_Workflow_Layer_SMA-app_v2.md): tambah
+  kolom `cases.blocked_by_case_id` (FK ke `cases.id`, dependency
+  antar-case untuk Fase 1 Iniciate) dan `cases.negotiation_count`
+  (counter siklus nego RAB, dipakai auto-reject di Fase 2 Approval).
+  Schema-only — logic yang menulis ke kolom-kolom ini adalah task
+  terpisah (2/11 dst).
+
 ## [2.32.1] - 2026-09-01
 
 ### Documentation
@@ -1756,6 +1766,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.2]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.1...v2.32.2
 [2.32.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...v2.32.1
 [2.32.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/soulmediaglobal/sma-app/compare/v2.30.0...v2.31.0
