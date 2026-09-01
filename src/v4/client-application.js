@@ -8,6 +8,12 @@ import {
 import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 import { initClientApplicationDocuments } from './client-application-documents.js';
+import {
+  digitsOnly,
+  formatNpwp,
+  isDraftPayloadValid,
+  isSubmissionPayloadComplete
+} from './client-application-validation.js';
 
 const EDITABLE_STATUSES = new Set(['DRAFT', 'REVISION_REQUIRED']);
 const STAFF_ROLES = new Set(['admin', 'supervisor', 'internal']);
@@ -49,35 +55,6 @@ function setBusy(button, busy, busyText) {
 function optionalText(value) {
   const trimmed = value.trim();
   return trimmed || null;
-}
-
-function digitsOnly(value, maxLength = Infinity) {
-  return value.replace(/\D/g, '').slice(0, maxLength);
-}
-
-function formatNpwp(value) {
-  const digits = digitsOnly(value, 16);
-  if (digits.length === 16) {
-    return digits.match(/.{1,4}/g)?.join(' ') || digits;
-  }
-
-  let formatted = digits.slice(0, 2);
-  if (digits.length > 2) {
-    formatted += `.${digits.slice(2, 5)}`;
-  }
-  if (digits.length > 5) {
-    formatted += `.${digits.slice(5, 8)}`;
-  }
-  if (digits.length > 8) {
-    formatted += `.${digits.slice(8, 9)}`;
-  }
-  if (digits.length > 9) {
-    formatted += `-${digits.slice(9, 12)}`;
-  }
-  if (digits.length > 12) {
-    formatted += `.${digits.slice(12, 15)}`;
-  }
-  return formatted;
 }
 
 function bindLogout(button) {
@@ -391,34 +368,37 @@ export async function initClientApplication() {
       applicant_type: form.elements.applicant_type.value,
       entity_type: form.elements.applicant_type.value === 'BUSINESS' ? entitySelect.value : null,
       service_type: serviceSelect.value,
-      applicant_name: form.elements.applicant_name.value.trim(),
+      applicant_name: optionalText(form.elements.applicant_name.value),
       business_name: optionalText(businessInput.value),
       nib: optionalText(digitsOnly(nibInput.value, 13)),
       npwp: optionalText(digitsOnly(npwpInput.value, 16)),
-      pic_name: form.elements.pic_name.value.trim(),
-      pic_email: form.elements.pic_email.value.trim(),
-      whatsapp_number: digitsOnly(whatsappInput.value),
-      region: form.elements.region.value.trim(),
-      needs_description: form.elements.needs_description.value.trim()
+      pic_name: optionalText(form.elements.pic_name.value),
+      pic_email: optionalText(form.elements.pic_email.value),
+      whatsapp_number: optionalText(digitsOnly(whatsappInput.value)),
+      region: optionalText(form.elements.region.value),
+      needs_description: optionalText(form.elements.needs_description.value)
     };
   }
 
-  function validateForm() {
+  function validateDraft() {
+    const nibValid = validateNib();
+    const npwpValid = validateNpwp();
+    const payload = applicationPayload();
+    if (!payload.service_type) {
+      showToast('Pilih jenis layanan sebelum menyimpan draft.', { variant: 'error' });
+      serviceSelect.focus();
+      return false;
+    }
+    return nibValid && npwpValid && isDraftPayloadValid(payload);
+  }
+
+  function validateSubmission() {
     const formattedFieldsValid = validateFormattedFields();
     if (!form.reportValidity() || !formattedFieldsValid) {
       return false;
     }
     const payload = applicationPayload();
-    if (
-      !payload.applicant_name ||
-      !payload.service_type ||
-      !payload.pic_name ||
-      !payload.pic_email ||
-      !payload.whatsapp_number ||
-      !payload.region ||
-      !payload.needs_description ||
-      (payload.applicant_type === 'BUSINESS' && (!payload.entity_type || !payload.business_name))
-    ) {
+    if (!isSubmissionPayloadComplete(payload)) {
       showToast('Lengkapi seluruh field wajib sebelum melanjutkan.', { variant: 'error' });
       return false;
     }
@@ -456,7 +436,7 @@ export async function initClientApplication() {
   }
 
   async function persistDraft({ notify = true } = {}) {
-    if (rejectWhileDocumentsPending() || !validateForm() || requestPending) {
+    if (rejectWhileDocumentsPending() || !validateDraft() || requestPending) {
       return { application: null, created: false, error: new Error('invalid') };
     }
     setRequestPending(true);
@@ -560,7 +540,7 @@ export async function initClientApplication() {
   }
 
   async function submitApplication() {
-    if (rejectWhileDocumentsPending() || !validateForm() || requestPending) {
+    if (rejectWhileDocumentsPending() || !validateSubmission() || requestPending) {
       return false;
     }
 
@@ -642,7 +622,12 @@ export async function initClientApplication() {
     }
   });
   submitButton.addEventListener('click', () => {
-    if (rejectWhileDocumentsPending() || !servicesLoaded || !validateForm() || requestPending) {
+    if (
+      rejectWhileDocumentsPending() ||
+      !servicesLoaded ||
+      !validateSubmission() ||
+      requestPending
+    ) {
       return;
     }
     const body = document.createElement('p');
