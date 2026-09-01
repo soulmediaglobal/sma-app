@@ -28,6 +28,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.4] - 2026-09-01
+
+### Database
+- **Issue #155** (Task 3/11, PRD_Workflow_Layer_SMA-app_v2.md): tabel
+  baru `case_handover_documents` — dokumen serah terima. `summary`
+  (jsonb) berupa SNAPSHOT saat generate, bukan live-query. Generate
+  (INSERT) dibatasi admin+supervisor, internal select-only. Kolom
+  `client_confirmed_at`/`client_confirmed_ip` PLACEHOLDER pengganti
+  tanda tangan digital — PRD §5 masih menandai ini belum final.
+- Schema-only — migration terakhir dari 3 migration Workflow Layer
+  v2.0 (Issue #151, #153, #155). UI yang memakainya adalah task
+  terpisah (4-11/11).
+
 ## [2.32.3] - 2026-09-01
 
 ### Database
@@ -1783,6 +1796,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.4]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.3...v2.32.4
 [2.32.3]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.2...v2.32.3
 [2.32.2]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.1...v2.32.2
 [2.32.1]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...v2.32.1
