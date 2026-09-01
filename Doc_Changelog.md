@@ -16,6 +16,16 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.3] - 2026-08-31
+
+### Changed
+- **Header dokumen**: field `Status: SYNCED/DRAFT` dihapus total dari header. Field ini sudah 3 kali basi/kontradiksi dengan kondisi repo aktual (v2.2.0, v2.2.1, v2.2.2 — sempat terlewat di-update setelah push, ditemukan lewat laporan sendiri maupun dari sesi kerja lain seperti Task 4/11 Issue #161). Riwayat sync sekarang cukup dilacak lewat entry terbaru di file ini (`Doc_Changelog.md`), yang append-only dan otomatis akurat karena pembuatan entry baru memang bagian dari proses commit — menghilangkan sumber masalahnya, bukan cuma memperbaiki kejadiannya satu-satu.
+- Header sekarang hanya berisi: Document Version, Project, Guardian, Bahasa, Terakhir diupdate.
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.2.2] - 2026-08-31
 
 ### Corrected
