@@ -16,6 +16,15 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.2] - 2026-08-31
+
+### Corrected
+- **Footer dokumen (setelah C10P9)**: paragraf penutup basi dihapus — sebelumnya masih tertulis "Dokumen ini masih berstatus DRAFT. Belum disinkronkan ke repository GitHub. Menunggu review dan persetujuan Ray sebelum EXECUTION", kontradiksi langsung dengan header (`Status: SYNCED`) dan C6P1. Kemungkinan sisa draft sebelum commit pertama yang tidak terhapus saat finalisasi. Ditemukan dan dilaporkan oleh AI Dimas (sesi kerja terpisah, sisi client portal), diverifikasi oleh Mike sebelum dikoreksi.
+
+**Status:** DRAFT — perubahan ini belum disinkronkan ke repository.
+
+---
+
 ## [2.2.1] - 2026-08-31
 
 ### Corrected

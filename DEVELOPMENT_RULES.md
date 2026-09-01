@@ -1,9 +1,9 @@
 # Development-Rules
 
-**Document Version:** v2.2.1
+**Document Version:** v2.2.2
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
-**Status:** SYNCED — commit `38e6b27` di `origin/main` (2026-08-31)
+**Status:** DRAFT — perubahan v2.2.2 belum disinkronkan ke repository
 **Bahasa:** Indonesia
 **Terakhir diupdate:** 2026-08-31
 
@@ -521,7 +521,3 @@ npm run smoke                    # Boot dev server, fetch tiap halaman, assert 2
 npm run analyze                   # Build + buka dist/stats.html
 npm run deploy:preview              # Build + R2 sync
 ```
-
----
-
-*Dokumen ini masih berstatus DRAFT. Belum disinkronkan ke repository GitHub. Menunggu review dan persetujuan Ray sebelum EXECUTION (commit + push).*
