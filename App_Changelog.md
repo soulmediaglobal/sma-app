@@ -28,6 +28,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 ### Database
 - Added migration columns `full_name` and `email` to `public.profiles` table with email backfill synchronization from `auth.users`.
 
+## [2.32.5] - 2026-09-01
+
+### Database
+- **Issue #157** (Task 5/11, PRD_Workflow_Layer_SMA-app_v2.md): trigger
+  `case_quotations_enforce_negotiation_limit` — menolak transisi
+  `case_quotations.status` ke `NEGOTIATING` kalau
+  `cases.negotiation_count` sudah >= 3, increment counter otomatis
+  kalau masih diizinkan. Sengaja trigger database, bukan logic UI
+  admin, karena tombol Nego diklik dari client portal.
+- Diverifikasi via transaction test (BEGIN...ROLLBACK): transisi +
+  increment berhasil saat count=0, transisi ditolak dengan error yang
+  benar saat count=3.
+
 ## [2.32.4] - 2026-09-01
 
 ### Database
@@ -1796,6 +1809,7 @@ Rilis fondasi pertama.
 - **2026-08-20**: Verifikasi cross-review PR #19/#20/#21/#23 — konfirmed semuanya di-approve `soulmediaglobal` sesuai proses (bukan bypass), Dimas hanya punya akses `write` (bukan admin/maintain).
 
 [Unreleased]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.0...HEAD
+[2.32.5]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.4...v2.32.5
 [2.32.4]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.3...v2.32.4
 [2.32.3]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.2...v2.32.3
 [2.32.2]: https://github.com/soulmediaglobal/sma-app/compare/v2.32.1...v2.32.2
