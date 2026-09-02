@@ -19,6 +19,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #165**: internal approval gate untuk RAB sebelum penawaran dapat
+  dikirim ke client. Lifecycle sekarang melewati `DRAFT` / `REVISION_REQUIRED`
+  → `PENDING_INTERNAL_APPROVAL` → `APPROVED_INTERNAL` → `SENT`; pending dan
+  approved bersifat read-only, admin/supervisor dapat approve atau meminta
+  revisi, dan approved RAB dapat di-reopen dengan alasan wajib sebelum dikirim.
+  Evidence submit, approval, revision request, dan reopen menyimpan actor,
+  timestamp, serta alasan terkait. Migration `20260902110000` menegakkan
+  transisi di database, membatasi item writes ke state editable, dan menutup
+  RLS gap agar client tidak dapat membaca quotation, termin, atau line items
+  sebelum status `SENT`. Existing client response/version lifecycle setelah
+  `SENT` tetap dipertahankan.
 - **Issue #159**: konfigurasi dependency antar jenis layanan di Project
   Setting. Admin dapat mengelola beberapa prasyarat per layanan; validasi
   database mencegah self-cycle, cycle langsung, dan cycle multi-hop. Migration
