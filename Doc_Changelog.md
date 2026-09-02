@@ -16,12 +16,42 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.5] - 2026-08-31
+
+### Added
+- **C10P6 — Recipes**: sub-section baru "Kredensial publik project (Supabase & deploy)" — Project URL, Publishable key, Anon Key, dan link production dicatat langsung. Ditegaskan eksplisit: `service_role key`/DB password **tidak boleh** pernah masuk dokumen ini atau file manapun di repo, cuma anon/publishable key (client-side, dilindungi RLS) yang aman disimpan.
+- **C10P1**: baris index Recipes diperbarui lagi.
+
+**Disetujui oleh Ray.**
+
+---
+
+## [2.2.4] - 2026-08-31
+
+### Added
+- **C10P6 — Recipes**: sub-section baru "Cari info Supabase (session pooler / region)" — session pooler connection string dan region project dicatat langsung, supaya AI di sesi kerja baru tidak perlu tanya-tanya ulang tiap kali butuh export DB via terminal. Password sengaja tetap placeholder `[YOUR-PASSWORD]`, tidak pernah ditulis asli.
+- **C10P1**: baris index Recipes diperbarui untuk mencerminkan penambahan ini.
+
+**Disetujui oleh Ray.**
+
+---
+
+## [2.2.3] - 2026-08-31
+
+### Changed
+- **Header dokumen**: field `Status: SYNCED/DRAFT` dihapus total dari header. Field ini sudah 3 kali basi/kontradiksi dengan kondisi repo aktual (v2.2.0, v2.2.1, v2.2.2 — sempat terlewat di-update setelah push, ditemukan lewat laporan sendiri maupun dari sesi kerja lain seperti Task 4/11 Issue #161). Riwayat sync sekarang cukup dilacak lewat entry terbaru di file ini (`Doc_Changelog.md`), yang append-only dan otomatis akurat karena pembuatan entry baru memang bagian dari proses commit — menghilangkan sumber masalahnya, bukan cuma memperbaiki kejadiannya satu-satu.
+- Header sekarang hanya berisi: Document Version, Project, Guardian, Bahasa, Terakhir diupdate.
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.2.2] - 2026-08-31
 
 ### Corrected
 - **Footer dokumen (setelah C10P9)**: paragraf penutup basi dihapus — sebelumnya masih tertulis "Dokumen ini masih berstatus DRAFT. Belum disinkronkan ke repository GitHub. Menunggu review dan persetujuan Ray sebelum EXECUTION", kontradiksi langsung dengan header (`Status: SYNCED`) dan C6P1. Kemungkinan sisa draft sebelum commit pertama yang tidak terhapus saat finalisasi. Ditemukan dan dilaporkan oleh AI Dimas (sesi kerja terpisah, sisi client portal), diverifikasi oleh Mike sebelum dikoreksi.
 
-**Status:** DRAFT — perubahan ini belum disinkronkan ke repository.
+**Status:** SYNCED — commit `d398eea` di `origin/main` (2026-08-31). Terlambat diupdate — dilaporkan oleh sesi kerja Task 4/11 (Issue #161) yang menemukan header masih tertulis DRAFT padahal dokumen sudah live dan digunakan sebagai referensi aktif.
 
 ---
 
