@@ -16,6 +16,16 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.2.5] - 2026-08-31
+
+### Added
+- **C10P6 — Recipes**: sub-section baru "Kredensial publik project (Supabase & deploy)" — Project URL, Publishable key, Anon Key, dan link production dicatat langsung. Ditegaskan eksplisit: `service_role key`/DB password **tidak boleh** pernah masuk dokumen ini atau file manapun di repo, cuma anon/publishable key (client-side, dilindungi RLS) yang aman disimpan.
+- **C10P1**: baris index Recipes diperbarui lagi.
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.2.4] - 2026-08-31
 
 ### Added

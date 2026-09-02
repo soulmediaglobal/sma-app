@@ -1,6 +1,6 @@
 # Development-Rules
 
-**Document Version:** v2.2.4
+**Document Version:** v2.2.5
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
@@ -367,7 +367,7 @@ Chapter ini adalah hasil merge dari `AGENTS.md` (yang sudah dipangkas dari konte
 | C10P3 | Directory Layout | Cari tahu file/folder mana untuk hal apa |
 | C10P4 | Conventions | Aturan penulisan kode day-to-day (DOM, CSS variables, spacing, dll) |
 | C10P5 | Anti-patterns | Cek sebelum melakukan sesuatu yang mungkin sudah dilarang |
-| C10P6 | Recipes | Langkah konkret: tambah halaman, chart, modal/toast, komponen baru, cari info Supabase (session pooler/region) |
+| C10P6 | Recipes | Langkah konkret: tambah halaman, chart, modal/toast, komponen baru, cari info Supabase (session pooler/region), kredensial publik project |
 | C10P7 | Subpath / Deploy | Build dan deploy dengan `BASE_PATH` |
 | C10P8 | TypeScript / IntelliSense | Soal `types/gentelella.d.ts` |
 | C10P9 | Commands Reference | Daftar lengkap `npm run ...` |
@@ -502,6 +502,16 @@ Ganti `[YOUR-PASSWORD]` dengan DB password project (Supabase Dashboard → Proje
 **Region:** `ap-northeast-1`
 
 Cek ulang kalau perlu verifikasi: Supabase Dashboard → Project Settings → General → Region.
+
+### Kredensial publik project (Supabase & deploy)
+
+**Project URL:** `https://qnxmtjbiglnjqjyfmdfy.supabase.co`
+**Publishable key:** `sb_publishable_xaF3BvDBSBMj5_bMj6WlaQ_voPnp9_J`
+**Anon Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFueG10amJpZ2xuanFqeWZtZGZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNjcwOTUsImV4cCI6MjEwMjY0MzA5NX0.mPAj_l04ZicNghjwNLRgXP8xblRBucO5pJ6zSblXogw`
+
+Kedua key ini aman disimpan di dokumen — didesain publik/client-side, dilindungi RLS. **Jangan pernah** tambahkan `service_role key` di sini atau di file manapun yang masuk repo — itu bypass RLS sepenuhnya.
+
+**Link Production (Cloudflare Pages/Workers):** `sma-app.soulmediaglobal-ind.workers.dev`
 
 ## C10P7 — Subpath / Deploy
 
