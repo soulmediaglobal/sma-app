@@ -1,6 +1,7 @@
+
 # Development-Rules
 
-**Document Version:** v2.3.0
+**Document Version:** v2.4.0
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
@@ -309,9 +310,54 @@ Mike tidak digunakan untuk pekerjaan technical inspection yang dapat dilakukan l
 
 Codex/Work tidak menjadi governance authority dan tidak boleh mengubah permanent governance, product scope, atau merge ke `main` atas inisiatif sendiri.
 
+## C6P9 — Manual vs Automate Opportunity Check
+
+**WAJIB** — Sebelum menjalankan pekerjaan yang secara wajar diperkirakan memiliki repetition atau coordination cost yang material, role yang menerima task harus menilai apakah pekerjaan lebih efisien dijalankan sebagai eksekusi satu kali atau sebagai workflow automated/delegated.
+
+Automation opportunity dianggap ada jika task memiliki satu atau lebih karakteristik berikut:
+
+- inspection atau evidence gathering yang sama perlu dilakukan berulang;
+- status Issue, PR, CI, migration, deployment, atau dependency perlu diperiksa secara periodik atau sampai kondisi tertentu terpenuhi;
+- verification, audit, atau reporting memiliki pola berulang;
+- pekerjaan memerlukan copy-paste atau handoff antar-role yang berulang;
+- pekerjaan teknis yang sama kemungkinan besar akan muncul kembali dengan pola serupa;
+- expected repetition atau coordination cost lebih besar daripada biaya menyiapkan workflow automated/delegated.
+
+Jika automation opportunity terdeteksi, sebelum execution tawarkan kepada Ray:
+
+> Task ini berpotensi cukup repetitif atau membutuhkan pengecekan berulang. Mau dijalankan:
+>
+> A. **MANUAL** — satu kali execution, tanpa recurring/conditional workflow; atau
+>
+> B. **AUTOMATE** — gunakan delegated, recurring, atau conditional workflow paling ringan yang sesuai?
+>
+> Jika salah satu opsi jelas lebih efisien, sertakan rekomendasi singkat beserta alasannya.
+
+Pemilihan mode tidak mengubah execution routing:
+
+- **MANUAL** berarti task dijalankan satu kali tanpa automation. Technical/repository inspection tetap default dilakukan langsung oleh Codex/Work sesuai C6P8; Ray tidak menjadi operator terminal, copy-paste, atau manual transport layer jika inspection dapat dilakukan agent teknis secara langsung.
+- **AUTOMATE** berarti menggunakan delegated, recurring, atau conditional workflow paling ringan yang memenuhi kebutuhan. Jangan membangun automation yang lebih luas atau lebih kompleks daripada pola repetition yang telah disetujui.
+- Untuk action yang memang wajib dilakukan Ray secara manual, disiplin satu action/perubahan atau satu command per langkah pada C6P6 tetap berlaku, disertai verifikasi sebelum langkah berikutnya.
+- Untuk technical evidence gathering read-only yang dilakukan langsung oleh Codex/Work, multi-file inspection atau beberapa read-only checks yang aman dapat dilakukan sebagai satu delegated task; hal ini bukan pelanggaran terhadap manual one-command rule.
+
+Automation tidak boleh:
+
+- mengambil alih atau memperluas product scope;
+- membuat keputusan governance atau permanent architecture;
+- membuat material security/database decision;
+- melakukan merge ke `main`;
+- melakukan state-changing action yang belum diminta atau disetujui secara eksplisit;
+- melewati verification, Issue ownership, Git/action boundary, atau approval yang diwajibkan rule lain.
+
+Pilihan **AUTOMATE** hanya mengotorisasi workflow dan scope yang dijelaskan saat pilihan ditawarkan. Action tambahan seperti perubahan database/environment, commit, push, pembuatan PR, atau merge tetap mengikuti authority dan explicit-action boundary masing-masing.
+
+Jangan menawarkan automation untuk pekerjaan one-off yang sederhana jika biaya setup atau coordination automation diperkirakan sama dengan atau lebih besar daripada menyelesaikan pekerjaan tersebut satu kali.
+
+Core flow:
+
+`DETECT REPETITION RISK → OFFER MANUAL VS AUTOMATE → RAY CHOOSES → EXECUTE`
+
 ---
-
-
 
 # Chapter 7 — Documentation Structure
 
