@@ -1,3 +1,4 @@
+
 # Doc_Changelog
 
 Changelog **khusus governance** untuk `DEVELOPMENT_RULES.md` ("The Document").
@@ -13,6 +14,22 @@ Dikelola oleh Mike, Guardian of The Document. Bersifat **append-only** — revis
 **Kategori entry**: `Added` (poin/chapter baru), `Changed` (revisi rule existing), `Corrected` (koreksi fakta, bukan rule baru), `Removed`.
 
 Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2) supaya presisi. Kalau perubahan butuh persetujuan eksplisit sebelum berlaku, ditutup dengan baris **"Disetujui oleh [nama]"**.
+
+---
+
+## [2.4.0] - 2026-09-02
+
+### Added
+- **C6P9 — Manual vs Automate Opportunity Check**: menambahkan decision gate lintas-role untuk mendeteksi repetition risk, menawarkan pilihan MANUAL atau AUTOMATE kepada Ray, lalu menjalankan mode yang dipilih dengan workflow paling ringan yang sesuai.
+
+### Governance Intent
+- MANUAL berarti one-time execution, bukan menjadikan Ray operator terminal, copy-paste, atau manual transport layer untuk technical inspection yang dapat dilakukan Codex/Work secara langsung.
+- AUTOMATE berarti delegated, recurring, atau conditional workflow paling ringan; bukan blanket authorization untuk memperluas scope atau melakukan state-changing action lain.
+- One-action/one-command discipline tetap berlaku untuk action yang memang wajib dijalankan Ray secara manual.
+- C3P8/C3P9, verification, Issue ownership, Git/action boundary, product/governance/security/database authority, dan larangan AI merge ke `main` tetap berlaku.
+- Pekerjaan one-off sederhana tidak perlu diotomasi jika setup cost tidak lebih rendah daripada execution cost.
+
+**Disetujui oleh Ray.**
 
 ---
 
