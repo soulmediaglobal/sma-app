@@ -62,6 +62,9 @@ import { showToast } from './toast.js';
 
 const STATUS_LABEL = {
   DRAFT: 'Draft',
+  PENDING_INTERNAL_APPROVAL: 'Menunggu Approval Internal',
+  REVISION_REQUIRED: 'Perlu Revisi',
+  APPROVED_INTERNAL: 'Disetujui Internal',
   SENT: 'Menunggu Persetujuan',
   ACCEPTED: 'Diterima',
   REJECTED: 'Ditolak',
@@ -71,6 +74,9 @@ const STATUS_LABEL = {
 
 const STATUS_CLASS = {
   DRAFT: 'status-blue',
+  PENDING_INTERNAL_APPROVAL: 'status-yellow',
+  REVISION_REQUIRED: 'status-red',
+  APPROVED_INTERNAL: 'status-green',
   SENT: 'status-yellow',
   ACCEPTED: 'status-green',
   REJECTED: 'status-red',
@@ -85,6 +91,21 @@ const rupiah = new Intl.NumberFormat('id-ID', {
 });
 
 const dateFmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateTimeFmt = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
+const EDITABLE_STATUSES = ['DRAFT', 'REVISION_REQUIRED'];
+const INTERNAL_ACTIVE_STATUSES = [
+  'DRAFT',
+  'PENDING_INTERNAL_APPROVAL',
+  'REVISION_REQUIRED',
+  'APPROVED_INTERNAL'
+];
 
 let quotationsByCaseId = new Map();
 
@@ -101,12 +122,26 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? null : dateFmt.format(date);
 }
 
+function formatDateTime(value) {
+  if (!value) {return null;}
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : dateTimeFmt.format(date);
+}
+
 function canCreateDraft(role) {
   return ['admin', 'supervisor', 'internal'].includes(role);
 }
 
 function canSendQuotation(role) {
   return ['admin', 'supervisor'].includes(role);
+}
+
+function canReviewQuotation(role) {
+  return ['admin', 'supervisor'].includes(role);
+}
+
+function isEditableQuotation(quotation) {
+  return EDITABLE_STATUSES.includes(quotation?.status);
 }
 
 // Matches client-documents.js's canManageDocuments — the `documents` table's
@@ -208,6 +243,34 @@ function buildVersionHeader(quotation) {
   if (dateParts.length) {header.appendChild(element('span', 'client-quotation-version-meta', dateParts.join(' · ')));}
 
   return header;
+}
+
+function relationName(value) {
+  return (Array.isArray(value) ? value[0] : value)?.name || 'Pengguna';
+}
+
+function buildApprovalEvidence(quotation) {
+  const card = element('div', 'client-quotation-approval-evidence');
+  card.appendChild(element('strong', '', `Status approval internal: ${STATUS_LABEL[quotation.status] || quotation.status}`));
+
+  let action = null;
+  let reason = null;
+  if (quotation.status === 'APPROVED_INTERNAL' && quotation.internal_approved_at) {
+    action = `Disetujui oleh ${relationName(quotation.internal_approver)} · ${formatDateTime(quotation.internal_approved_at)}`;
+  } else if (quotation.status === 'PENDING_INTERNAL_APPROVAL' && quotation.internal_submitted_at) {
+    action = `Diajukan oleh ${relationName(quotation.internal_submitter)} · ${formatDateTime(quotation.internal_submitted_at)}`;
+  } else if (quotation.status === 'REVISION_REQUIRED' && quotation.internal_reopened_at
+    && (!quotation.internal_revision_requested_at || new Date(quotation.internal_reopened_at) >= new Date(quotation.internal_revision_requested_at))) {
+    action = `Dibuka kembali oleh ${relationName(quotation.internal_reopener)} · ${formatDateTime(quotation.internal_reopened_at)}`;
+    reason = quotation.internal_reopen_reason;
+  } else if (quotation.status === 'REVISION_REQUIRED' && quotation.internal_revision_requested_at) {
+    action = `Revisi diminta oleh ${relationName(quotation.internal_revision_requester)} · ${formatDateTime(quotation.internal_revision_requested_at)}`;
+    reason = quotation.internal_revision_reason;
+  }
+
+  if (action) {card.appendChild(element('span', '', action));}
+  if (reason) {card.appendChild(element('span', 'client-quotation-approval-reason', `Alasan: ${reason}`));}
+  return card;
 }
 
 function renderReadOnlyItems(container, items) {
@@ -554,7 +617,7 @@ async function saveQuotationLineItems(draftId, items) {
     .from('case_quotations')
     .update({ total_amount: total })
     .eq('id', draftId)
-    .eq('status', 'DRAFT');
+    .in('status', EDITABLE_STATUSES);
   if (totalError) {return { error: totalError };}
 
   return { error: null, total };
@@ -579,7 +642,7 @@ function buildDescriptionEditor(draft) {
       .from('case_quotations')
       .update({ description: value }, { count: 'exact' })
       .eq('id', draft.id)
-      .eq('status', 'DRAFT');
+      .in('status', EDITABLE_STATUSES);
     if (error || count !== 1) {return { error: error || new Error('Gagal menyimpan deskripsi.') };}
     draft.description = value;
     return { error: null };
@@ -642,7 +705,7 @@ function buildBankAccountEditor(draft, bankAccounts) {
       .from('case_quotations')
       .update({ bank_account_id: value }, { count: 'exact' })
       .eq('id', draft.id)
-      .eq('status', 'DRAFT');
+      .in('status', EDITABLE_STATUSES);
     if (error || count !== 1) {return { error: error || new Error('Gagal menyimpan rekening bank.') };}
     draft.bank_account_id = value;
     return { error: null };
@@ -891,8 +954,9 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
       ['Rekening Bank', bankAccountEditor.save]
     ];
     for (const [section, save] of sections) {
-      const { error } = await save();
+      const { error, total } = await save();
       if (error) {return { error, section };}
+      if (total !== undefined) {draft.total_amount = total;}
     }
     return { error: null };
   }
@@ -945,20 +1009,152 @@ async function createDraftQuotation(quotations, ctx) {
   await ctx.refresh();
 }
 
-async function sendQuotation(draft, ctx) {
-  if (!(draft.total_amount > 0)) {
-    showToast('Tambahkan minimal 1 rincian pekerjaan (nilai RAB) sebelum mengirim penawaran.', { variant: 'error' });
+async function updateQuotationStatus(quotation, fromStatus, values, failureMessage) {
+  const { error, count } = await supabase
+    .from('case_quotations')
+    .update(values, { count: 'exact' })
+    .eq('id', quotation.id)
+    .eq('status', fromStatus);
+  return { error: error || (count === 1 ? null : new Error(failureMessage)) };
+}
+
+async function submitForInternalApproval(quotation, ctx) {
+  if (!(quotation.total_amount > 0)) {
+    showToast('Tambahkan minimal 1 rincian pekerjaan sebelum mengajukan approval.', { variant: 'error' });
     return;
   }
+  const { error } = await updateQuotationStatus(
+    quotation,
+    quotation.status,
+    { status: 'PENDING_INTERNAL_APPROVAL' },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal mengajukan approval internal.', { variant: 'error' });
+    return;
+  }
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Ajukan Approval Internal RAB',
+    notes: `RAB versi ${quotation.version} diajukan untuk approval internal.`,
+    profile: ctx.profile
+  });
+  showToast('RAB berhasil diajukan untuk approval internal.', { variant: 'success' });
+  await ctx.refresh();
+}
 
-  const { error: updateError, count } = await supabase
-    .from('case_quotations')
-    .update({ status: 'SENT', sent_at: new Date().toISOString() }, { count: 'exact' })
-    .eq('id', draft.id)
-    .eq('status', 'DRAFT');
+async function approveInternalQuotation(quotation, ctx) {
+  const { error } = await updateQuotationStatus(
+    quotation,
+    'PENDING_INTERNAL_APPROVAL',
+    { status: 'APPROVED_INTERNAL' },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal menyetujui RAB.', { variant: 'error' });
+    return;
+  }
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Approve Internal RAB',
+    notes: `RAB versi ${quotation.version} disetujui secara internal.`,
+    profile: ctx.profile
+  });
+  showToast('RAB disetujui. Penawaran belum dikirim ke client.', { variant: 'success' });
+  await ctx.refresh();
+}
 
-  if (updateError || count !== 1) {
-    showToast('Gagal mengirim penawaran.', { variant: 'error' });
+async function requestQuotationRevision(quotation, reason, ctx) {
+  const { error } = await updateQuotationStatus(
+    quotation,
+    'PENDING_INTERNAL_APPROVAL',
+    { status: 'REVISION_REQUIRED', internal_revision_reason: reason },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal meminta revisi RAB.', { variant: 'error' });
+    return;
+  }
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Request Revision RAB',
+    notes: `RAB versi ${quotation.version} perlu direvisi. Alasan: ${reason}`,
+    profile: ctx.profile
+  });
+  showToast('RAB dikembalikan untuk direvisi.', { variant: 'success' });
+  await ctx.refresh();
+}
+
+async function reopenApprovedQuotation(quotation, reason, ctx) {
+  const { error } = await updateQuotationStatus(
+    quotation,
+    'APPROVED_INTERNAL',
+    { status: 'REVISION_REQUIRED', internal_reopen_reason: reason },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal membuka kembali RAB.', { variant: 'error' });
+    return;
+  }
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Reopen Approved RAB',
+    notes: `RAB versi ${quotation.version} dibuka kembali. Alasan: ${reason}`,
+    profile: ctx.profile
+  });
+  showToast('RAB dibuka kembali dan wajib melalui approval ulang.', { variant: 'success' });
+  await ctx.refresh();
+}
+
+function openReasonModal({ quotation, title, description, label, confirmLabel, onConfirm, ctx }) {
+  const wrap = element('div', 'client-quotation-reason-modal');
+  wrap.appendChild(element('p', '', description));
+  const fieldId = `quotation-reason-${quotation.id}`;
+  const fieldLabel = element('label', 'form-label', label);
+  fieldLabel.htmlFor = fieldId;
+  const textarea = element('textarea', 'form-control');
+  textarea.id = fieldId;
+  textarea.rows = 4;
+  const errorEl = element('div', 'client-quotation-reason-error', 'Alasan wajib diisi.');
+  errorEl.hidden = true;
+  wrap.append(fieldLabel, textarea, errorEl);
+  showModal({
+    title,
+    body: wrap,
+    size: 'md',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: confirmLabel,
+        variant: 'primary',
+        action: () => {
+          const reason = textarea.value.trim();
+          if (!reason) {
+            errorEl.hidden = false;
+            textarea.focus();
+            return false;
+          }
+          onConfirm(quotation, reason, ctx);
+        }
+      }
+    ]
+  });
+}
+
+async function sendQuotation(quotation, ctx) {
+  const { error: updateError } = await updateQuotationStatus(
+    quotation,
+    'APPROVED_INTERNAL',
+    { status: 'SENT', sent_at: new Date().toISOString() },
+    'Status quotation sudah berubah.'
+  );
+
+  if (updateError) {
+    showToast('Gagal mengirim penawaran. Pastikan RAB sudah disetujui internal.', { variant: 'error' });
     return;
   }
 
@@ -978,7 +1174,7 @@ async function sendQuotation(draft, ctx) {
     clientId: ctx.clientId,
     caseId: ctx.caseId,
     type: 'Kirim Penawaran',
-    notes: `Penawaran RAB versi ${draft.version} dikirim ke client (total ${rupiah.format(draft.total_amount || 0)}).`,
+    notes: `Penawaran RAB versi ${quotation.version} dikirim ke client (total ${rupiah.format(quotation.total_amount || 0)}).`,
     profile: ctx.profile
   });
 
@@ -1306,7 +1502,8 @@ async function openQuotationPreview(quotation, ctx, documents) {
   // printed/sent). A past version already has a real send date; previewing
   // it later should show that historical date, not today's, or reviewing an
   // old SENT/ACCEPTED offer would misrepresent when it was actually issued.
-  const historicalDate = quotation.sent_at || (quotation.status !== 'DRAFT' ? quotation.created_at : null);
+  const clientFacingStatuses = ['SENT', 'ACCEPTED', 'REJECTED', 'NEGOTIATING', 'SUPERSEDED'];
+  const historicalDate = quotation.sent_at || (clientFacingStatuses.includes(quotation.status) ? quotation.created_at : null);
 
   renderPreviewWindow(win, {
     generatedDate: previewDateFmt.format(historicalDate ? new Date(historicalDate) : new Date()),
@@ -1322,14 +1519,14 @@ async function openQuotationPreview(quotation, ctx, documents) {
   });
 }
 
-function buildDocumentRow(template, documents, ctx) {
+function buildDocumentRow(template, documents, ctx, quotationEditable) {
   const row = element('label', 'client-quotation-doc-row');
   const matches = documents.filter((doc) => doc.name === template.name);
   const locked = matches.filter((doc) => doc.status !== 'Belum');
   const isChecked = matches.length > 0;
   const isLocked = locked.length > 0;
 
-  const allowed = canManageDocuments(ctx.profile?.role);
+  const allowed = canManageDocuments(ctx.profile?.role) && quotationEditable;
   const checkbox = element('input', 'client-quotation-doc-checkbox');
   checkbox.type = 'checkbox';
   checkbox.checked = isChecked;
@@ -1375,7 +1572,7 @@ async function renderModalBody(bodyEl, ctx) {
   const [quotationsResult, templatesResult, documentsResult, bankAccounts] = await Promise.all([
     supabase
       .from('case_quotations')
-      .select('id, case_id, version, status, total_amount, notes, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name)')
+      .select('id, case_id, version, status, total_amount, notes, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name), internal_submitted_at, internal_approved_at, internal_revision_requested_at, internal_revision_reason, internal_reopened_at, internal_reopen_reason, internal_submitter:profiles!internal_submitted_by(id, name), internal_approver:profiles!internal_approved_by(id, name), internal_revision_requester:profiles!internal_revision_requested_by(id, name), internal_reopener:profiles!internal_reopened_by(id, name)')
       .eq('case_id', ctx.caseId)
       .order('version', { ascending: false }),
     supabase
@@ -1402,7 +1599,8 @@ async function renderModalBody(bodyEl, ctx) {
     return catA === catB ? a.name.localeCompare(b.name) : catA.localeCompare(catB);
   });
   const documents = documentsResult.data || [];
-  const draft = quotations.find((q) => q.status === 'DRAFT') || null;
+  const activeQuotation = quotations.find((q) => INTERNAL_ACTIVE_STATUSES.includes(q.status)) || null;
+  const editableQuotation = isEditableQuotation(activeQuotation) ? activeQuotation : null;
   const itemsCache = new Map();
   const lineItemsCache = new Map();
 
@@ -1417,16 +1615,20 @@ async function renderModalBody(bodyEl, ctx) {
     bodyEl.appendChild(list);
   }
 
+  if (activeQuotation) {
+    bodyEl.appendChild(buildApprovalEvidence(activeQuotation));
+  }
+
   let draftEditor = null;
-  if (!draft) {
+  if (!activeQuotation) {
     if (canCreateDraft(ctx.profile?.role)) {
       const createBtn = element('button', 'btn btn-primary btn-sm client-quotation-create-draft', '+ Buat RAB Baru');
       createBtn.type = 'button';
       createBtn.addEventListener('click', () => createDraftQuotation(quotations, ctx));
       bodyEl.appendChild(createBtn);
     }
-  } else {
-    draftEditor = buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts);
+  } else if (editableQuotation) {
+    draftEditor = buildDraftEditor(editableQuotation, itemsCache, lineItemsCache, ctx, bankAccounts);
     bodyEl.appendChild(draftEditor.wrap);
   }
 
@@ -1442,48 +1644,87 @@ async function renderModalBody(bodyEl, ctx) {
         docList.appendChild(element('div', 'client-quotation-doc-category', categoryName));
         lastCategory = categoryName;
       }
-      docList.appendChild(buildDocumentRow(template, documents, ctx));
+      docList.appendChild(buildDocumentRow(template, documents, ctx, !activeQuotation || Boolean(editableQuotation)));
     });
     bodyEl.appendChild(docList);
   }
 
-  if (draft && draftEditor) {
+  if (activeQuotation) {
     const actionSection = element('div', 'client-quotation-send-section');
-
-    const saveBtn = element('button', 'btn btn-outline', 'Simpan');
-    saveBtn.type = 'button';
-    saveBtn.addEventListener('click', async () => {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Menyimpan…';
-      const { error, section } = await draftEditor.saveAll();
-      if (error) {
-        showToast(`Gagal menyimpan ${section}: ${error.message || 'terjadi kesalahan.'}`, { variant: 'error' });
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Simpan';
-        return;
-      }
-      itemsCache.delete(draft.id);
-      lineItemsCache.delete(draft.id);
-      showToast('Draft berhasil disimpan.', { variant: 'success' });
-      await ctx.refresh();
-    });
-
     const previewBtn = element('button', 'btn btn-outline', 'Preview');
     previewBtn.type = 'button';
-    previewBtn.addEventListener('click', () => openQuotationPreview(draft, ctx, documents));
+    previewBtn.addEventListener('click', () => openQuotationPreview(activeQuotation, ctx, documents));
 
-    const sendBtn = element('button', 'btn btn-primary', 'Kirim Penawaran');
-    sendBtn.type = 'button';
-    const allowed = canSendQuotation(ctx.profile?.role);
-    const hasItems = (draft.total_amount || 0) > 0;
-    sendBtn.disabled = !allowed || !hasItems;
-    sendBtn.addEventListener('click', () => sendQuotation(draft, ctx));
+    if (editableQuotation && draftEditor) {
+      const saveBtn = element('button', 'btn btn-outline', 'Simpan');
+      saveBtn.type = 'button';
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        const { error, section } = await draftEditor.saveAll();
+        if (error) {
+          showToast(`Gagal menyimpan ${section}: ${error.message || 'terjadi kesalahan.'}`, { variant: 'error' });
+          saveBtn.disabled = false;
+          return;
+        }
+        showToast('RAB berhasil disimpan.', { variant: 'success' });
+        await ctx.refresh();
+      });
 
-    actionSection.append(saveBtn, previewBtn, sendBtn);
-    if (!allowed) {
-      actionSection.appendChild(element('span', 'client-quotation-send-hint', 'Hanya admin/supervisor yang dapat mengirim penawaran.'));
-    } else if (!hasItems) {
-      actionSection.appendChild(element('span', 'client-quotation-send-hint', 'Tambahkan minimal 1 rincian pekerjaan (nilai RAB) sebelum mengirim.'));
+      const submitBtn = element('button', 'btn btn-primary', 'Ajukan Approval Internal');
+      submitBtn.type = 'button';
+      submitBtn.addEventListener('click', async () => {
+        submitBtn.disabled = true;
+        const { error, section } = await draftEditor.saveAll();
+        if (error) {
+          showToast(`Gagal menyimpan ${section}: ${error.message || 'terjadi kesalahan.'}`, { variant: 'error' });
+          submitBtn.disabled = false;
+          return;
+        }
+        await submitForInternalApproval(editableQuotation, ctx);
+      });
+      actionSection.append(saveBtn, previewBtn, submitBtn);
+    } else if (activeQuotation.status === 'PENDING_INTERNAL_APPROVAL') {
+      actionSection.appendChild(previewBtn);
+      if (canReviewQuotation(ctx.profile?.role)) {
+        const reviseBtn = element('button', 'btn btn-outline', 'Minta Revisi');
+        reviseBtn.type = 'button';
+        reviseBtn.addEventListener('click', () => openReasonModal({
+          quotation: activeQuotation,
+          title: 'Minta Revisi RAB',
+          description: `RAB versi ${activeQuotation.version} akan dikembalikan ke author untuk diperbaiki.`,
+          label: 'Alasan revisi (wajib)',
+          confirmLabel: 'Minta Revisi',
+          onConfirm: requestQuotationRevision,
+          ctx
+        }));
+        const approveBtn = element('button', 'btn btn-primary', 'Approve Internal');
+        approveBtn.type = 'button';
+        approveBtn.addEventListener('click', () => approveInternalQuotation(activeQuotation, ctx));
+        actionSection.append(reviseBtn, approveBtn);
+      } else {
+        actionSection.appendChild(element('span', 'client-quotation-send-hint', 'RAB terkunci selama review admin/supervisor.'));
+      }
+    } else if (activeQuotation.status === 'APPROVED_INTERNAL') {
+      actionSection.appendChild(previewBtn);
+      if (canSendQuotation(ctx.profile?.role)) {
+        const reopenBtn = element('button', 'btn btn-outline', 'Reopen untuk Revisi');
+        reopenBtn.type = 'button';
+        reopenBtn.addEventListener('click', () => openReasonModal({
+          quotation: activeQuotation,
+          title: 'Reopen RAB',
+          description: `Approval RAB versi ${activeQuotation.version} akan dibatalkan dan RAB kembali editable.`,
+          label: 'Alasan reopen (wajib)',
+          confirmLabel: 'Reopen RAB',
+          onConfirm: reopenApprovedQuotation,
+          ctx
+        }));
+        const sendBtn = element('button', 'btn btn-primary', 'Kirim Penawaran');
+        sendBtn.type = 'button';
+        sendBtn.addEventListener('click', () => sendQuotation(activeQuotation, ctx));
+        actionSection.append(reopenBtn, sendBtn);
+      } else {
+        actionSection.appendChild(element('span', 'client-quotation-send-hint', 'Hanya admin/supervisor yang dapat mengirim penawaran.'));
+      }
     }
     bodyEl.appendChild(actionSection);
   }
