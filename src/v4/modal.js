@@ -1,17 +1,24 @@
 // Reusable modal dialog. One open at a time; backdrop click, Escape, and
-// the close button all dismiss. Focus is moved into the dialog on open and
-// restored on close. Tab is trapped inside while open.
+// the close button all dismiss unless an opt-in canClose guard temporarily
+// blocks them. Focus is moved into the dialog on open and restored on close.
+// Tab is trapped inside while open.
 
 let openBackdrop = null;
 let previousFocus = null;
 let onCloseHook = null;
+let canCloseHook = null;
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function isModalOpen() { return !!openBackdrop; }
 
 export function closeModal({ skipHook = false } = {}) {
-  if (!openBackdrop) {return;}
+  if (!openBackdrop) {
+    return false;
+  }
+  if (typeof canCloseHook === 'function' && !canCloseHook()) {
+    return false;
+  }
   const el = openBackdrop;
   el.classList.remove('show');
   document.body.classList.remove('modal-open');
@@ -24,17 +31,19 @@ export function closeModal({ skipHook = false } = {}) {
   const focusBack = previousFocus;
   openBackdrop = null;
   onCloseHook = null;
+  canCloseHook = null;
   previousFocus = null;
 
   if (focusBack && typeof focusBack.focus === 'function') {focusBack.focus();}
   if (!skipHook && typeof hook === 'function') {hook();}
+  return true;
 }
 
 /**
  * @typedef {Object} ModalAction
  * @property {string} label
  * @property {'primary' | 'outline' | 'danger' | 'ghost'} [variant]
- * @property {(ctx: { dialog: HTMLElement, body: HTMLElement, close: () => void }) => void} [action]
+ * @property {(ctx: { dialog: HTMLElement, body: HTMLElement, close: () => boolean }) => void} [action]
  * @property {boolean} [closeOnAction] If true (default), the modal closes after `action` runs.
  */
 
@@ -46,10 +55,13 @@ export function closeModal({ skipHook = false } = {}) {
  * @param {ModalAction[]} [opts.actions] Footer buttons.
  * @param {'sm' | 'md' | 'lg'} [opts.size]
  * @param {() => void} [opts.onClose] Fires after the modal is dismissed (any reason).
- * @returns {{ dialog: HTMLElement, body: HTMLElement, close: () => void }}
+ * @param {() => boolean} [opts.canClose] Return false to temporarily prevent dismissal.
+ * @returns {{ dialog: HTMLElement, body: HTMLElement, close: () => boolean } | null}
  */
-export function showModal({ title, body = '', actions = [], size = 'md', onClose } = {}) {
-  closeModal({ skipHook: true });
+export function showModal({ title, body = '', actions = [], size = 'md', onClose, canClose } = {}) {
+  if (openBackdrop && !closeModal({ skipHook: true })) {
+    return null;
+  }
 
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
@@ -124,6 +136,7 @@ export function showModal({ title, body = '', actions = [], size = 'md', onClose
   previousFocus = document.activeElement;
   openBackdrop = backdrop;
   onCloseHook = onClose;
+  canCloseHook = canClose;
 
   // Initial focus: first focusable in body, else first action, else close button
   const firstInBody = bodyEl.querySelector(FOCUSABLE);

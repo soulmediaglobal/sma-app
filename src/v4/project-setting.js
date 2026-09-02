@@ -792,7 +792,478 @@ function buildServiceDocChecklist(row, categories, documentsByCategory, canEdit)
   return details;
 }
 
-function buildServiceTypeRow(row, categories, documentsByCategory, canEdit) {
+function friendlyDependencyError(error) {
+  if (isUniqueViolation(error)) {
+    return 'Prasyarat ini sudah ditambahkan.';
+  }
+  if (error?.code === '23514') {
+    return 'Prasyarat ini membuat hubungan layanan berputar. Periksa kembali mapping layanan.';
+  }
+  if (error?.code === '23503') {
+    return 'Jenis layanan yang dipilih sudah tidak tersedia.';
+  }
+  return 'Gagal menyimpan prasyarat layanan.';
+}
+
+function buildDependencyModalFeedback() {
+  const feedback = element('div', 'alert alert-error project-setting-service-dependency-feedback');
+  feedback.setAttribute('role', 'alert');
+  feedback.setAttribute('aria-live', 'assertive');
+  feedback.setAttribute('aria-atomic', 'true');
+  feedback.hidden = true;
+  return feedback;
+}
+
+function clearDependencyModalFeedback(feedback) {
+  feedback.hidden = true;
+  feedback.textContent = '';
+}
+
+function showDependencyModalFeedback(feedback, message) {
+  feedback.textContent = message;
+  feedback.hidden = false;
+}
+
+async function reloadDependenciesBestEffort(reloadDependencies) {
+  try {
+    await reloadDependencies();
+  } catch {
+    // Mutation feedback remains authoritative if the follow-up refresh fails.
+  }
+}
+
+function setDependencyPanelBusy(entry, busy) {
+  entry.panel.setAttribute('aria-busy', String(busy));
+  if (entry.addButton) {
+    entry.addButton.disabled = busy || entry.mutating || entry.dependencyLoadFailed;
+  }
+}
+
+function setDependencyPanelLoading(entry) {
+  setDependencyPanelBusy(entry, true);
+  entry.content.replaceChildren(
+    element('div', 'project-setting-service-dependency-state', 'Memuat prasyarat layanan…')
+  );
+}
+
+function setDependencyPanelError(entry, retry) {
+  entry.dependencyLoadFailed = true;
+  setDependencyPanelBusy(entry, false);
+  const state = element(
+    'div',
+    'project-setting-service-dependency-state project-setting-service-dependency-state-error'
+  );
+  state.setAttribute('role', 'alert');
+  state.appendChild(document.createTextNode('Prasyarat layanan belum dapat dimuat. '));
+  const retryButton = element('button', 'btn btn-outline btn-sm', 'Coba Lagi');
+  retryButton.type = 'button';
+  retryButton.addEventListener('click', retry);
+  state.appendChild(retryButton);
+  entry.content.replaceChildren(state);
+}
+
+function buildAddServiceDependencyForm(serviceType, services, existingDependencies) {
+  const form = document.createElement('form');
+  form.noValidate = true;
+
+  const group = element('div', 'form-group');
+  const label = element('label', 'form-label', 'Jenis layanan prasyarat');
+  label.htmlFor = 'service-dependency-prerequisite';
+  const select = element('select', 'form-control');
+  select.id = 'service-dependency-prerequisite';
+  select.name = 'prerequisite_service_type';
+  select.required = true;
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Pilih jenis layanan';
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  select.appendChild(placeholder);
+
+  services
+    .filter(
+      service =>
+        service.service_type !== serviceType && !existingDependencies.has(service.service_type)
+    )
+    .forEach(service => {
+      const option = document.createElement('option');
+      option.value = service.service_type;
+      option.textContent = service.service_type;
+      select.appendChild(option);
+    });
+
+  const feedback = buildDependencyModalFeedback();
+  select.addEventListener('change', () => clearDependencyModalFeedback(feedback));
+
+  group.append(label, select);
+  form.append(group, feedback);
+  return form;
+}
+
+function openAddServiceDependencyModal(service, services, entry, reloadDependencies) {
+  if (entry.addButton?.disabled) {
+    return;
+  }
+  const existingDependencies = new Set(
+    entry.dependencies.map(dependency => dependency.prerequisite_service_type)
+  );
+  const form = buildAddServiceDependencyForm(service.service_type, services, existingDependencies);
+  const select = form.elements.namedItem('prerequisite_service_type');
+  const feedback = form.querySelector('.project-setting-service-dependency-feedback');
+
+  if (select.options.length === 1) {
+    showToast('Tidak ada jenis layanan lain yang dapat dipilih sebagai prasyarat.', {
+      variant: 'info'
+    });
+    return;
+  }
+
+  const ctx = showModal({
+    title: 'Tambah Prasyarat Layanan',
+    body: form,
+    size: 'sm',
+    canClose: () => !entry.mutating,
+    onClose: () => clearDependencyModalFeedback(feedback),
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Tambah Prasyarat',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => {
+          submitAddServiceDependency(ctx, form, service, entry, reloadDependencies);
+        }
+      }
+    ]
+  });
+
+  if (!ctx) {
+    return;
+  }
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitAddServiceDependency(ctx, form, service, entry, reloadDependencies);
+  });
+}
+
+async function submitAddServiceDependency(ctx, form, service, entry, reloadDependencies) {
+  const feedback = form.querySelector('.project-setting-service-dependency-feedback');
+  clearDependencyModalFeedback(feedback);
+  if (!form.reportValidity()) {
+    return;
+  }
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled || entry.mutating) {
+    return;
+  }
+
+  const prerequisiteServiceType = form.elements.namedItem('prerequisite_service_type').value;
+  if (!prerequisiteServiceType || prerequisiteServiceType === service.service_type) {
+    return;
+  }
+
+  entry.mutating = true;
+  setDependencyPanelBusy(entry, true);
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+  try {
+    const { error } = await supabase.from('service_type_dependencies').insert({
+      service_type: service.service_type,
+      prerequisite_service_type: prerequisiteServiceType
+    });
+
+    if (error) {
+      entry.mutating = false;
+      showDependencyModalFeedback(feedback, friendlyDependencyError(error));
+      await reloadDependenciesBestEffort(reloadDependencies);
+      return;
+    }
+
+    entry.mutating = false;
+    ctx.close();
+    showToast('Prasyarat layanan berhasil ditambahkan.', { variant: 'success' });
+    await reloadDependenciesBestEffort(reloadDependencies);
+  } catch {
+    entry.mutating = false;
+    showDependencyModalFeedback(feedback, 'Gagal menyimpan prasyarat layanan.');
+    await reloadDependenciesBestEffort(reloadDependencies);
+  } finally {
+    entry.mutating = false;
+    if (ctx.dialog.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Tambah Prasyarat';
+    }
+    if (entry.panel.isConnected) {
+      setDependencyPanelBusy(entry, false);
+    }
+  }
+}
+
+function openRemoveServiceDependencyModal(service, dependency, entry, reloadDependencies, trigger) {
+  if (entry.mutating || trigger.disabled) {
+    return;
+  }
+  const message = element(
+    'p',
+    '',
+    `Hapus ${dependency.prerequisite_service_type} sebagai prasyarat untuk ${service.service_type}?`
+  );
+  const feedback = buildDependencyModalFeedback();
+  const body = element('div');
+  body.append(message, feedback);
+  const ctx = showModal({
+    title: 'Hapus Prasyarat Layanan',
+    body,
+    size: 'sm',
+    canClose: () => !entry.mutating,
+    onClose: () => clearDependencyModalFeedback(feedback),
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Hapus',
+        variant: 'danger',
+        closeOnAction: false,
+        action: () => {
+          removeServiceDependency(
+            ctx,
+            service,
+            dependency,
+            entry,
+            reloadDependencies,
+            trigger,
+            feedback
+          );
+        }
+      }
+    ]
+  });
+
+  if (!ctx) {
+    return;
+  }
+}
+
+async function removeServiceDependency(
+  ctx,
+  service,
+  dependency,
+  entry,
+  reloadDependencies,
+  trigger,
+  feedback
+) {
+  clearDependencyModalFeedback(feedback);
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-danger');
+  if (submitButton.disabled || entry.mutating) {
+    return;
+  }
+
+  entry.mutating = true;
+  setDependencyPanelBusy(entry, true);
+  trigger.disabled = true;
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menghapus…';
+  try {
+    const { error, count } = await supabase
+      .from('service_type_dependencies')
+      .delete({ count: 'exact' })
+      .eq('service_type', service.service_type)
+      .eq('prerequisite_service_type', dependency.prerequisite_service_type)
+      .select('service_type');
+
+    if (error || count !== 1) {
+      entry.mutating = false;
+      showDependencyModalFeedback(
+        feedback,
+        'Prasyarat layanan tidak dapat dihapus. Muat ulang halaman dan coba lagi.'
+      );
+      await reloadDependenciesBestEffort(reloadDependencies);
+      return;
+    }
+
+    entry.mutating = false;
+    ctx.close();
+    showToast('Prasyarat layanan berhasil dihapus.', { variant: 'success' });
+    await reloadDependenciesBestEffort(reloadDependencies);
+  } catch {
+    entry.mutating = false;
+    showDependencyModalFeedback(
+      feedback,
+      'Prasyarat layanan tidak dapat dihapus. Coba lagi beberapa saat.'
+    );
+    await reloadDependenciesBestEffort(reloadDependencies);
+  } finally {
+    entry.mutating = false;
+    if (ctx.dialog.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Hapus';
+    }
+    if (entry.panel.isConnected) {
+      setDependencyPanelBusy(entry, false);
+    }
+    if (trigger.isConnected) {
+      trigger.disabled = false;
+    }
+  }
+}
+
+function renderDependencyPanel(entry, service, dependencies, canEdit, reloadDependencies) {
+  entry.dependencies = dependencies;
+  entry.dependencyLoadFailed = false;
+  setDependencyPanelBusy(entry, false);
+  entry.content.replaceChildren();
+
+  if (dependencies.length === 0) {
+    entry.content.appendChild(
+      element('div', 'project-setting-service-dependency-empty', 'Belum ada prasyarat layanan.')
+    );
+    return;
+  }
+
+  const list = element('div', 'project-setting-service-dependency-list');
+  list.setAttribute('role', 'list');
+  dependencies.forEach(dependency => {
+    const item = element('div', 'project-setting-service-dependency-item');
+    item.setAttribute('role', 'listitem');
+    item.appendChild(
+      element(
+        'span',
+        'project-setting-service-dependency-name',
+        dependency.prerequisite_service_type
+      )
+    );
+    if (canEdit) {
+      const removeButton = element('button', 'btn btn-outline btn-sm', 'Hapus');
+      removeButton.type = 'button';
+      removeButton.setAttribute(
+        'aria-label',
+        `Hapus ${dependency.prerequisite_service_type} sebagai prasyarat ${service.service_type}`
+      );
+      removeButton.addEventListener('click', () => {
+        openRemoveServiceDependencyModal(
+          service,
+          dependency,
+          entry,
+          reloadDependencies,
+          removeButton
+        );
+      });
+      item.appendChild(removeButton);
+    }
+    list.appendChild(item);
+  });
+  entry.content.appendChild(list);
+}
+
+function buildServiceDependencySection(service, services, canEdit, dependencyPanels) {
+  const panel = element('section', 'project-setting-service-dependencies');
+  panel.setAttribute('aria-label', `Prasyarat layanan untuk ${service.service_type}`);
+  panel.setAttribute('aria-busy', 'true');
+
+  const header = element('div', 'project-setting-service-dependency-header');
+  header.appendChild(
+    element('div', 'project-setting-service-dependency-title', 'Prasyarat Layanan')
+  );
+  const content = element('div', 'project-setting-service-dependency-content');
+  const entry = {
+    panel,
+    content,
+    addButton: null,
+    dependencies: [],
+    dependencyLoadFailed: false,
+    mutating: false,
+    openAdd: null
+  };
+
+  if (canEdit) {
+    const addButton = element(
+      'button',
+      'btn btn-outline btn-sm project-setting-service-dependency-add',
+      '+ Tambah Prasyarat'
+    );
+    addButton.type = 'button';
+    addButton.disabled = true;
+    addButton.addEventListener('click', () => entry.openAdd?.());
+    entry.addButton = addButton;
+    header.appendChild(addButton);
+  }
+
+  panel.append(header, content);
+  dependencyPanels.set(service.service_type, entry);
+  setDependencyPanelLoading(entry);
+  return panel;
+}
+
+function createDependencyLoader(services, canEdit, dependencyPanels) {
+  let pending = false;
+
+  const loadDependencies = async () => {
+    if (pending) {
+      return;
+    }
+    pending = true;
+    dependencyPanels.forEach(entry => setDependencyPanelLoading(entry));
+
+    try {
+      const { data, error } = await supabase
+        .from('service_type_dependencies')
+        .select('service_type, prerequisite_service_type')
+        .order('prerequisite_service_type', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const byService = new Map();
+      (data || []).forEach(dependency => {
+        const list = byService.get(dependency.service_type) || [];
+        list.push(dependency);
+        byService.set(dependency.service_type, list);
+      });
+
+      dependencyPanels.forEach((entry, serviceType) => {
+        const service = services.find(candidate => candidate.service_type === serviceType);
+        if (!service || !entry.panel.isConnected) {
+          return;
+        }
+        renderDependencyPanel(
+          entry,
+          service,
+          byService.get(serviceType) || [],
+          canEdit,
+          loadDependencies
+        );
+        if (entry.addButton) {
+          entry.openAdd = () => {
+            openAddServiceDependencyModal(service, services, entry, loadDependencies);
+          };
+        }
+      });
+    } catch {
+      dependencyPanels.forEach(entry => {
+        if (entry.panel.isConnected) {
+          setDependencyPanelError(entry, loadDependencies);
+        }
+      });
+    } finally {
+      pending = false;
+    }
+  };
+
+  return loadDependencies;
+}
+
+function buildServiceTypeRow(
+  row,
+  categories,
+  documentsByCategory,
+  canEdit,
+  services,
+  dependencyPanels
+) {
   const item = element('div', 'project-setting-service-item');
 
   const header = element('div', 'project-setting-service-code-row');
@@ -811,6 +1282,7 @@ function buildServiceTypeRow(row, categories, documentsByCategory, canEdit) {
   }
   item.appendChild(header);
 
+  item.appendChild(buildServiceDependencySection(row, services, canEdit, dependencyPanels));
   item.appendChild(buildServiceDocChecklist(row, categories, documentsByCategory, canEdit));
 
   return item;
@@ -937,9 +1409,15 @@ function renderServiceTypes(root, rows, categories, templates, canEdit) {
   });
 
   const list = element('div', 'project-setting-service-list');
-  rows.forEach((row) => list.appendChild(buildServiceTypeRow(row, categories, documentsByCategory, canEdit)));
+  const dependencyPanels = new Map();
+  rows.forEach(row => {
+    list.appendChild(
+      buildServiceTypeRow(row, categories, documentsByCategory, canEdit, rows, dependencyPanels)
+    );
+  });
   root.appendChild(list);
   root.setAttribute('aria-busy', 'false');
+  return dependencyPanels;
 }
 
 async function loadServiceTypes(root, canEdit) {
@@ -966,7 +1444,16 @@ async function loadServiceTypes(root, canEdit) {
       return;
     }
 
-    renderServiceTypes(root, codesResult.data || [], categoriesResult.data || [], templatesResult.data || [], canEdit);
+    const services = codesResult.data || [];
+    const dependencyPanels = renderServiceTypes(
+      root,
+      services,
+      categoriesResult.data || [],
+      templatesResult.data || [],
+      canEdit
+    );
+    const loadDependencies = createDependencyLoader(services, canEdit, dependencyPanels);
+    loadDependencies();
   } catch {
     setPanelState(root, 'Gagal memuat daftar jenis layanan.', 'error');
   }
