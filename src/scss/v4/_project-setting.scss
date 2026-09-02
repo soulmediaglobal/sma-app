@@ -235,6 +235,80 @@
   font-weight: var(--font-weight-medium);
 }
 
+.project-setting-service-dependencies {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius);
+  background: var(--bg-surface-secondary);
+}
+
+.project-setting-service-dependency-header,
+.project-setting-service-dependency-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.project-setting-service-dependency-header {
+  margin-bottom: var(--space-2);
+}
+
+.project-setting-service-dependency-title {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.project-setting-service-dependency-content {
+  min-height: 20px;
+}
+
+.project-setting-service-dependency-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.project-setting-service-dependency-item {
+  padding: var(--space-1) 0;
+  border-top: 1px solid var(--border-color-light);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.project-setting-service-dependency-name {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.project-setting-service-dependency-empty,
+.project-setting-service-dependency-state {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.project-setting-service-dependency-state-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.project-setting-service-dependency-feedback {
+  margin-top: var(--space-3);
+  margin-bottom: 0;
+}
+
+.project-setting-service-dependency-feedback[hidden] {
+  display: none;
+}
+
 .project-setting-service-docs {
   margin-top: var(--space-1);
 }
@@ -276,4 +350,17 @@
   padding: var(--space-1) 0;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .project-setting-service-dependency-header,
+  .project-setting-service-dependency-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .project-setting-service-dependency-add,
+  .project-setting-service-dependency-item .btn {
+    min-height: 44px;
+  }
 }

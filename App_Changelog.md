@@ -17,6 +17,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #159**: konfigurasi dependency antar jenis layanan di Project
+  Setting. Admin dapat mengelola beberapa prasyarat per layanan; validasi
+  database mencegah self-cycle, cycle langsung, dan cycle multi-hop. Migration
+  awal `20260901120000` membuat `service_type_dependencies`. Runtime
+  verification menemukan default ACL memberi role `authenticated` privilege
+  tambahan; corrective migration forward-only `20260902100000` mencabut
+  seluruh privilege lalu hanya memberikan `SELECT`, `INSERT`, `UPDATE`, dan
+  `DELETE`. `PUBLIC` dan `anon` tidak memiliki privilege, sedangkan
+  `TRUNCATE`, `REFERENCES`, dan `TRIGGER` tidak diberikan kepada
+  `authenticated`.
+
 > **Catatan (Mike, 2026-08-31):** Konten "Issue #99" di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file. Tidak pernah diberi nomor versi resmi, dan tidak ada commit/tag yang cocok persis dengan kontennya di antara 9 tag yang sebelumnya tanpa entry changelog — jadi tetap tercatat sebagai Unreleased sampai Ray/Dimas konfirmasi versi rilisnya.
 
 ### Added
