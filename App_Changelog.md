@@ -41,6 +41,18 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   `TRUNCATE`, `REFERENCES`, dan `TRIGGER` tidak diberikan kepada
   `authenticated`.
 
+### Fixed
+
+- **Issue #171**: menambahkan corrective migration forward-only
+  `20260903090000_drop_unsafe_case_quotation_internal_creator_reject.sql`
+  untuk menghapus policy `case_quotations_internal_creator_reject` yang
+  sudah ada di production dari PR #162 tetapi tidak pernah merged ke
+  `main`. Policy tersebut hanya membatasi source/target status dan ownership,
+  sehingga role `internal` yang membuat case masih dapat menyertakan perubahan
+  field quotation lain dalam request reject yang sama. Migration ini hanya
+  menghapus policy; tidak mengimplementasikan flow Reject Issue #161 dan tidak
+  mengubah migration approval gate Issue #165.
+
 > **Catatan (Mike, 2026-08-31):** Konten "Issue #99" di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file. Tidak pernah diberi nomor versi resmi, dan tidak ada commit/tag yang cocok persis dengan kontennya di antara 9 tag yang sebelumnya tanpa entry changelog — jadi tetap tercatat sebagai Unreleased sampai Ray/Dimas konfirmasi versi rilisnya.
 
 ### Added
