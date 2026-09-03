@@ -140,6 +140,16 @@ function canReviewQuotation(role) {
   return ['admin', 'supervisor'].includes(role);
 }
 
+function canRejectQuotation(role) {
+  return ['admin', 'supervisor'].includes(role);
+}
+
+function buildNegotiationBadge(count) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  const colorClass = safeCount >= 3 ? 'chip-red' : 'chip-yellow';
+  return element('span', `chip ${colorClass}`, `Nego: ${safeCount}/3`);
+}
+
 function isEditableQuotation(quotation) {
   return EDITABLE_STATUSES.includes(quotation?.status);
 }
@@ -311,7 +321,7 @@ function renderReadOnlyLineItems(container, items) {
   container.appendChild(list);
 }
 
-function buildVersionRow(quotation, itemsCache, lineItemsCache, ctx, documents) {
+function buildVersionRow(quotation, supersededByVersion, itemsCache, lineItemsCache, ctx, documents) {
   const row = element('article', 'client-quotation-version-row');
 
   const header = element('div', 'client-quotation-version-header');
@@ -331,6 +341,14 @@ function buildVersionRow(quotation, itemsCache, lineItemsCache, ctx, documents) 
   header.appendChild(previewBtn);
 
   row.appendChild(header);
+
+  if (quotation.status === 'SUPERSEDED' && supersededByVersion) {
+    row.appendChild(element(
+      'div',
+      'client-quotation-version-replacement',
+      `Versi ini digantikan oleh v${supersededByVersion}.`
+    ));
+  }
 
   const panel = element('div', 'client-quotation-version-items');
   panel.hidden = true;
@@ -374,6 +392,9 @@ function buildVersionRow(quotation, itemsCache, lineItemsCache, ctx, documents) 
 
   if (quotation.client_response_notes) {
     row.appendChild(element('div', 'client-quotation-version-response', `Catatan client: ${quotation.client_response_notes}`));
+  }
+  if (quotation.rejection_reason) {
+    row.appendChild(element('div', 'client-quotation-version-response', `Alasan penolakan: ${quotation.rejection_reason}`));
   }
 
   return row;
@@ -1182,6 +1203,45 @@ async function sendQuotation(quotation, ctx) {
   await ctx.refresh();
 }
 
+async function rejectQuotation(quotation, reason, ctx) {
+  const { error } = await updateQuotationStatus(
+    quotation,
+    'SENT',
+    {
+      status: 'REJECTED',
+      rejection_reason: reason,
+      responded_at: new Date().toISOString()
+    },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal menolak penawaran.', { variant: 'error' });
+    return;
+  }
+
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Reject RAB (Admin/Supervisor)',
+    notes: `Penawaran RAB versi ${quotation.version} ditolak. Alasan: ${reason}`,
+    profile: ctx.profile
+  });
+  showToast('Penawaran berhasil ditolak.', { variant: 'success' });
+  await ctx.refresh();
+}
+
+function openRejectQuotationModal(quotation, ctx) {
+  openReasonModal({
+    quotation,
+    title: 'Tolak Penawaran',
+    description: `RAB versi ${quotation.version} akan ditolak dan tidak dapat dikirim ulang.`,
+    label: 'Alasan penolakan (wajib)',
+    confirmLabel: 'Tolak Penawaran',
+    onConfirm: rejectQuotation,
+    ctx
+  });
+}
+
 // ============================================================================
 // Preview Dokumen Formal (Issue #66) — read-only, no status change.
 // ============================================================================
@@ -1572,7 +1632,7 @@ async function renderModalBody(bodyEl, ctx) {
   const [quotationsResult, templatesResult, documentsResult, bankAccounts] = await Promise.all([
     supabase
       .from('case_quotations')
-      .select('id, case_id, version, status, total_amount, notes, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name), internal_submitted_at, internal_approved_at, internal_revision_requested_at, internal_revision_reason, internal_reopened_at, internal_reopen_reason, internal_submitter:profiles!internal_submitted_by(id, name), internal_approver:profiles!internal_approved_by(id, name), internal_revision_requester:profiles!internal_revision_requested_by(id, name), internal_reopener:profiles!internal_reopened_by(id, name)')
+      .select('id, case_id, version, status, total_amount, notes, rejection_reason, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name), internal_submitted_at, internal_approved_at, internal_revision_requested_at, internal_revision_reason, internal_reopened_at, internal_reopen_reason, internal_submitter:profiles!internal_submitted_by(id, name), internal_approver:profiles!internal_approved_by(id, name), internal_revision_requester:profiles!internal_revision_requested_by(id, name), internal_reopener:profiles!internal_reopened_by(id, name)')
       .eq('case_id', ctx.caseId)
       .order('version', { ascending: false }),
     supabase
@@ -1606,12 +1666,27 @@ async function renderModalBody(bodyEl, ctx) {
 
   bodyEl.replaceChildren();
 
-  bodyEl.appendChild(element('h3', 'client-quotation-section-title', 'Riwayat Versi'));
+  const historyHeader = element('div', 'client-quotation-history-header');
+  historyHeader.appendChild(element('h3', 'client-quotation-section-title', 'Riwayat Versi'));
+  if (quotations.length > 0) {
+    historyHeader.appendChild(buildNegotiationBadge(ctx.project?.negotiation_count));
+  }
+  bodyEl.appendChild(historyHeader);
   if (quotations.length === 0) {
     bodyEl.appendChild(element('div', 'client-quotation-empty', 'Belum ada RAB dibuat untuk project ini.'));
   } else {
     const list = element('div', 'client-quotation-version-list');
-    quotations.forEach((quotation) => list.appendChild(buildVersionRow(quotation, itemsCache, lineItemsCache, ctx, documents)));
+    quotations.forEach((quotation, index) => {
+      const supersededByVersion = index > 0 ? quotations[index - 1].version : null;
+      list.appendChild(buildVersionRow(
+        quotation,
+        supersededByVersion,
+        itemsCache,
+        lineItemsCache,
+        ctx,
+        documents
+      ));
+    });
     bodyEl.appendChild(list);
   }
 
@@ -1727,6 +1802,16 @@ async function renderModalBody(bodyEl, ctx) {
       }
     }
     bodyEl.appendChild(actionSection);
+  }
+
+  const rejectableQuotation = quotations.find((quotation) => quotation.status === 'SENT') || null;
+  if (rejectableQuotation && canRejectQuotation(ctx.profile?.role)) {
+    const rejectSection = element('div', 'client-quotation-send-section');
+    const rejectBtn = element('button', 'btn btn-danger', 'Tolak Penawaran');
+    rejectBtn.type = 'button';
+    rejectBtn.addEventListener('click', () => openRejectQuotationModal(rejectableQuotation, ctx));
+    rejectSection.appendChild(rejectBtn);
+    bodyEl.appendChild(rejectSection);
   }
 }
 

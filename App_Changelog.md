@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #161**: admin dan supervisor dapat menolak RAB berstatus `SENT`
+  dari action UI dengan alasan wajib. Migration
+  `20260903120000_case_quotations_rejection_reason.sql` menambah kolom
+  `rejection_reason` dan memperluas transition guard Issue #165 agar
+  `SENT` → `REJECTED` hanya tersedia bagi admin/supervisor dengan alasan
+  nonblank; tidak ada RPC atau policy internal baru. Riwayat versi sekarang
+  menampilkan alasan penolakan, indikator versi pengganti untuk quotation
+  `SUPERSEDED`, dan counter negosiasi `Nego: X/3`.
 - **Issue #165**: internal approval gate untuk RAB sebelum penawaran dapat
   dikirim ke client. Lifecycle sekarang melewati `DRAFT` / `REVISION_REQUIRED`
   → `PENDING_INTERNAL_APPROVAL` → `APPROVED_INTERNAL` → `SENT`; pending dan
