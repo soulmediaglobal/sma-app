@@ -503,6 +503,7 @@ async function loadProjects(root) {
         service_type,
         status,
         total_rab,
+        negotiation_count,
         created_at,
         created_by,
         creator:profiles!created_by(id, name)
