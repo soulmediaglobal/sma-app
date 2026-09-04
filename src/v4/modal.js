@@ -53,7 +53,7 @@ export function closeModal({ skipHook = false } = {}) {
  * @param {string} [opts.title]
  * @param {string | HTMLElement} [opts.body] HTML string (assigned via innerHTML) or element to mount.
  * @param {ModalAction[]} [opts.actions] Footer buttons.
- * @param {'sm' | 'md' | 'lg'} [opts.size]
+ * @param {'sm' | 'md' | 'lg' | 'xl'} [opts.size]
  * @param {() => void} [opts.onClose] Fires after the modal is dismissed (any reason).
  * @param {() => boolean} [opts.canClose] Return false to temporarily prevent dismissal.
  * @returns {{ dialog: HTMLElement, body: HTMLElement, close: () => boolean } | null}
