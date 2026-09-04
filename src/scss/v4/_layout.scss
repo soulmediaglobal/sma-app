@@ -658,3 +658,6 @@
   body.sidebar-rail .sidebar-toggle svg { transform: rotate(180deg); }
   .sidebar-toggle svg { transition: transform 200ms ease; }
 }
+body[data-shell='admin']:not([data-auth-allowed='true']):not([data-auth-failure='true']) {
+  visibility: hidden;
+}

@@ -1,16 +1,56 @@
 // SMA-app — login page logic. Two-step OTP: request code by email, then
 // verify the 6-digit code. No password, no self-signup (see src/lib/auth.js).
 
-import { requestOtp, verifyOtp, getSession } from '../lib/auth.js';
+import {
+  clearSession,
+  getProfileResult,
+  getSessionResult,
+  requestOtp,
+  verifyOtp
+} from '../lib/auth.js';
+import {
+  AUTH_ROUTE,
+  clientPortalHomeUrl,
+  internalCmsUrl,
+  resolveProfileRoute
+} from '../lib/auth-routing.js';
 import { recordLoginHistory } from '../lib/login-history.js';
 import { showToast } from './toast.js';
 
 export async function initLogin() {
-  // Already logged in — skip the form entirely.
-  const session = await getSession();
+  const feedbackMessage = new URL(window.location.href).searchParams.get('auth_error');
+  if (feedbackMessage) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast('Akun tidak dapat membuka halaman tersebut. Silakan masuk kembali.', {
+      variant: 'error'
+    });
+  }
+
+  async function routeCurrentSession() {
+    const { profile, error } = await getProfileResult();
+    const destination = error ? AUTH_ROUTE.BLOCKED : resolveProfileRoute(profile);
+    if (destination === AUTH_ROUTE.INTERNAL) {
+      window.location.replace(internalCmsUrl());
+      return true;
+    }
+    if (destination === AUTH_ROUTE.CLIENT) {
+      window.location.replace(clientPortalHomeUrl());
+      return true;
+    }
+    await clearSession();
+    showToast('Akun belum dapat digunakan. Hubungi admin SMA untuk bantuan.', {
+      variant: 'error'
+    });
+    return false;
+  }
+
+  // An existing session still needs a verified, active profile before routing.
+  const { session, error: sessionError } = await getSessionResult();
+  if (sessionError) {
+    showToast('Sesi belum dapat diverifikasi. Silakan coba lagi.', { variant: 'error' });
+  }
   if (session) {
-    window.location.href = 'index.html';
-    return;
+    if (await routeCurrentSession()) {return;}
   }
 
   const emailStep = document.getElementById('otp-email-step');
@@ -33,7 +73,7 @@ export async function initLogin() {
   async function sendCode(email) {
     const { error } = await requestOtp(email);
     if (error) {
-      showToast(error.message || 'Gagal mengirim kode. Coba lagi.', { variant: 'error' });
+      showToast('Kode belum dapat dikirim. Silakan coba lagi.', { variant: 'error' });
       return false;
     }
     showToast('Kode terkirim. Cek email kamu.', { variant: 'success' });
@@ -63,13 +103,8 @@ export async function initLogin() {
     const { data, error } = await verifyOtp(currentEmail, codeInput.value.trim());
     btn.disabled = false;
     btn.textContent = 'Verifikasi';
-    // TEMPORARY DEBUG — do not merge. Investigating login_history rows
-    // never appearing with zero console output. Confirms the real shape
-    // of verifyOtp()'s data object instead of trusting the SDK's .d.ts.
-    // eslint-disable-next-line no-console
-    console.log('[DEBUG login] verifyOtp() resolved — full data:', JSON.parse(JSON.stringify(data ?? null)), 'error:', error);
     if (error) {
-      showToast(error.message || 'Kode salah atau sudah kadaluarsa.', { variant: 'error' });
+      showToast('Kode salah atau sudah kedaluwarsa.', { variant: 'error' });
       return;
     }
     // Awaited: it's one fast insert (device/os/browser only) — IP/location
@@ -79,12 +114,8 @@ export async function initLogin() {
     // the page mid-fetch before the insert ever ran, so no row was ever
     // written at all.
     const userId = data?.user?.id;
-    // eslint-disable-next-line no-console
-    console.log('[DEBUG login] resolved userId:', userId, '— will call recordLoginHistory:', !!userId);
     if (userId) {await recordLoginHistory(userId);}
-    // eslint-disable-next-line no-console
-    console.log('[DEBUG login] about to navigate to index.html');
-    window.location.href = 'index.html';
+    await routeCurrentSession();
   });
 
   backBtn.addEventListener('click', () => {

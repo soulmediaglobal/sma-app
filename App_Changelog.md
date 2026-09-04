@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #163**: routing session CMS internal dan Client Portal kini memverifikasi
+  profile aktif serta role sebelum merender aplikasi. Staff aktif diarahkan ke
+  CMS, client aktif diarahkan ke Client Portal, sedangkan profile hilang,
+  nonaktif, role tidak dikenal, atau kegagalan verifikasi ditolak secara aman.
+  Bootstrap CMS hanya berjalan setelah guard mengizinkan akses, dan temporary
+  debug logging yang berpotensi memuat credential session telah dihapus. QA
+  lokal memverifikasi routing staff/client, proteksi bootstrap CMS, logout lokal
+  dari seluruh entry, retry kegagalan jaringan, serta navigasi tanpa redirect loop.
 - **Issue #159**: konfigurasi dependency antar jenis layanan di Project
   Setting. Admin dapat mengelola beberapa prasyarat per layanan; validasi
   database mencegah self-cycle, cycle langsung, dan cycle multi-hop. Migration

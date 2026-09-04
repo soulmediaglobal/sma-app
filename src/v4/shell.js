@@ -9,7 +9,7 @@ import { renderShell } from './shell-render.js';
 import { openPanel, openMenu } from './menus.js';
 import { showToast } from './toast.js';
 import { showModal } from './modal.js';
-import { signOut } from '../lib/auth.js';
+import { showLocalLogoutModal } from './logout.js';
 
 function injectShellIfMissing() {
   const body = document.body;
@@ -290,24 +290,7 @@ function openShortcutsModal() {
 }
 
 function openSignOutModal() {
-  showModal({
-    title: 'Sign out?',
-    size: 'sm',
-    body: '<p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0">You\'ll need to sign back in to access your dashboard. Any unsaved changes will be lost.</p>',
-    actions: [
-      { label: 'Cancel', variant: 'ghost' },
-      {
-        label: 'Sign out',
-        variant: 'primary',
-        // Used to just show a "Signed out" toast and redirect on a timer —
-        // decorative leftover from the Gentelella template that never
-        // actually touched the Supabase session. This is the topbar
-        // "Account menu" dropdown (top-right), the one people naturally
-        // click first — call the real sign-out here.
-        action: () => { signOut(); }
-      }
-    ]
-  });
+  showLocalLogoutModal();
 }
 
 const USER_MENU = [

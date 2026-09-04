@@ -5,8 +5,7 @@
 // scorer that's good enough for ~50 items.
 
 import { NAV } from './shell-render.js';
-import { showToast } from './toast.js';
-import { showModal } from './modal.js';
+import { showLocalLogoutModal } from './logout.js';
 
 let host = null;
 let inputEl = null;
@@ -39,18 +38,7 @@ function buildItems() {
     {
       label: 'Sign out',
       keywords: 'sign out logout exit',
-      action: () => showModal({
-        title: 'Sign out?',
-        size: 'sm',
-        body: '<p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0">You\'ll need to sign back in to access your dashboard.</p>',
-        actions: [
-          { label: 'Cancel', variant: 'ghost' },
-          { label: 'Sign out', variant: 'primary', action: () => {
-            showToast('Signed out', { variant: 'success' });
-            setTimeout(() => { window.location.href = 'login.html'; }, 600);
-          } }
-        ]
-      })
+      action: () => showLocalLogoutModal()
     }
   ];
   actions.forEach((a) => out.push({ kind: 'action', ...a }));

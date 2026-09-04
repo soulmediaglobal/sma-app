@@ -1,11 +1,9 @@
 import { supabase } from './supabaseClient.js';
+import { signOut } from './auth.js';
+import { clientPortalUrl, resolveProfileRoute } from './auth-routing.js';
 
-const STAFF_ROLES = new Set(['admin', 'supervisor', 'internal']);
+export { clientPortalUrl, internalCmsUrl } from './auth-routing.js';
 const PROFILE_RETRY_DELAYS = [0, 250, 500, 1000, 1500];
-
-export function clientPortalUrl(page) {
-  return new URL(page, window.location.href).href;
-}
 
 export function clientCallbackUrl() {
   return clientPortalUrl('client-auth-callback.html');
@@ -13,13 +11,6 @@ export function clientCallbackUrl() {
 
 export function clientSetPasswordUrl() {
   return clientPortalUrl('client-set-password.html');
-}
-
-export function internalCmsUrl() {
-  if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-    return clientPortalUrl('index.html');
-  }
-  return 'https://team.soulmitra.id/production/index.html';
 }
 
 export async function signInClientWithGoogle() {
@@ -44,25 +35,29 @@ export async function setClientPassword(password) {
 }
 
 export async function restoreClientSession() {
-  const callbackUrl = new URL(window.location.href);
-  const code = callbackUrl.searchParams.get('code');
+  try {
+    const callbackUrl = new URL(window.location.href);
+    const code = callbackUrl.searchParams.get('code');
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {return { session: null, error };}
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {return { session: null, error };}
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) {
+      return { session: null, error: error || new Error('Sesi login tidak ditemukan.') };
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return { session: null, error: userError || new Error('Akun tidak dapat diverifikasi.') };
+    }
+
+    return { session: data.session, user: userData.user, error: null };
+  } catch (error) {
+    return { session: null, user: null, error };
   }
-
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) {
-    return { session: null, error: error || new Error('Sesi login tidak ditemukan.') };
-  }
-
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    return { session: null, error: userError || new Error('Akun tidak dapat diverifikasi.') };
-  }
-
-  return { session: data.session, user: userData.user, error: null };
 }
 
 function wait(milliseconds) {
@@ -74,14 +69,18 @@ export async function waitForClientProfile(userId) {
 
   for (const delay of PROFILE_RETRY_DELAYS) {
     if (delay) {await wait(delay);}
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, full_name, email, phone, role, client_id, account_status')
-      .eq('id', userId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, full_name, email, phone, role, client_id, account_status')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (data) {return { profile: data, error: null };}
-    if (error) {lastError = error;}
+      if (data) {return { profile: data, error: null };}
+      if (error) {lastError = error;}
+    } catch (error) {
+      lastError = error;
+    }
   }
 
   return {
@@ -91,10 +90,7 @@ export async function waitForClientProfile(userId) {
 }
 
 export function routeForClientProfile(profile) {
-  if (profile.account_status !== 'ACTIVE') {return 'blocked';}
-  if (STAFF_ROLES.has(profile.role)) {return 'internal';}
-  if (profile.role === 'client') {return 'client';}
-  return 'blocked';
+  return resolveProfileRoute(profile);
 }
 
 export function isClientProfileComplete(profile) {
@@ -103,22 +99,7 @@ export function isClientProfileComplete(profile) {
 
 export async function signOutClient() {
   const loginUrl = clientPortalUrl('client-portal-login.html');
-
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) {return { error };}
-    window.location.replace(loginUrl);
-    return { error: null };
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        window.location.replace(loginUrl);
-        return { error: null };
-      }
-    }
-    return { error };
-  }
+  return signOut(loginUrl);
 }
 
 export async function updateClientProfile(profileId, name, phone) {

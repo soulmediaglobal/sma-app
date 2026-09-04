@@ -31,43 +31,66 @@ export async function verifyOtp(email, token) {
 
 /** Current session, or null if not logged in. */
 export async function getSession() {
-  const { data } = await supabase.auth.getSession();
-  return data.session;
+  const { session } = await getSessionResult();
+  return session;
+}
+
+export async function getSessionResult() {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    return { session: error ? null : data.session, error };
+  } catch (error) {
+    return { session: null, error };
+  }
 }
 
 /** Current user's row from `profiles` (role, name, client_id), or null. */
 export async function getProfile() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {return null;}
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('Gagal ambil profile:', error.message);
-    return null;
+  const { profile } = await getProfileResult();
+  return profile;
+}
+
+export async function getProfileResult() {
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return { profile: null, error: userError || new Error('Sesi tidak dapat diverifikasi.') };
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userData.user.id)
+      .maybeSingle();
+    return { profile: error ? null : data, error };
+  } catch (error) {
+    return { profile: null, error };
   }
-  return data;
+}
+
+export async function clearSession() {
+  try {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) {
+      return { error };
+    }
+    const { session, error: sessionError } = await getSessionResult();
+    if (sessionError || session) {
+      return {
+        error: sessionError || new Error('Sesi lokal belum dapat diakhiri.')
+      };
+    }
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 }
 
 /** Sign out and send the user back to the login page. */
-export async function signOut() {
-  await supabase.auth.signOut();
-
-  // Belt-and-suspenders against the same race found in the "Sign out all"
-  // button (Issue #125 session-tracking work, src/v4/user-detail.js):
-  // login.html's own "already got a session? bounce to index.html" check
-  // (initLogin() in src/v4/login.js) sometimes still read a session
-  // immediately after signOut() resolved and redirected straight back.
-  // Explicitly re-verify local session state and force a local-only clear
-  // (storage removal only — no dependency on a second network round trip)
-  // before navigating.
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    await supabase.auth.signOut({ scope: 'local' });
+export async function signOut(redirectTo = 'login.html') {
+  const { error } = await clearSession();
+  if (error) {
+    return { error };
   }
-
-  window.location.href = 'login.html';
+  window.location.replace(redirectTo);
+  return { error: null };
 }
