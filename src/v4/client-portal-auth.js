@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabaseClient.js';
+import { clearSession } from '../lib/auth.js';
+import { AUTH_ROUTE } from '../lib/auth-routing.js';
 import {
   clientPortalUrl,
+  internalCmsUrl,
   isClientProfileComplete,
   requestClientPasswordReset,
   restoreClientSession,
@@ -16,7 +19,6 @@ import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 
 let initializedRoot = null;
-const STAFF_ROLES = new Set(['admin', 'supervisor', 'internal']);
 const APPLICATION_CARD_STATES = {
   DRAFT: {
     badge: 'Draft',
@@ -190,14 +192,6 @@ function openForgotPasswordModal() {
 }
 
 async function initClientLogin(root) {
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
-  if (session) {
-    window.location.replace(clientPortalUrl('client-auth-callback.html'));
-    return;
-  }
-
   const googleButton = root.querySelector('[data-client-google]');
   const passwordForm = root.querySelector('[data-client-password-form]');
   const emailInput = root.querySelector('[data-client-email]');
@@ -205,6 +199,22 @@ async function initClientLogin(root) {
   const feedback = root.querySelector('[data-client-auth-feedback]');
   const forgotPasswordButton = root.querySelector('[data-client-forgot-password]');
   let requestPending = false;
+
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      feedback.dataset.variant = 'error';
+      feedback.textContent = 'Sesi belum dapat diperiksa. Silakan coba masuk kembali.';
+      feedback.hidden = false;
+    } else if (data.session) {
+      window.location.replace(clientPortalUrl('client-auth-callback.html'));
+      return;
+    }
+  } catch {
+    feedback.dataset.variant = 'error';
+    feedback.textContent = 'Sesi belum dapat diperiksa. Silakan coba masuk kembali.';
+    feedback.hidden = false;
+  }
 
   googleButton.addEventListener('click', async () => {
     if (requestPending) {
@@ -259,8 +269,13 @@ async function initClientLogin(root) {
       passwordSessionEstablished = true;
 
       const { profile } = data.user ? await waitForClientProfile(data.user.id) : { profile: null };
-      if (!profile || routeForClientProfile(profile) !== 'client') {
-        await supabase.auth.signOut();
+      const destination = routeForClientProfile(profile);
+      if (destination === AUTH_ROUTE.INTERNAL) {
+        window.location.replace(internalCmsUrl());
+        return;
+      }
+      if (destination !== AUTH_ROUTE.CLIENT) {
+        await clearSession();
         passwordSessionEstablished = false;
         feedback.dataset.variant = 'error';
         feedback.textContent = 'Email atau password belum sesuai.';
@@ -269,7 +284,7 @@ async function initClientLogin(root) {
       window.location.replace(clientPortalUrl('client-auth-callback.html'));
     } catch {
       if (passwordSessionEstablished) {
-        await supabase.auth.signOut().catch(() => {});
+        await clearSession();
       }
       feedback.hidden = false;
       feedback.dataset.variant = 'error';
@@ -343,19 +358,12 @@ async function initClientCallback(root) {
       return;
     }
 
-    if (STAFF_ROLES.has(profile.role)) {
-      await supabase.auth.signOut().catch(() => {});
-      callbackCard.setAttribute('aria-busy', 'false');
-      spinner.hidden = true;
-      title.textContent = 'Akun tidak dapat mengakses portal';
-      message.textContent = 'Gunakan jalur masuk yang sesuai untuk akun kamu.';
-      retryButton.hidden = false;
-      callbackPending = false;
+    const destination = routeForClientProfile(profile);
+    if (destination === AUTH_ROUTE.INTERNAL) {
+      window.location.replace(internalCmsUrl());
       return;
     }
-
-    const destination = routeForClientProfile(profile);
-    if (destination === 'client') {
+    if (destination === AUTH_ROUTE.CLIENT) {
       window.location.replace(clientPortalUrl('client-portal.html'));
       return;
     }
@@ -399,9 +407,18 @@ async function initClientSetPassword(root) {
     return;
   }
 
-  const { profile } = await waitForClientProfile(user.id);
-  if (!profile || routeForClientProfile(profile) !== 'client') {
-    await supabase.auth.signOut().catch(() => {});
+  const { profile, error: profileError } = await waitForClientProfile(user.id);
+  if (profileError || !profile) {
+    errorState.hidden = false;
+    return;
+  }
+
+  const destination = routeForClientProfile(profile);
+  if (destination === AUTH_ROUTE.INTERNAL) {
+    window.location.replace(internalCmsUrl());
+    return;
+  }
+  if (destination !== AUTH_ROUTE.CLIENT) {
     errorState.hidden = false;
     return;
   }
@@ -619,9 +636,20 @@ async function initClientPortalHome(root) {
     bindClientLogout(button);
   });
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      throw error;
+    }
+    user = data.user;
+  } catch {
+    loading.hidden = true;
+    blocked.hidden = false;
+    blocked.querySelector('[data-blocked-message]').textContent =
+      'Sesi belum dapat diverifikasi. Silakan coba lagi beberapa saat.';
+    return;
+  }
   if (!user) {
     window.location.replace(clientPortalUrl('client-portal-login.html'));
     return;
@@ -636,18 +664,15 @@ async function initClientPortalHome(root) {
     return;
   }
 
-  if (STAFF_ROLES.has(profile.role)) {
-    await supabase.auth.signOut().catch(() => {});
-    blocked.hidden = false;
-    blocked.querySelector('[data-blocked-message]').textContent =
-      'Akun tidak dapat mengakses Client Portal melalui jalur ini.';
+  const destination = routeForClientProfile(profile);
+  if (destination === AUTH_ROUTE.INTERNAL) {
+    window.location.replace(internalCmsUrl());
     return;
   }
-
-  if (routeForClientProfile(profile) !== 'client') {
+  if (destination !== AUTH_ROUTE.CLIENT) {
     blocked.hidden = false;
     blocked.querySelector('[data-blocked-message]').textContent =
-      'Akun sedang dinonaktifkan. Hubungi Tim SMA untuk bantuan.';
+      'Akun belum dapat digunakan. Hubungi Tim SMA untuk bantuan.';
     return;
   }
 
@@ -934,6 +959,24 @@ export async function initClientPortalAuth() {
   initializedRoot = root;
 
   const page = root.dataset.clientAuthPage;
+  const pageFiles = {
+    login: 'client-portal-login.html',
+    callback: 'client-auth-callback.html',
+    'set-password': 'client-set-password.html',
+    portal: 'client-portal.html'
+  };
+  const pageFile = pageFiles[page];
+  if (!pageFile) {
+    throw new Error('Halaman Client Portal tidak dikenal.');
+  }
+  const canonicalUrl = new URL(clientPortalUrl(pageFile));
+  if (canonicalUrl.origin !== window.location.origin) {
+    canonicalUrl.search = window.location.search;
+    canonicalUrl.hash = window.location.hash;
+    window.location.replace(canonicalUrl.href);
+    return;
+  }
+
   if (page === 'login') {
     await initClientLogin(root);
   }

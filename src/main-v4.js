@@ -8,20 +8,110 @@ import { initTables } from './v4/tables.js';
 import { openMenu, DEFAULT_CARD_MENU } from './v4/menus.js';
 import { initCommandPalette } from './v4/command-palette.js';
 import { initPageActions } from './v4/page-actions.js';
-import { guardAdminPage } from './lib/auth-guard.js';
+import { applyAdminProfile, GUARD_DECISION, guardAdminPage } from './lib/auth-guard.js';
+import { internalLoginUrl } from './lib/auth-routing.js';
 import { initDashboard } from './v4/dashboard.js';
 import { initClientList } from './v4/client-list.js';
 
-mountShell();
-initCharts();
-initTables();
-initCommandPalette();
-initPageActions();
+function initializeCommonPageUi() {
+  mountShell();
+  initCharts();
+  initTables();
+  initCommandPalette();
+  initPageActions();
+}
 
-// SMA-app: session check + role-based nav gating. No-op on pages without
-// data-shell="admin" (e.g. login.html). Runs after mountShell() so the
-// sidebar/nav DOM (and its data-roles attributes) already exists.
-guardAdminPage().then(() => {
+function showAdminAuthFailure(retryUrl = internalLoginUrl()) {
+  const message = document.createElement('main');
+  message.setAttribute('role', 'alert');
+  message.style.padding = '32px';
+  const description = document.createElement('p');
+  description.textContent = 'Akses belum dapat diverifikasi. Silakan coba lagi.';
+  const retryButton = document.createElement('button');
+  retryButton.type = 'button';
+  retryButton.className = 'btn btn-primary';
+  retryButton.textContent = 'Coba Lagi';
+  retryButton.addEventListener('click', () => window.location.replace(retryUrl));
+  message.append(description, retryButton);
+  document.body.replaceChildren(message);
+  document.body.dataset.authFailure = 'true';
+  document.body.hidden = false;
+}
+
+function scheduleAdminRedirectFallback(retryUrl) {
+  let timer = window.setTimeout(() => {
+    timer = null;
+    showAdminAuthFailure(retryUrl);
+  }, 1500);
+  const cancel = () => {
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+  };
+  window.addEventListener('pagehide', cancel, { once: true });
+  window.addEventListener('beforeunload', cancel, { once: true });
+}
+
+function showClientBootstrapFailure(root) {
+  root.querySelectorAll(
+    '[data-portal-loading], [data-application-loading], [data-set-password-loading], [data-set-password-spinner], .client-auth-spinner'
+  ).forEach(element => {
+    element.hidden = true;
+  });
+
+  const portalBlocked = root.querySelector('[data-portal-blocked]');
+  if (portalBlocked) {
+    portalBlocked.hidden = false;
+    portalBlocked.querySelector('[data-blocked-message]').textContent =
+      'Halaman belum dapat dibuka. Silakan coba lagi beberapa saat.';
+  }
+
+  const applicationState = root.querySelector('[data-application-state]');
+  if (applicationState) {
+    applicationState.hidden = false;
+    applicationState.querySelector('[data-state-title]').textContent =
+      'Halaman belum dapat dibuka';
+    applicationState.querySelector('[data-state-message]').textContent =
+      'Sesi belum dapat diverifikasi. Silakan coba lagi beberapa saat.';
+  }
+
+  const callbackTitle = root.querySelector('[data-callback-title]');
+  const callbackMessage = root.querySelector('[data-callback-message]');
+  if (callbackTitle && callbackMessage) {
+    callbackTitle.textContent = 'Halaman belum dapat dibuka';
+    callbackMessage.textContent = 'Sesi belum dapat diverifikasi. Silakan coba lagi.';
+  }
+
+  const setPasswordError = root.querySelector('[data-set-password-error]');
+  if (setPasswordError) {
+    setPasswordError.hidden = false;
+  }
+
+  const loginFeedback = root.querySelector('[data-client-auth-feedback]');
+  if (loginFeedback) {
+    loginFeedback.dataset.variant = 'error';
+    loginFeedback.textContent = 'Halaman belum dapat disiapkan. Silakan muat ulang.';
+    loginFeedback.hidden = false;
+  }
+}
+
+async function initializeAdminPage() {
+  document.body.hidden = true;
+  const guard = await guardAdminPage();
+  if (guard.decision !== GUARD_DECISION.ALLOWED) {
+    if (guard.decision === GUARD_DECISION.DENIED && guard.error) {
+      showAdminAuthFailure(guard.redirectUrl);
+    } else {
+      scheduleAdminRedirectFallback(guard.redirectUrl);
+    }
+    return;
+  }
+
+  initializeCommonPageUi();
+  applyAdminProfile(guard.profile);
+  document.body.dataset.authAllowed = 'true';
+  document.body.hidden = false;
   initDashboard();
   initClientList();
   if (document.getElementById('client-detail-root')) {
@@ -39,7 +129,32 @@ guardAdminPage().then(() => {
   if (document.querySelector('.user-detail-page')) {
     import('./v4/user-detail.js').then((m) => m.initUserDetail());
   }
-});
+  if (document.getElementById('inbox-root')) {
+    import('./v4/inbox.js').then((m) => m.initInbox());
+  }
+  if (document.querySelector('.calendar-grid')) {
+    import('./v4/calendar.js').then((m) => m.initCalendar());
+  }
+  if (document.querySelector('.settings-content')) {
+    import('./v4/settings.js').then((m) => m.initSettings());
+  }
+  if (document.querySelector('[data-date-range], [data-rich-text], [data-multi-select]')) {
+    import('./v4/form-controls.js').then((m) => m.initFormControls());
+  }
+  if (document.querySelector('#users-table')) {
+    import('./v4/user-management.js').then((module) => {
+      module.trackCurrentSession();
+      module.initUserManagementTable();
+      module.initUserManagementNavigation();
+    });
+  }
+}
+
+if (document.body.dataset.shell === 'admin') {
+  initializeAdminPage().catch(() => showAdminAuthFailure());
+} else {
+  initializeCommonPageUi();
+}
 
 // SMA-app: OTP login flow — only loads on the login page.
 if (document.querySelector('[data-auth="otp"]')) {
@@ -49,10 +164,16 @@ if (document.querySelector('[data-auth="otp"]')) {
 // Public Client Portal auth is intentionally separate from the invite-only
 // internal OTP flow above. Its module owns login, callback, and holding page.
 if (document.querySelector('[data-client-auth-page]')) {
-  import('./v4/client-portal-auth.js').then((m) => m.initClientPortalAuth());
+  const root = document.querySelector('[data-client-auth-page]');
+  import('./v4/client-portal-auth.js')
+    .then((m) => m.initClientPortalAuth())
+    .catch(() => showClientBootstrapFailure(root));
 }
 if (document.getElementById('client-application-root')) {
-  import('./v4/client-application.js').then((m) => m.initClientApplication());
+  const root = document.getElementById('client-application-root');
+  import('./v4/client-application.js')
+    .then((m) => m.initClientApplication())
+    .catch(() => showClientBootstrapFailure(root));
 }
 
 // Service worker — only in production builds (skip on dev so HMR isn't fought
@@ -63,20 +184,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     const swPath = `${import.meta.env.BASE_URL}sw.js`;
     navigator.serviceWorker.register(swPath).catch(() => { /* ignore */ });
   });
-}
-
-// Lazy-load page-specific modules only when their host element is on the page.
-if (document.getElementById('inbox-root')) {
-  import('./v4/inbox.js').then((m) => m.initInbox());
-}
-if (document.querySelector('.calendar-grid')) {
-  import('./v4/calendar.js').then((m) => m.initCalendar());
-}
-if (document.querySelector('.settings-content')) {
-  import('./v4/settings.js').then((m) => m.initSettings());
-}
-if (document.querySelector('[data-date-range], [data-rich-text], [data-multi-select]')) {
-  import('./v4/form-controls.js').then((m) => m.initFormControls());
 }
 
 // ────────────────────────
@@ -180,11 +287,3 @@ document.addEventListener('submit', (e) => {
 
 // Topbar search box opens the command palette — wired by initCommandPalette.
 // Page-actions (Print / Export / Compose / Add / etc.) wired via initPageActions.
-
-if (document.querySelector('#users-table')) {
-  import('./v4/user-management.js').then((module) => {
-    module.trackCurrentSession();
-    module.initUserManagementTable();
-    module.initUserManagementNavigation();
-  });
-}

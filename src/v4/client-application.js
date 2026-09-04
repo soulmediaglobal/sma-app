@@ -1,10 +1,13 @@
 import { supabase } from '../lib/supabaseClient.js';
 import {
   clientPortalUrl,
+  internalCmsUrl,
   isClientProfileComplete,
+  routeForClientProfile,
   signOutClient,
   waitForClientProfile
 } from '../lib/client-portal-auth.js';
+import { AUTH_ROUTE } from '../lib/auth-routing.js';
 import { showModal } from './modal.js';
 import { showToast } from './toast.js';
 import { initClientApplicationDocuments } from './client-application-documents.js';
@@ -16,7 +19,6 @@ import {
 } from './client-application-validation.js';
 
 const EDITABLE_STATUSES = new Set(['DRAFT', 'REVISION_REQUIRED']);
-const STAFF_ROLES = new Set(['admin', 'supervisor', 'internal']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const APPLICATION_FIELDS = [
   'id',
@@ -99,6 +101,14 @@ export async function initClientApplication() {
     return;
   }
   initializedRoot = root;
+
+  const canonicalUrl = new URL(clientPortalUrl('client-application.html'));
+  if (canonicalUrl.origin !== window.location.origin) {
+    canonicalUrl.search = window.location.search;
+    canonicalUrl.hash = window.location.hash;
+    window.location.replace(canonicalUrl.href);
+    return;
+  }
 
   const loading = root.querySelector('[data-application-loading]');
   const state = root.querySelector('[data-application-state]');
@@ -718,10 +728,22 @@ export async function initClientApplication() {
     state.hidden = true;
     content.hidden = true;
 
+    let userResult;
+    try {
+      userResult = await supabase.auth.getUser();
+    } catch {
+      showState({
+        title: 'Sesi belum dapat diverifikasi',
+        message: 'Halaman belum dapat dibuka. Silakan coba lagi beberapa saat.',
+        action: resolvePage,
+        actionLabel: 'Coba lagi'
+      });
+      return;
+    }
     const {
       data: { user },
       error: userError
-    } = await supabase.auth.getUser();
+    } = userResult;
     if (userError || !user) {
       window.location.replace(clientPortalUrl('client-portal-login.html'));
       return;
@@ -740,28 +762,17 @@ export async function initClientApplication() {
     }
     currentProfile = profile;
 
-    if (profile.account_status !== 'ACTIVE') {
-      if (STAFF_ROLES.has(profile.role)) {
-        await supabase.auth.signOut().catch(() => {});
-        showState({
-          title: 'Halaman tidak dapat dibuka',
-          message: 'Gunakan jalur masuk yang sesuai untuk akun kamu.'
-        });
-        return;
-      }
-      stateLogout.hidden = false;
-      showState({
-        title: 'Akun tidak dapat digunakan',
-        message: 'Akun sedang dinonaktifkan. Hubungi Tim SMA jika kamu memerlukan bantuan.'
-      });
+    const destination = routeForClientProfile(profile);
+    if (destination === AUTH_ROUTE.INTERNAL) {
+      window.location.replace(internalCmsUrl());
       return;
     }
 
-    if (profile.role !== 'client' || STAFF_ROLES.has(profile.role)) {
-      await supabase.auth.signOut().catch(() => {});
+    if (destination === AUTH_ROUTE.BLOCKED) {
+      stateLogout.hidden = false;
       showState({
-        title: 'Halaman tidak dapat dibuka',
-        message: 'Gunakan jalur masuk yang sesuai untuk akun kamu.'
+        title: 'Akun tidak dapat digunakan',
+        message: 'Akun belum dapat digunakan. Hubungi Tim SMA jika kamu memerlukan bantuan.'
       });
       return;
     }
