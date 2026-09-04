@@ -1,3 +1,4 @@
+
 # Doc_Changelog
 
 Changelog **khusus governance** untuk `DEVELOPMENT_RULES.md` ("The Document").
@@ -13,6 +14,46 @@ Dikelola oleh Mike, Guardian of The Document. Bersifat **append-only** — revis
 **Kategori entry**: `Added` (poin/chapter baru), `Changed` (revisi rule existing), `Corrected` (koreksi fakta, bukan rule baru), `Removed`.
 
 Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2) supaya presisi. Kalau perubahan butuh persetujuan eksplisit sebelum berlaku, ditutup dengan baris **"Disetujui oleh [nama]"**.
+
+---
+
+## [2.4.0] - 2026-09-02
+
+### Added
+- **C6P9 — Manual vs Automate Opportunity Check**: menambahkan decision gate lintas-role untuk mendeteksi repetition risk, menawarkan pilihan MANUAL atau AUTOMATE kepada Ray, lalu menjalankan mode yang dipilih dengan workflow paling ringan yang sesuai.
+
+### Governance Intent
+- MANUAL berarti one-time execution, bukan menjadikan Ray operator terminal, copy-paste, atau manual transport layer untuk technical inspection yang dapat dilakukan Codex/Work secara langsung.
+- AUTOMATE berarti delegated, recurring, atau conditional workflow paling ringan; bukan blanket authorization untuk memperluas scope atau melakukan state-changing action lain.
+- One-action/one-command discipline tetap berlaku untuk action yang memang wajib dijalankan Ray secara manual.
+- C3P8/C3P9, verification, Issue ownership, Git/action boundary, product/governance/security/database authority, dan larangan AI merge ke `main` tetap berlaku.
+- Pekerjaan one-off sederhana tidak perlu diotomasi jika setup cost tidak lebih rendah daripada execution cost.
+
+**Disetujui oleh Ray.**
+
+---
+
+## [2.3.0] - 2026-09-02
+
+### Added
+- **C6P8 — Codex/Work-first Technical Inspection & Communication Routing**: menetapkan Codex/Work sebagai default technical/repository inspection layer untuk repository inventory, multi-file reading, implementation/dependency tracing, Issue/PR/history inspection, migration inspection, diff/lint/build/static verification evidence, dan technical evidence gathering lain yang aman dilakukan langsung oleh agent teknis.
+- **C2P2 — Struktur Otoritas & Kepemilikan Keputusan**: menambahkan Rex sebagai COO/Orchestrator dan Naya sebagai Product Manager ke authority model project. Rex berperan sebagai communication/orchestration hub; Naya bertanggung jawab pada WHAT / WHY / FOR WHOM / PRIORITY / SCOPE.
+
+### Changed
+- **C2P2**: memperjelas Ray sebagai final authority untuk product direction, scope, architecture-impacting decision, material security/database decision, governance approval, dan merge ke `main`.
+- **C2P3 — Mike, Guardian of The Document**: memperjelas bahwa Mike fokus pada governance interpretation, canonical documentation integrity, source-of-truth discipline, permanent architecture documentation, versioning governance, dan documentation lifecycle; Mike bukan default technical inspection/development executor.
+- **C6P5 — Repository Sync Check**: repository/GitHub verification diubah menjadi evidence-first inspection. Verification minimal mencakup current branch/Issue linkage, sync/base state terhadap `origin/main`, relevant Issue/status/assignee, recent material history, dan working tree state. Inspection tidak boleh mengubah branch, working tree, database, atau environment hanya untuk memperoleh evidence yang tersedia secara read-only.
+- **C6P6 — AI Onboarding SOP & Escalation Criteria**: technical/repository inspection diarahkan ke Codex/Work bila tersedia; Ray tetap hanya menjalankan manual action yang memang membutuhkan authority atau execution langsung, dengan one-action/one-command discipline.
+
+### Governance Intent
+- Rex menjadi default communication hub antar-role.
+- Codex/Work menangani technical depth dan repository inspection.
+- Mike melindungi canonical permanent truth.
+- Naya menangani product scope/requirement/priority.
+- Ray tetap final decision authority.
+- Perubahan ini tidak memberi Codex/Work authority atas governance, product scope, atau merge ke `main`.
+
+**Disetujui oleh Ray.**
 
 ---
 

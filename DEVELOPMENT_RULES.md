@@ -1,10 +1,11 @@
+
 # Development-Rules
 
-**Document Version:** v2.2.5
+**Document Version:** v2.4.0
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
-**Terakhir diupdate:** 2026-08-31
+**Terakhir diupdate:** 2026-09-02
 
 **Purpose:** Master rules untuk membangun, melanjutkan, memodifikasi, dan memelihara **SMA-app** — internal CMS (Client Management System) milik Soul Mitra Abadi, perusahaan jasa konsultan perizinan usaha/legal.
 
@@ -66,9 +67,11 @@ Keputusan final baru harus ditambahkan sebagai poin baru. Jika rule baru secara 
 
 | Peran | Nama | Wewenang |
 |---|---|---|
-| **Repo Owner / Final Decision Maker** | Ray (`soulmediaglobal`) — system architect | Bisa merge PR sendiri. Bisa bypass branch protection dalam kondisi darurat (lihat C3P6). Pemegang keputusan akhir untuk seluruh governance project. |
+| **Repo Owner / Final Decision Maker** | Ray (`soulmediaglobal`) — system architect | Pemegang keputusan akhir untuk product direction, scope, architecture-impacting decision, security/database decision material, governance approval, dan merge ke `main`. Bisa merge PR sendiri dan menggunakan escape hatch sesuai C3P6. |
+| **COO / Orchestrator** | Rex | Communication dan orchestration hub project. Menentukan sequencing, dependency, blocker, ownership routing, dan next logical step. Rex tidak menjadi default coding executor atau governance authority. |
+| **Product Manager** | Naya | Menentukan WHAT / WHY / FOR WHOM / PRIORITY / SCOPE, termasuk requirement, PRD, MVP boundary, acceptance criteria, dependency, dan success criteria. Tidak menentukan HOW implementation di luar product constraint yang diperlukan. |
 | **Kontributor** | Dimas (`dancowwkk`) | PR wajib mendapat approval Ray sebelum merge. Tidak bisa self-approve. |
-| **Guardian of The Document** | Mike | Menjaga, mereview, dan menstrukturkan dokumen ini. **Tidak** punya wewenang mengubah keputusan produk/bisnis — hanya governance dokumentasi. |
+| **Guardian of The Document** | Mike | Menjaga, mereview, dan menstrukturkan canonical governance/documentation. Tidak menentukan product priority dan tidak menjadi default technical inspection/development executor. |
 
 **Model kerja**: Ray dan Dimas umumnya mengerjakan sisi yang berbeda secara paralel — Ray berfokus ke sisi admin (`team.soulmitra.id`), Dimas ke sisi client portal (`mitra.soulmitra.id`) — masing-masing dengan AI assistant pilihannya sendiri. Keduanya bisa saja mengerjakan area yang tumpang tindih tergantung kebutuhan sprint; larangan edit file milik issue in-progress orang lain (C3P7) tetap berlaku terlepas dari domain mana yang biasanya dikerjakan siapa.
 
@@ -78,7 +81,9 @@ Keputusan final baru harus ditambahkan sebagai poin baru. Jika rule baru secara 
 
 Mike adalah nama dan role untuk AI assistant dalam dedicated document-governance context sebagai **Guardian of The Document**. Mike bertanggung jawab membuat, memelihara, mengorganisasi, meninjau, dan melindungi integrity, authenticity, consistency, dan correctness The Document.
 
-AI lain dan developer dapat mengeskalasikan collaboration mechanism baru, rule changes, atau document updates kepada Mike untuk ditinjau sebelum menjadi bagian dari The Document.
+Mike fokus pada governance interpretation, canonical documentation integrity, source-of-truth discipline, permanent architecture documentation, versioning governance, dan lifecycle dokumentasi. Repository inspection teknis yang repetitif atau multi-file tidak perlu dilakukan oleh Mike bila dapat didelegasikan ke Codex/Work (lihat C6P8).
+
+AI lain dan developer dapat mengeskalasikan collaboration mechanism baru, rule changes, atau document updates kepada Mike untuk ditinjau sebelum menjadi bagian dari The Document. Default cross-role routing berjalan melalui Rex sebagai communication hub.
 
 Mike bukan nama generik untuk setiap AI. Mike secara khusus merujuk kepada Guardian of The Document untuk project SMA-app.
 
@@ -246,15 +251,18 @@ Prinsip ini berlaku dua arah: AI wajib memverifikasi klaim dari AI lain, dan jug
 
 ## C6P5 — Repository Sync Check
 
-**WAJIB** — Di awal setiap sesi kerja baru, sebelum mengambil keputusan apapun berdasarkan instruksi, briefing, atau ringkasan dari sesi sebelumnya, jalankan pengecekan kondisi repo aktual:
+**WAJIB** — Di awal setiap sesi kerja baru, sebelum mengambil keputusan apapun berdasarkan instruksi, briefing, atau ringkasan dari sesi sebelumnya, kondisi repository/GitHub aktual harus diverifikasi. Technical inspection ini default diarahkan ke Codex/Work sesuai C6P8; Ray tidak digunakan sebagai manual transport layer untuk inspection yang dapat dilakukan agent teknis secara langsung.
 
-```bash
-git checkout main && git pull
-git log --oneline -10
-gh issue list --state open
-```
+Verification minimal mencakup:
+- current branch dan hubungannya dengan Issue yang relevan;
+- sync/base state terhadap `origin/main`;
+- GitHub Issue yang relevan, status, dan assignee;
+- recent repository history yang material terhadap task;
+- working tree state sebelum implementation.
 
-Instruksi atau framing dari sesi/percakapan sebelumnya (termasuk soal siapa mengerjakan issue apa, atau tahap project sudah sampai mana) **tidak boleh dipakai sebagai dasar kerja** sebelum dicocokkan dengan hasil pengecekan ini. Kalau ada ketidaksesuaian antara instruksi lama dan kondisi repo aktual, kondisi repo aktual yang menang — laporkan ketidaksesuaian tersebut, jangan diam-diam mengikuti salah satunya.
+**WAJIB** — Inspection bersifat evidence-gathering. Jangan mengubah branch, working tree, database, atau environment hanya untuk memperoleh informasi yang dapat diverifikasi secara read-only. Jika perubahan state memang dibutuhkan untuk melanjutkan task, perlakukan sebagai action terpisah sesuai Git/action boundary yang berlaku.
+
+Instruksi atau framing dari sesi/percakapan sebelumnya (termasuk soal siapa mengerjakan issue apa, atau tahap project sudah sampai mana) **tidak boleh dipakai sebagai dasar kerja** sebelum dicocokkan dengan kondisi repo/GitHub aktual. Kalau ada ketidaksesuaian antara instruksi lama dan kondisi repo aktual, kondisi repo aktual yang menang — laporkan ketidaksesuaian tersebut, jangan diam-diam mengikuti salah satunya.
 
 ## C6P6 — AI Onboarding SOP & Escalation Criteria
 
@@ -262,7 +270,7 @@ Instruksi atau framing dari sesi/percakapan sebelumnya (termasuk soal siapa meng
 
 1. Baca `DEVELOPMENT_RULES.md` (dokumen ini) secara penuh — lihat juga C6P2.
 2. Jalankan Repository Sync Check (C6P5).
-3. Kerjakan dengan langkah bertahap: satu perubahan/command per langkah, terutama untuk apapun yang menyentuh database atau environment production — beri jeda untuk verifikasi (C6P4) sebelum lanjut ke langkah berikutnya.
+3. Untuk technical/repository inspection, gunakan Codex/Work sebagai default execution layer bila tersedia. Untuk action yang memang harus dijalankan Ray secara manual, tetap gunakan satu perubahan/command per langkah, terutama untuk apapun yang menyentuh database atau environment production — beri jeda untuk verifikasi (C6P4) sebelum lanjut ke langkah berikutnya.
 4. Kalau keputusan menyentuh struktur data, level akses, atau perubahan scope yang signifikan di luar apa yang diminta eksplisit — berhenti dan konfirmasi ke Ray dulu, jangan diasumsikan atau dieksekusi sepihak.
 5. Kalau root cause sebuah masalah tidak kunjung jelas setelah perbaikan pertama tampak berhasil, tetap ditelusuri tuntas — jangan berhenti di perbaikan pertama yang kelihatannya berhasil tanpa verifikasi ulang.
 
@@ -277,9 +285,79 @@ Instruksi atau framing dari sesi/percakapan sebelumnya (termasuk soal siapa meng
 
 **Definisi "sesuai kebutuhan" yang tidak ambigu**: sebuah poin C10Px dianggap "dibutuhkan" untuk task tertentu kalau task tersebut akan mengubah, menyentuh, atau bergantung pada hal yang dideskripsikan di baris index poin tersebut (lihat tabel C10P1). Ini bukan penilaian subjektif AI — cukup dicocokkan dengan deskripsi satu baris di index. Kalau tidak yakin sebuah poin relevan atau tidak, default-nya **dibaca** (lebih aman melebihkan daripada melewatkan).
 
+## C6P8 — Codex/Work-first Technical Inspection & Communication Routing
+
+**WAJIB** — Technical/repository inspection yang dapat dilakukan langsung oleh agent teknis default diarahkan ke **Codex/Work**, bukan menggunakan Ray atau governance role sebagai manual transport layer.
+
+Codex/Work digunakan untuk:
+- repository inventory dan multi-file reading;
+- implementation/dependency tracing;
+- comparison implementation existing terhadap PRD/spec;
+- Git history, Issue/PR, migration, diff, lint/build, dan static verification evidence;
+- technical evidence gathering lain yang aman dilakukan langsung oleh agent teknis.
+
+Boundary role:
+- **Codex/Work** → inspect / implement secara teknis sesuai Issue, scope, governance, dan existing architecture.
+- **Rex** → communication/orchestration hub; reconcile context, dependency, blocker, ownership, dan routing antar-role.
+- **Mike** → review governance/documentation impact dan melindungi canonical permanent truth.
+- **Naya** → product scope/requirement/priority.
+- **Ray** → final authority untuk material product, scope, architecture, security/database, governance, dan merge decision.
+
+Default communication path:
+`Codex/Work → Rex → Mike/Naya/Ray bila domain terkait membutuhkan review/decision`.
+
+Mike tidak digunakan untuk pekerjaan technical inspection yang dapat dilakukan lebih efektif oleh Codex/Work. Ray hanya dilibatkan jika dibutuhkan owner judgement atau action yang memang membutuhkan authority/manual execution Ray.
+
+Codex/Work tidak menjadi governance authority dan tidak boleh mengubah permanent governance, product scope, atau merge ke `main` atas inisiatif sendiri.
+
+## C6P9 — Manual vs Automate Opportunity Check
+
+**WAJIB** — Sebelum menjalankan pekerjaan yang secara wajar diperkirakan memiliki repetition atau coordination cost yang material, role yang menerima task harus menilai apakah pekerjaan lebih efisien dijalankan sebagai eksekusi satu kali atau sebagai workflow automated/delegated.
+
+Automation opportunity dianggap ada jika task memiliki satu atau lebih karakteristik berikut:
+
+- inspection atau evidence gathering yang sama perlu dilakukan berulang;
+- status Issue, PR, CI, migration, deployment, atau dependency perlu diperiksa secara periodik atau sampai kondisi tertentu terpenuhi;
+- verification, audit, atau reporting memiliki pola berulang;
+- pekerjaan memerlukan copy-paste atau handoff antar-role yang berulang;
+- pekerjaan teknis yang sama kemungkinan besar akan muncul kembali dengan pola serupa;
+- expected repetition atau coordination cost lebih besar daripada biaya menyiapkan workflow automated/delegated.
+
+Jika automation opportunity terdeteksi, sebelum execution tawarkan kepada Ray:
+
+> Task ini berpotensi cukup repetitif atau membutuhkan pengecekan berulang. Mau dijalankan:
+>
+> A. **MANUAL** — satu kali execution, tanpa recurring/conditional workflow; atau
+>
+> B. **AUTOMATE** — gunakan delegated, recurring, atau conditional workflow paling ringan yang sesuai?
+>
+> Jika salah satu opsi jelas lebih efisien, sertakan rekomendasi singkat beserta alasannya.
+
+Pemilihan mode tidak mengubah execution routing:
+
+- **MANUAL** berarti task dijalankan satu kali tanpa automation. Technical/repository inspection tetap default dilakukan langsung oleh Codex/Work sesuai C6P8; Ray tidak menjadi operator terminal, copy-paste, atau manual transport layer jika inspection dapat dilakukan agent teknis secara langsung.
+- **AUTOMATE** berarti menggunakan delegated, recurring, atau conditional workflow paling ringan yang memenuhi kebutuhan. Jangan membangun automation yang lebih luas atau lebih kompleks daripada pola repetition yang telah disetujui.
+- Untuk action yang memang wajib dilakukan Ray secara manual, disiplin satu action/perubahan atau satu command per langkah pada C6P6 tetap berlaku, disertai verifikasi sebelum langkah berikutnya.
+- Untuk technical evidence gathering read-only yang dilakukan langsung oleh Codex/Work, multi-file inspection atau beberapa read-only checks yang aman dapat dilakukan sebagai satu delegated task; hal ini bukan pelanggaran terhadap manual one-command rule.
+
+Automation tidak boleh:
+
+- mengambil alih atau memperluas product scope;
+- membuat keputusan governance atau permanent architecture;
+- membuat material security/database decision;
+- melakukan merge ke `main`;
+- melakukan state-changing action yang belum diminta atau disetujui secara eksplisit;
+- melewati verification, Issue ownership, Git/action boundary, atau approval yang diwajibkan rule lain.
+
+Pilihan **AUTOMATE** hanya mengotorisasi workflow dan scope yang dijelaskan saat pilihan ditawarkan. Action tambahan seperti perubahan database/environment, commit, push, pembuatan PR, atau merge tetap mengikuti authority dan explicit-action boundary masing-masing.
+
+Jangan menawarkan automation untuk pekerjaan one-off yang sederhana jika biaya setup atau coordination automation diperkirakan sama dengan atau lebih besar daripada menyelesaikan pekerjaan tersebut satu kali.
+
+Core flow:
+
+`DETECT REPETITION RISK → OFFER MANUAL VS AUTOMATE → RAY CHOOSES → EXECUTE`
+
 ---
-
-
 
 # Chapter 7 — Documentation Structure
 

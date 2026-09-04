@@ -27,6 +27,25 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   debug logging yang berpotensi memuat credential session telah dihapus. QA
   lokal memverifikasi routing staff/client, proteksi bootstrap CMS, logout lokal
   dari seluruh entry, retry kegagalan jaringan, serta navigasi tanpa redirect loop.
+- **Issue #161**: admin dan supervisor dapat menolak RAB berstatus `SENT`
+  dari action UI dengan alasan wajib. Migration
+  `20260903120000_case_quotations_rejection_reason.sql` menambah kolom
+  `rejection_reason` dan memperluas transition guard Issue #165 agar
+  `SENT` → `REJECTED` hanya tersedia bagi admin/supervisor dengan alasan
+  nonblank; tidak ada RPC atau policy internal baru. Riwayat versi sekarang
+  menampilkan alasan penolakan, indikator versi pengganti untuk quotation
+  `SUPERSEDED`, dan counter negosiasi `Nego: X/3`.
+- **Issue #165**: internal approval gate untuk RAB sebelum penawaran dapat
+  dikirim ke client. Lifecycle sekarang melewati `DRAFT` / `REVISION_REQUIRED`
+  → `PENDING_INTERNAL_APPROVAL` → `APPROVED_INTERNAL` → `SENT`; pending dan
+  approved bersifat read-only, admin/supervisor dapat approve atau meminta
+  revisi, dan approved RAB dapat di-reopen dengan alasan wajib sebelum dikirim.
+  Evidence submit, approval, revision request, dan reopen menyimpan actor,
+  timestamp, serta alasan terkait. Migration `20260902110000` menegakkan
+  transisi di database, membatasi item writes ke state editable, dan menutup
+  RLS gap agar client tidak dapat membaca quotation, termin, atau line items
+  sebelum status `SENT`. Existing client response/version lifecycle setelah
+  `SENT` tetap dipertahankan.
 - **Issue #159**: konfigurasi dependency antar jenis layanan di Project
   Setting. Admin dapat mengelola beberapa prasyarat per layanan; validasi
   database mencegah self-cycle, cycle langsung, dan cycle multi-hop. Migration
@@ -37,6 +56,18 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   `DELETE`. `PUBLIC` dan `anon` tidak memiliki privilege, sedangkan
   `TRUNCATE`, `REFERENCES`, dan `TRIGGER` tidak diberikan kepada
   `authenticated`.
+
+### Fixed
+
+- **Issue #171**: menambahkan corrective migration forward-only
+  `20260903090000_drop_unsafe_case_quotation_internal_creator_reject.sql`
+  untuk menghapus policy `case_quotations_internal_creator_reject` yang
+  sudah ada di production dari PR #162 tetapi tidak pernah merged ke
+  `main`. Policy tersebut hanya membatasi source/target status dan ownership,
+  sehingga role `internal` yang membuat case masih dapat menyertakan perubahan
+  field quotation lain dalam request reject yang sama. Migration ini hanya
+  menghapus policy; tidak mengimplementasikan flow Reject Issue #161 dan tidak
+  mengubah migration approval gate Issue #165.
 
 > **Catatan (Mike, 2026-08-31):** Konten "Issue #99" di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file. Tidak pernah diberi nomor versi resmi, dan tidak ada commit/tag yang cocok persis dengan kontennya di antara 9 tag yang sebelumnya tanpa entry changelog — jadi tetap tercatat sebagai Unreleased sampai Ray/Dimas konfirmasi versi rilisnya.
 

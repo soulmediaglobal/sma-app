@@ -403,6 +403,12 @@ body[data-page='client-detail'].modal-open .toast-host {
   gap: var(--space-4);
 }
 
+.client-quotation-history-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .client-quotation-section-title {
   margin: 0;
   color: var(--text);
@@ -479,6 +485,12 @@ body[data-page='client-detail'].modal-open .toast-host {
 .client-quotation-version-meta {
   color: var(--text-muted);
   font-size: 11.5px;
+}
+
+.client-quotation-version-replacement {
+  padding: 0 var(--space-3) var(--space-2);
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .client-quotation-version-items {
@@ -628,6 +640,43 @@ body[data-page='client-detail'].modal-open .toast-host {
 
 .client-quotation-send-hint {
   color: var(--text-muted);
+  font-size: 12px;
+}
+
+.client-quotation-approval-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.client-quotation-approval-evidence strong {
+  color: var(--text);
+}
+
+.client-quotation-approval-reason {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--orange);
+}
+
+.client-quotation-reason-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.client-quotation-reason-modal p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.client-quotation-reason-error {
+  color: var(--red);
   font-size: 12px;
 }
 
