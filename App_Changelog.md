@@ -27,6 +27,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   debug logging yang berpotensi memuat credential session telah dihapus. QA
   lokal memverifikasi routing staff/client, proteksi bootstrap CMS, logout lokal
   dari seluruh entry, retry kegagalan jaringan, serta navigasi tanpa redirect loop.
+- **Issue #175**: RAB Builder mendukung hierarki 3 level (step/sub-step/
+  sub-sub-step) pada Rincian Pekerjaan, memanfaatkan kolom `parent_item_id`
+  yang sudah tersedia sejak Issue #153 (Task 2) — tidak ada migration
+  database baru. Item yang memiliki child otomatis mengunci `qty`/`rate`
+  (locked ke `1`/`0`), dengan `amount` diturunkan dari SUM child-nya.
+  Sub-step dapat dipindahkan antar induk lewat dropdown, dengan validasi
+  kedalaman maksimum 3 level di sisi klien. Modal "RAB & Penawaran"
+  diperlebar dari ukuran `lg` (720px) menjadi `xl` (960px, ukuran modal
+  baru) untuk menampung kontrol tambahan pada editor hierarki.
 - **Issue #161**: admin dan supervisor dapat menolak RAB berstatus `SENT`
   dari action UI dengan alasan wajib. Migration
   `20260903120000_case_quotations_rejection_reason.sql` menambah kolom
@@ -59,6 +68,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Issue #175**: `computeLineItemsTotal()` sebelumnya melakukan flat sum
+  seluruh row termasuk parent, menyebabkan double-count begitu hierarki
+  dipakai — sekarang SUM hanya menghitung leaf item (row tanpa child).
+  Preview/print RAB (`buildPreviewLineItemsTable`) memiliki bug identik
+  dan diperbaiki bersamaan; step yang memiliki sub-step kini dirender
+  sebagai satu blok visual (bukan baris tabel terpisah) pada dokumen
+  preview/print.
 - **Issue #171**: menambahkan corrective migration forward-only
   `20260903090000_drop_unsafe_case_quotation_internal_creator_reject.sql`
   untuk menghapus policy `case_quotations_internal_creator_reject` yang

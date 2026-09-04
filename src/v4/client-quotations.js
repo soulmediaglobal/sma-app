@@ -221,7 +221,7 @@ async function fetchQuotationItems(quotationId) {
 async function fetchQuotationLineItems(quotationId) {
   const { data, error } = await supabase
     .from('case_quotation_line_items')
-    .select('id, description, detail, qty, rate, amount, order_index')
+    .select('id, description, detail, qty, rate, amount, order_index, parent_item_id')
     .eq('quotation_id', quotationId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
@@ -404,23 +404,140 @@ function itemRowTemplate() {
   return { term_name: '', amount: '', due_condition: '' };
 }
 
-function lineItemRowTemplate() {
-  return { description: '', detail: '', qty: 1, rate: '' };
+function lineItemRowTemplate(parentId = null) {
+  return { id: crypto.randomUUID(), parentId, description: '', detail: '', qty: 1, rate: '' };
 }
 
 function computeTotal(items) {
   return items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 }
 
-function computeLineItemAmount(item) {
+// True kalau item ini punya minimal 1 child di array yang sama — parent
+// item locked ke qty=1/rate=0 dan amount-nya derivatif dari children.
+function isParentItem(items, item) {
+  return items.some((candidate) => candidate.parentId === item.id);
+}
+
+function getItemChildren(items, item) {
+  return items.filter((candidate) => candidate.parentId === item.id);
+}
+
+// Level 1 = depth 1. Dipakai buat validasi batas 3 level.
+function getItemDepth(items, item) {
+  let depth = 1;
+  let current = item;
+  while (current.parentId) {
+    const parent = items.find((candidate) => candidate.id === current.parentId);
+    if (!parent) {break;}
+    depth += 1;
+    current = parent;
+  }
+  return depth;
+}
+
+// Kedalaman maksimum subtree DI BAWAH item ini (1 = item sendiri, gak
+// punya children). Dipakai buat validasi depth saat mindahin subtree.
+function getSubtreeDepth(items, item) {
+  const children = getItemChildren(items, item);
+  if (children.length === 0) {return 1;}
+  return 1 + Math.max(...children.map((child) => getSubtreeDepth(items, child)));
+}
+
+// [item, ...seluruh descendant-nya] dalam urutan DFS — dipakai buat
+// mindahin/menghapus subtree sebagai satu blok utuh.
+function getSubtreeItems(items, item) {
+  const result = [item];
+  getItemChildren(items, item).forEach((child) => {
+    result.push(...getSubtreeItems(items, child));
+  });
+  return result;
+}
+
+function computeLineItemAmount(item, items) {
+  const children = getItemChildren(items, item);
+  if (children.length > 0) {
+    return children.reduce((sum, child) => sum + computeLineItemAmount(child, items), 0);
+  }
   const qty = Number(item.qty);
   const rate = Number(item.rate);
   if (!Number.isFinite(qty) || !Number.isFinite(rate)) {return 0;}
   return qty * rate;
 }
 
+// SUM leaf-only — parent gak ikut kehitung sendiri karena amount-nya
+// derivatif dari children (lihat computeLineItemAmount).
 function computeLineItemsTotal(items) {
-  return items.reduce((sum, item) => sum + computeLineItemAmount(item), 0);
+  return items
+    .filter((item) => !isParentItem(items, item))
+    .reduce((sum, item) => sum + computeLineItemAmount(item, items), 0);
+}
+
+function getSiblings(items, item) {
+  return items.filter((candidate) => candidate.parentId === item.parentId);
+}
+
+function getPreviousSibling(items, item) {
+  const siblings = getSiblings(items, item);
+  const currentIndex = siblings.indexOf(item);
+  return currentIndex > 0 ? siblings[currentIndex - 1] : null;
+}
+
+function getNextSibling(items, item) {
+  const siblings = getSiblings(items, item);
+  const currentIndex = siblings.indexOf(item);
+  return currentIndex >= 0 && currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null;
+}
+
+// [startIndex, endIndex] (inclusive) dari subtree item ini di dalam array —
+// valid selama array tetap terjaga urutan DFS (parent langsung diikuti
+// semua descendant-nya sebelum sibling berikutnya).
+function getSubtreeIndexRange(items, item) {
+  const subtreeIds = new Set(getSubtreeItems(items, item).map((subtreeItem) => subtreeItem.id));
+  let startIndex = -1;
+  let endIndex = -1;
+  items.forEach((candidate, index) => {
+    if (subtreeIds.has(candidate.id)) {
+      if (startIndex === -1) {startIndex = index;}
+      endIndex = index;
+    }
+  });
+  return [startIndex, endIndex];
+}
+
+// Menukar posisi dua subtree sibling yang bersebelahan, sebagai satu blok
+// utuh (item + seluruh descendant-nya), supaya urutan DFS tetap valid.
+function swapSubtreeBlocks(items, itemA, itemB) {
+  const blockA = getSubtreeItems(items, itemA);
+  const blockB = getSubtreeItems(items, itemB);
+  const [startA] = getSubtreeIndexRange(items, itemA);
+  items.splice(startA, blockA.length + blockB.length, ...blockB, ...blockA);
+}
+
+function getValidMoveTargets(items, item) {
+  const subtreeIds = new Set(getSubtreeItems(items, item).map((subtreeItem) => subtreeItem.id));
+  const movingDepth = getSubtreeDepth(items, item);
+  return items.filter((candidate) => {
+    if (subtreeIds.has(candidate.id)) {return false;}
+    const candidateDepth = getItemDepth(items, candidate);
+    return candidateDepth + movingDepth <= 3;
+  });
+}
+
+// Memindahkan seluruh subtree item (item + descendant-nya) ke bawah parent
+// baru, sebagai child terakhir dari parent tersebut. newParentId === null
+// berarti dijadikan step level 1 (dipindah ke akhir array).
+function moveItemToNewParent(items, item, newParentId) {
+  const subtreeBlock = getSubtreeItems(items, item);
+  const [start, end] = getSubtreeIndexRange(items, item);
+  items.splice(start, end - start + 1);
+  item.parentId = newParentId;
+  if (newParentId === null) {
+    items.push(...subtreeBlock);
+    return;
+  }
+  const newParent = items.find((candidate) => candidate.id === newParentId);
+  const [, parentSubtreeEnd] = getSubtreeIndexRange(items, newParent);
+  items.splice(parentSubtreeEnd + 1, 0, ...subtreeBlock);
 }
 
 function renderEditableItems(container, state, onChange) {
@@ -495,10 +612,43 @@ function renderEditableLineItems(container, state, onChange) {
 
   if (state.items.length === 0) {
     container.appendChild(element('div', 'client-quotation-empty', 'Belum ada rincian pekerjaan. Tambahkan minimal 1 baris.'));
+    return;
   }
 
-  state.items.forEach((item, index) => {
+  // Amount display tiap row disimpan di sini supaya kita bisa update angka
+  // Rupiah-nya (row ini + semua ancestor-nya, karena amount parent = SUM
+  // children) tanpa full re-render — full re-render bikin input kehilangan
+  // fokus tiap kali user ngetik qty/rate.
+  const amountDisplays = new Map();
+
+  function refreshAmountChain(item) {
+    let current = item;
+    while (current) {
+      const display = amountDisplays.get(current.id);
+      if (display) {
+        display.textContent = rupiah.format(computeLineItemAmount(current, state.items));
+      }
+      current = current.parentId ? state.items.find((candidate) => candidate.id === current.parentId) : null;
+    }
+  }
+
+  state.items.forEach((item) => {
+    const depth = getItemDepth(state.items, item);
+    const isParent = isParentItem(state.items, item);
+
+    if (isParent) {
+      // Parent item gak diisi manual — qty/rate di-lock, amount derivatif
+      // dari children (lihat computeLineItemAmount).
+      item.qty = 1;
+      item.rate = 0;
+    }
+
     const row = element('div', 'client-quotation-line-item-row');
+    row.style.marginLeft = `${(depth - 1) * 24}px`;
+
+    if (depth > 1) {
+      row.appendChild(element('span', 'client-quotation-line-item-indent-marker', '↳'));
+    }
 
     const descInput = element('input', 'form-control');
     descInput.type = 'text';
@@ -518,6 +668,7 @@ function renderEditableLineItems(container, state, onChange) {
     qtyInput.step = 'any';
     qtyInput.placeholder = 'Qty';
     qtyInput.value = item.qty;
+    qtyInput.disabled = isParent;
 
     const rateInput = element('input', 'form-control');
     rateInput.type = 'number';
@@ -525,32 +676,65 @@ function renderEditableLineItems(container, state, onChange) {
     rateInput.step = 'any';
     rateInput.placeholder = 'Rate (Rp)';
     rateInput.value = item.rate;
+    rateInput.disabled = isParent;
 
-    const amountDisplay = element('span', 'client-quotation-line-item-amount', rupiah.format(computeLineItemAmount(item)));
+    qtyInput.addEventListener('input', () => { item.qty = qtyInput.value; refreshAmountChain(item); onChange?.(); });
+    rateInput.addEventListener('input', () => { item.rate = rateInput.value; refreshAmountChain(item); onChange?.(); });
 
-    function recomputeAmount() {
-      amountDisplay.textContent = rupiah.format(computeLineItemAmount(item));
+    const amountDisplay = element('span', 'client-quotation-line-item-amount', rupiah.format(computeLineItemAmount(item, state.items)));
+    amountDisplays.set(item.id, amountDisplay);
+
+    const addSubBtn = element('button', 'client-quotation-item-add-sub', '+ Sub-step');
+    addSubBtn.type = 'button';
+    addSubBtn.hidden = depth >= 3;
+    addSubBtn.addEventListener('click', () => {
+      const newItem = lineItemRowTemplate(item.id);
+      const [, subtreeEnd] = getSubtreeIndexRange(state.items, item);
+      state.items.splice(subtreeEnd + 1, 0, newItem);
+      renderEditableLineItems(container, state, onChange);
       onChange?.();
-    }
-    qtyInput.addEventListener('input', () => { item.qty = qtyInput.value; recomputeAmount(); });
-    rateInput.addEventListener('input', () => { item.rate = rateInput.value; recomputeAmount(); });
+    });
+
+    const moveTargets = getValidMoveTargets(state.items, item);
+    const moveSelect = element('select', 'form-control client-quotation-item-move-parent');
+    const topLevelOption = element('option', '', '— Jadikan step utama (level 1) —');
+    topLevelOption.value = '';
+    moveSelect.appendChild(topLevelOption);
+    moveTargets.forEach((target) => {
+      const targetDepth = getItemDepth(state.items, target);
+      const label = `${'—'.repeat(targetDepth - 1)} ${target.description.trim() || '(tanpa deskripsi)'}`;
+      const option = element('option', '', label);
+      option.value = target.id;
+      moveSelect.appendChild(option);
+    });
+    moveSelect.value = item.parentId || '';
+    moveSelect.addEventListener('change', () => {
+      const newParentId = moveSelect.value || null;
+      if (newParentId === item.parentId) {return;}
+      moveItemToNewParent(state.items, item, newParentId);
+      renderEditableLineItems(container, state, onChange);
+      onChange?.();
+    });
+
+    const previousSibling = getPreviousSibling(state.items, item);
+    const nextSibling = getNextSibling(state.items, item);
 
     const moveUp = element('button', 'client-quotation-item-move', '↑');
     moveUp.type = 'button';
-    moveUp.disabled = index === 0;
+    moveUp.disabled = !previousSibling;
     moveUp.setAttribute('aria-label', 'Pindah ke atas');
     moveUp.addEventListener('click', () => {
-      [state.items[index - 1], state.items[index]] = [state.items[index], state.items[index - 1]];
+      swapSubtreeBlocks(state.items, previousSibling, item);
       renderEditableLineItems(container, state, onChange);
       onChange?.();
     });
 
     const moveDown = element('button', 'client-quotation-item-move', '↓');
     moveDown.type = 'button';
-    moveDown.disabled = index === state.items.length - 1;
+    moveDown.disabled = !nextSibling;
     moveDown.setAttribute('aria-label', 'Pindah ke bawah');
     moveDown.addEventListener('click', () => {
-      [state.items[index], state.items[index + 1]] = [state.items[index + 1], state.items[index]];
+      swapSubtreeBlocks(state.items, item, nextSibling);
       renderEditableLineItems(container, state, onChange);
       onChange?.();
     });
@@ -559,12 +743,13 @@ function renderEditableLineItems(container, state, onChange) {
     removeBtn.type = 'button';
     removeBtn.setAttribute('aria-label', 'Hapus rincian pekerjaan');
     removeBtn.addEventListener('click', () => {
-      state.items.splice(index, 1);
+      const [rangeStart, rangeEnd] = getSubtreeIndexRange(state.items, item);
+      state.items.splice(rangeStart, rangeEnd - rangeStart + 1);
       renderEditableLineItems(container, state, onChange);
       onChange?.();
     });
 
-    row.append(descInput, detailInput, qtyInput, rateInput, amountDisplay, moveUp, moveDown, removeBtn);
+    row.append(descInput, detailInput, qtyInput, rateInput, amountDisplay, addSubBtn, moveSelect, moveUp, moveDown, removeBtn);
     container.appendChild(row);
   });
 }
@@ -601,10 +786,14 @@ async function saveQuotationItems(draftId, items) {
 
 async function saveQuotationLineItems(draftId, items) {
   for (const item of items) {
+    if (!item.description.trim()) {
+      return { error: new Error('Deskripsi wajib diisi untuk semua baris.') };
+    }
+    if (isParentItem(items, item)) {continue;}
     const qty = Number(item.qty);
     const rate = Number(item.rate);
-    if (!item.description.trim() || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0) {
-      return { error: new Error('Deskripsi wajib diisi, qty dan rate harus lebih dari 0.') };
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0) {
+      return { error: new Error('Qty dan rate harus lebih dari 0.') };
     }
   }
 
@@ -620,13 +809,15 @@ async function saveQuotationLineItems(draftId, items) {
     const { error: insertError } = await supabase
       .from('case_quotation_line_items')
       .insert(items.map((item, index) => ({
+        id: item.id,
         quotation_id: draftId,
         description: item.description.trim(),
         detail: item.detail?.trim() || null,
         qty: Number(item.qty),
         rate: Number(item.rate),
-        amount: computeLineItemAmount(item),
-        order_index: index
+        amount: computeLineItemAmount(item, items),
+        order_index: index,
+        parent_item_id: item.parentId
       })));
     if (insertError) {return { error: insertError };}
   }
@@ -814,6 +1005,8 @@ function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
   const existingItems = lineItemsCache.get(draft.id);
   if (existingItems) {
     state.items = existingItems.map((item) => ({
+      id: item.id,
+      parentId: item.parent_item_id,
       description: item.description,
       detail: item.detail,
       qty: item.qty,
@@ -825,6 +1018,8 @@ function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
     fetchQuotationLineItems(draft.id).then((items) => {
       lineItemsCache.set(draft.id, items || []);
       state.items = (items || []).map((item) => ({
+        id: item.id,
+        parentId: item.parent_item_id,
         description: item.description,
         detail: item.detail,
         qty: item.qty,
@@ -1338,6 +1533,8 @@ body {
 .preview-doc-list { margin: 0 0 16px; padding-left: 20px; }
 .preview-rekening p, .preview-kontak p { margin: 2px 0; }
 .preview-signature { margin-top: 32px; }
+.preview-table-group-header { font-weight: bold; background: #fafafa; }
+.preview-table tbody tr.preview-table-group-continue > td { border-top: hidden; }
 .preview-empty { color: #777; font-style: italic; }
 @media print {
   body { background: #ffffff; }
@@ -1350,6 +1547,13 @@ function buildPreviewLineItemsTable(doc, items) {
   if (!items || items.length === 0) {
     return docEl(doc, 'p', 'preview-empty', 'Belum ada rincian pekerjaan.');
   }
+
+  // Helper tree (isParentItem, getItemChildren, computeLineItemsTotal) dari
+  // editor line items dipakai ulang di sini — semua expect field `parentId`,
+  // sedangkan row mentah dari DB pakai `parent_item_id`, jadi dinormalisasi
+  // sekali di awal.
+  const normalizedItems = items.map((item) => ({ ...item, parentId: item.parent_item_id }));
+
   const table = docEl(doc, 'table', 'preview-table');
   const thead = doc.createElement('thead');
   const headRow = doc.createElement('tr');
@@ -1358,19 +1562,52 @@ function buildPreviewLineItemsTable(doc, items) {
   table.appendChild(thead);
 
   const tbody = doc.createElement('tbody');
-  let total = 0;
-  items.forEach((item, index) => {
+
+  function buildHeaderRow(item, numberLabel, depth, isContinuation) {
     const row = doc.createElement('tr');
-    row.appendChild(docEl(doc, 'td', '', String(index + 1)));
+    if (isContinuation) {row.classList.add('preview-table-group-continue');}
+    const cell = docEl(doc, 'td', 'preview-table-group-header', `${numberLabel}. ${item.description}`);
+    cell.colSpan = 5;
+    cell.style.paddingLeft = `${8 + (depth - 1) * 16}px`;
+    row.appendChild(cell);
+    return row;
+  }
+
+  function buildLeafRow(item, numberLabel, depth, isContinuation) {
+    const row = doc.createElement('tr');
+    if (isContinuation) {row.classList.add('preview-table-group-continue');}
+    row.appendChild(docEl(doc, 'td', '', numberLabel));
     const descCell = docEl(doc, 'td', 'preview-table-desc');
+    descCell.style.paddingLeft = `${8 + (depth - 1) * 16}px`;
     descCell.appendChild(docEl(doc, 'div', '', item.description));
     if (item.detail) {descCell.appendChild(docEl(doc, 'div', 'preview-table-detail', item.detail));}
     row.appendChild(descCell);
     row.appendChild(docEl(doc, 'td', 'preview-table-num', String(item.qty)));
     row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(item.rate || 0)));
     row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(item.amount || 0)));
-    tbody.appendChild(row);
-    total += Number(item.amount) || 0;
+    return row;
+  }
+
+  // Rekursif menambahkan baris untuk item ini + seluruh descendant-nya
+  // (urutan DFS). isFirstInGroup true HANYA untuk baris pertama tiap
+  // step top-level — baris itu tetap dapat border-top normal (batas kotak
+  // baru). Semua baris berikutnya (anak, cucu, dst) ditandai
+  // preview-table-group-continue supaya border-top-nya disembunyikan
+  // (lihat CSS), sehingga menyambung jadi 1 kotak utuh dengan induknya.
+  function appendItemRows(item, numberLabel, depth, isFirstInGroup) {
+    if (isParentItem(normalizedItems, item)) {
+      tbody.appendChild(buildHeaderRow(item, numberLabel, depth, !isFirstInGroup));
+      getItemChildren(normalizedItems, item).forEach((child, childIndex) => {
+        appendItemRows(child, `${numberLabel}.${childIndex + 1}`, depth + 1, false);
+      });
+    } else {
+      tbody.appendChild(buildLeafRow(item, numberLabel, depth, !isFirstInGroup));
+    }
+  }
+
+  const topLevelItems = normalizedItems.filter((item) => !item.parentId);
+  topLevelItems.forEach((item, index) => {
+    appendItemRows(item, String(index + 1), 1, true);
   });
   table.appendChild(tbody);
 
@@ -1379,7 +1616,7 @@ function buildPreviewLineItemsTable(doc, items) {
   const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total');
   totalLabel.colSpan = 4;
   totalRow.appendChild(totalLabel);
-  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(total)));
+  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(computeLineItemsTotal(normalizedItems))));
   tfoot.appendChild(totalRow);
   table.appendChild(tfoot);
 
@@ -1830,7 +2067,7 @@ function openQuotationModal(project, { profile, clientId, client, onRefresh }) {
 
   const { body: bodyEl } = showModal({
     title: `RAB & Penawaran — ${project.service_type || 'Project'}`,
-    size: 'lg',
+    size: 'xl',
     actions: [{ label: 'Tutup', variant: 'outline' }]
   });
   bodyEl.classList.add('client-quotation-modal-body');

@@ -514,6 +514,7 @@ body.modal-open { overflow: hidden; }
 .modal-backdrop.show .modal-dialog { transform: translateY(0) scale(1); opacity: 1; }
 .modal-sm { max-width: 360px; }
 .modal-lg { max-width: 720px; }
+.modal-xl { max-width: 960px; }
 
 @media (max-width: 480px) {
   .modal-backdrop { padding: var(--space-3); }
