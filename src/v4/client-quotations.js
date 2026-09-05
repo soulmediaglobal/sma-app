@@ -1336,7 +1336,8 @@ function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
         description: item.description,
         detail: item.detail,
         qty: item.qty,
-        rate: item.rate
+        rate: item.rate,
+        satuan: item.satuan || ''
       }));
       rerender();
     });
