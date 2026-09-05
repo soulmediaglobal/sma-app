@@ -705,19 +705,66 @@ body[data-page='client-detail'].modal-open .toast-host {
   align-self: flex-start;
 }
 
-.client-quotation-doc-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.client-quotation-doc-search {
+  width: 100%;
+  margin-bottom: var(--space-3);
 }
 
-.client-quotation-doc-category {
-  margin-top: var(--space-2);
-  color: var(--text-muted);
+.client-quotation-doc-acc-item {
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.client-quotation-doc-acc-item:last-child {
+  border-bottom: none;
+}
+
+.client-quotation-doc-acc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.client-quotation-doc-acc-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.client-quotation-doc-acc-chevron {
+  display: inline-block;
   font-size: 11px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  transition: transform 150ms ease;
+}
+
+.client-quotation-doc-acc-header.open .client-quotation-doc-acc-chevron {
+  transform: rotate(90deg);
+}
+
+.client-quotation-doc-acc-title {
+  font-weight: var(--font-weight-medium);
+  font-size: 13.5px;
+}
+
+.client-quotation-doc-acc-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-color-light);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.client-quotation-doc-acc-body {
+  display: none;
+  padding: 0 var(--space-1) var(--space-3) var(--space-6);
+}
+
+.client-quotation-doc-acc-body.open {
+  display: block;
 }
 
 .client-quotation-doc-row {

@@ -2275,6 +2275,79 @@ function buildDocumentRow(template, documents, ctx, quotationEditable) {
   return row;
 }
 
+// Accordion per kategori + search, menggantikan flat list panjang
+// (Issue #192). Kategori collapsed by default, auto-expand kalau ada
+// dokumen yang sudah dicentang di kategori itu ATAU search sedang aktif
+// dan match — supaya kategori yang lagi dikerjakan gak perlu di-expand
+// ulang manual tiap kali checkbox di-toggle (toggle checkbox memicu
+// ctx.refresh() yang rebuild total modal, jadi state accordion memang
+// tidak persist lintas render — default-open ini mitigasinya).
+function buildDocumentChecklist(templates, documents, ctx, quotationEditable) {
+  const wrap = element('div', 'client-quotation-doc-checklist');
+
+  const searchBox = element('div', 'search-box client-quotation-doc-search');
+  searchBox.insertAdjacentHTML('afterbegin', '<svg class="s-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>');
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Cari dokumen…';
+  searchInput.setAttribute('aria-label', 'Cari dokumen wajib');
+  searchBox.appendChild(searchInput);
+  wrap.appendChild(searchBox);
+
+  const groups = new Map();
+  templates.forEach((template) => {
+    const categoryName = template.category?.name || 'Lainnya';
+    if (!groups.has(categoryName)) {groups.set(categoryName, []);}
+    groups.get(categoryName).push(template);
+  });
+
+  const accordionList = element('div', 'client-quotation-doc-accordion');
+  wrap.appendChild(accordionList);
+
+  function render() {
+    const query = searchInput.value.trim().toLowerCase();
+    accordionList.replaceChildren();
+
+    groups.forEach((categoryTemplates, categoryName) => {
+      const filtered = query
+        ? categoryTemplates.filter((template) => template.name.toLowerCase().includes(query))
+        : categoryTemplates;
+      if (query && filtered.length === 0) {return;}
+
+      const checkedCount = categoryTemplates.filter((template) => documents.some((doc) => doc.name === template.name)).length;
+      const shouldOpen = Boolean(query) || checkedCount > 0;
+
+      const header = element('div', `client-quotation-doc-acc-header${shouldOpen ? ' open' : ''}`);
+      const headerLeft = element('div', 'client-quotation-doc-acc-header-left');
+      headerLeft.append(
+        element('span', 'client-quotation-doc-acc-chevron', '▸'),
+        element('span', 'client-quotation-doc-acc-title', categoryName)
+      );
+      const badge = element('span', 'client-quotation-doc-acc-badge', `${checkedCount}/${categoryTemplates.length}`);
+      header.append(headerLeft, badge);
+
+      const body = element('div', `client-quotation-doc-acc-body${shouldOpen ? ' open' : ''}`);
+      (query ? filtered : categoryTemplates).forEach((template) => {
+        body.appendChild(buildDocumentRow(template, documents, ctx, quotationEditable));
+      });
+
+      header.addEventListener('click', () => {
+        header.classList.toggle('open');
+        body.classList.toggle('open');
+      });
+
+      const item = element('div', 'client-quotation-doc-acc-item');
+      item.append(header, body);
+      accordionList.appendChild(item);
+    });
+  }
+
+  searchInput.addEventListener('input', render);
+  render();
+
+  return wrap;
+}
+
 async function renderModalBody(bodyEl, ctx) {
   bodyEl.replaceChildren();
   bodyEl.appendChild(element('div', 'client-quotation-empty', 'Memuat data RAB…'));
@@ -2361,17 +2434,7 @@ async function renderModalBody(bodyEl, ctx) {
   if (templates.length === 0) {
     bodyEl.appendChild(element('div', 'client-quotation-empty', 'Belum ada template dokumen aktif.'));
   } else {
-    const docList = element('div', 'client-quotation-doc-list');
-    let lastCategory = null;
-    templates.forEach((template) => {
-      const categoryName = template.category?.name || 'Lainnya';
-      if (categoryName !== lastCategory) {
-        docList.appendChild(element('div', 'client-quotation-doc-category', categoryName));
-        lastCategory = categoryName;
-      }
-      docList.appendChild(buildDocumentRow(template, documents, ctx, !activeQuotation || Boolean(editableQuotation)));
-    });
-    bodyEl.appendChild(docList);
+    bodyEl.appendChild(buildDocumentChecklist(templates, documents, ctx, !activeQuotation || Boolean(editableQuotation)));
   }
 
   if (activeQuotation) {
