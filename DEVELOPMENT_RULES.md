@@ -1,7 +1,7 @@
 
 # Development-Rules
 
-**Document Version:** v2.4.0
+**Document Version:** v2.4.1
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
@@ -379,7 +379,7 @@ Setiap artefak development penting harus memiliki lokasi dokumentasi yang jelas 
 | `KNOWN_GAPS.md` | Daftar gap arsitektur/keputusan yang ditunda, belum diformalkan jadi Issue | Referensi sementara — item yang siap dikerjakan wajib dipindah jadi GitHub Issue |
 | GitHub Issues | Assignment tugas, status kerja | Canonical untuk ownership task (Chapter 4) |
 | ~~`AGENTS.md`~~ | Dihapus — isi sudah pindah ke Chapter 10. Status penghapusan fisik dari repo: lihat `Doc_Changelog.md`, mengikuti urutan B→C→D (C6P1). | — |
-| ~~`CONTRIBUTING.md`, `docs/*.md` (16 file), `examples/`~~ | Dokumentasi generik template Gentelella, zero-value untuk SMA-app | Kandidat hapus fisik dari repo (Tahap D, belum dieksekusi) |
+| ~~`CONTRIBUTING.md`, `docs/*.md` (16 file), `examples/`~~ | Dokumentasi generik template Gentelella, zero-value untuk SMA-app | Dihapus dari repo (Tahap D, commit `68859ca`) |
 
 ## C7P3 — File Naming Convention
 
@@ -388,6 +388,20 @@ Nama file dokumentasi harus: singkat, deskriptif, dan tidak menggunakan penanda 
 ## C7P4 — Documentation Sync Rule
 
 Dokumentasi harus ikut diperbarui ketika task selesai atau state project berubah signifikan. Dokumen yang stale harus diperbaiki sebelum task dinyatakan selesai.
+
+## C7P5 — Kategori Resmi `App_Changelog.md`
+
+`App_Changelog.md` mengikuti format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), dengan **5 kategori resmi** untuk project ini:
+
+- **Added** — fitur/kapabilitas baru.
+- **Changed** — perubahan behavior yang sudah ada.
+- **Fixed** — perbaikan bug.
+- **Removed** — fitur/kapabilitas yang dihapus.
+- **Maintenance** — perubahan yang **tidak** menambah fitur, **tidak** mengubah behavior yang terlihat user, dan **tidak** memperbaiki bug. Contoh: dead code removal, penghapusan komentar usang, refactor tanpa perubahan output, cleanup dependency.
+
+Kalau sebuah perubahan tidak jelas masuk kategori mana, tanyakan: *apakah user/behavior aplikasi berubah?* Kalau tidak sama sekali → `Maintenance`. Jangan membuat nama kategori baru (`Chore`, `Housekeeping`, `Cleanup`, dst) — pakai salah satu dari 5 di atas.
+
+Precedent pertama kategori `Maintenance`: Issue #179 (cleanup dead CSS + komentar hilang, non-functional), dicatat di `App_Changelog.md` section `[Unreleased]`.
 
 ---
 

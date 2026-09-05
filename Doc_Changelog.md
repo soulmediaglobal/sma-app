@@ -17,6 +17,21 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.4.1] - 2026-09-02
+
+### Added
+- **C7P5 (dipulihkan)**: kategori resmi `App_Changelog.md` (`Added, Changed, Fixed, Removed, Maintenance`) sempat hilang dari `main` akibat dua sesi Mike berjalan paralel tanpa saling sinkron — sesi ini bercabang dari commit sebelum C7P5 pernah ditambahkan, lalu push balik dengan versi lebih baru (v2.3.0, v2.4.0) yang secara tidak sengaja menghapus penambahan C7P5 tadi. Dipulihkan di atas v2.4.0 tanpa mengubah/menghapus konten Rex/Naya/C6P8/C6P9 yang sudah disetujui Ray di sesi tersebut.
+
+### Corrected
+- **C7P2**: baris `CONTRIBUTING.md`/`docs/*.md`/`examples/` yang sempat balik basi ("belum dieksekusi") akibat insiden yang sama, dibetulkan lagi jadi "Dihapus dari repo (Tahap D, commit `68859ca`)".
+
+### Catatan Insiden
+Dua sesi Mike (chat terpisah) sempat mengedit `DEVELOPMENT_RULES.md` secara paralel tanpa saling verifikasi isi lengkap file satu sama lain — masing-masing hanya cek header/versi, bukan body lengkap dari `main` sebelum edit. Akibatnya push yang lebih baru (v2.3.0→v2.4.0) menimpa balik perubahan yang sudah disetujui di lineage lain (v2.2.6). Ray perlu memutuskan mekanisme pencegahan untuk kasus ini ke depan (lihat diskusi terkait).
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.4.0] - 2026-09-02
 
 ### Added
