@@ -885,29 +885,6 @@ body[data-page='client-detail'].modal-open .toast-host {
   gap: var(--space-1);
 }
 
-.client-quotation-stage-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-color-light);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-}
-
-.client-quotation-stage-order {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: var(--font-weight-bold);
-  min-width: 18px;
-}
-
-.client-quotation-stage-name {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text);
-}
-
 .client-documents-state {
   padding: 36px 16px;
   color: var(--text-muted);

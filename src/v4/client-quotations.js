@@ -792,6 +792,9 @@ function renderEditableLineItems(container, state, onChange) {
     return;
   }
 
+  // Map (bukan array/object) supaya lookup by item.id di refreshAmountChain
+  // tetap O(1) saat menaiki rantai parent, dan key-nya stabil walau urutan
+  // array item berubah akibat reorder.
   const amountDisplays = new Map();
 
   function refreshAmountChain(item) {
@@ -809,6 +812,10 @@ function renderEditableLineItems(container, state, onChange) {
     const depth = getItemDepth(state.items, item);
     const isParent = isParentItem(state.items, item);
 
+    // Parent item: amount murni derivatif SUM dari children
+    // (lihat computeLineItemAmount), jadi qty/rate parent sendiri
+    // dinetralkan ke 1/0 supaya tidak ikut kehitung dobel — anchor fix
+    // bug double-count dari Issue #175.
     if (isParent) {
       item.qty = 1;
       item.rate = 0;
