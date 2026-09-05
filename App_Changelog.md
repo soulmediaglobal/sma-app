@@ -19,6 +19,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #192**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
+  diredesign jadi accordion per kategori dilengkapi search — sebelumnya
+  flat list panjang yang selalu full-expand tanpa cara menyaring.
+  Kategori collapsed by default (kecuali yang sudah punya dokumen
+  tercentang), badge menampilkan jumlah tercentang per kategori
+  (format X/Y). Search memfilter nama dokumen lintas kategori, kategori
+  yang match otomatis expand, yang tidak match disembunyikan. Logic
+  toggle checkbox (insert/delete ke tabel `documents`, dicocokkan lewat
+  `name`) tidak berubah.
 - **Issue #186**: redesign layout Rincian Pekerjaan pada modal RAB &
   Penawaran — Deskripsi dan Detail digabung jadi satu box (Deskripsi
   tampil lebih menonjol dari Detail), kolom baru Satuan (free text
