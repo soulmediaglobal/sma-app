@@ -116,6 +116,17 @@ function element(tag, className, text) {
   return node;
 }
 
+// Bungkus 1 kontrol input dengan label kecil di atasnya — dipakai di
+// row Rincian Pekerjaan & Termin yang sekarang berupa kartu multi-baris,
+// supaya tiap field jelas fungsinya tanpa mengandalkan placeholder saja
+// (placeholder hilang begitu user mulai mengetik).
+function labeledField(labelText, controlEl) {
+  const fieldWrap = element('div', 'client-quotation-field');
+  fieldWrap.appendChild(element('label', 'client-quotation-field-label', labelText));
+  fieldWrap.appendChild(controlEl);
+  return fieldWrap;
+}
+
 function formatDate(value) {
   if (!value) {return null;}
   const date = new Date(value);
@@ -211,11 +222,111 @@ async function fetchActiveBankAccounts() {
 async function fetchQuotationItems(quotationId) {
   const { data, error } = await supabase
     .from('case_quotation_items')
-    .select('id, term_name, amount, due_condition, order_index')
+    .select('id, term_name, amount, due_condition, order_index, stage_id, relation_type')
     .eq('quotation_id', quotationId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
   return data || [];
+}
+
+// Tahapan Pekerjaan (case_work_stages) — bebas ditambah/dihapus/diurutkan
+// per Case, TIDAK ada hubungannya dengan case_stages (tab Workflow, fixed
+// generic template, sementara dinonaktifkan). Issue #177.
+async function fetchWorkStages(caseId) {
+  const { data, error } = await supabase
+    .from('case_work_stages')
+    .select('id, name, order_index')
+    .eq('case_id', caseId)
+    .order('order_index', { ascending: true });
+  if (error) {return null;}
+  return data || [];
+}
+
+function workStageRowTemplate() {
+  return { name: '' };
+}
+
+function renderEditableWorkStages(container, state, onChange) {
+  container.replaceChildren();
+
+  if (state.items.length === 0) {
+    container.appendChild(element('div', 'client-quotation-empty', 'Belum ada tahapan. Tambahkan minimal 1 tahapan.'));
+  }
+
+  state.items.forEach((item, index) => {
+    const card = element('div', 'client-quotation-item-card');
+
+    const nameInput = element('input', 'form-control');
+    nameInput.type = 'text';
+    nameInput.placeholder = 'Nama tahapan (mis. Pengumpulan Dokumen)';
+    nameInput.value = item.name;
+    nameInput.addEventListener('input', () => { item.name = nameInput.value; });
+
+    const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
+    primaryLine.append(labeledField('Nama Tahapan', nameInput));
+
+    const moveUp = element('button', 'client-quotation-item-move', '↑');
+    moveUp.type = 'button';
+    moveUp.disabled = index === 0;
+    moveUp.setAttribute('aria-label', 'Pindah ke atas');
+    moveUp.addEventListener('click', () => {
+      [state.items[index - 1], state.items[index]] = [state.items[index], state.items[index - 1]];
+      renderEditableWorkStages(container, state, onChange);
+      onChange?.();
+    });
+
+    const moveDown = element('button', 'client-quotation-item-move', '↓');
+    moveDown.type = 'button';
+    moveDown.disabled = index === state.items.length - 1;
+    moveDown.setAttribute('aria-label', 'Pindah ke bawah');
+    moveDown.addEventListener('click', () => {
+      [state.items[index], state.items[index + 1]] = [state.items[index + 1], state.items[index]];
+      renderEditableWorkStages(container, state, onChange);
+      onChange?.();
+    });
+
+    const removeBtn = element('button', 'client-quotation-item-remove', '×');
+    removeBtn.type = 'button';
+    removeBtn.setAttribute('aria-label', 'Hapus tahapan');
+    removeBtn.addEventListener('click', () => {
+      state.items.splice(index, 1);
+      renderEditableWorkStages(container, state, onChange);
+      onChange?.();
+    });
+
+    const actionsLine = element('div', 'client-quotation-item-line client-quotation-item-line-actions');
+    actionsLine.append(moveUp, moveDown, removeBtn);
+
+    card.append(primaryLine, actionsLine);
+    container.appendChild(card);
+  });
+}
+
+async function saveWorkStages(caseId, items) {
+  for (const item of items) {
+    if (!item.name.trim()) {
+      return { error: new Error('Nama tahapan wajib diisi.') };
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from('case_work_stages')
+    .delete()
+    .eq('case_id', caseId);
+  if (deleteError) {return { error: deleteError };}
+
+  if (items.length > 0) {
+    const { error: insertError } = await supabase
+      .from('case_work_stages')
+      .insert(items.map((item, index) => ({
+        case_id: caseId,
+        name: item.name.trim(),
+        order_index: index
+      })));
+    if (insertError) {return { error: insertError };}
+  }
+
+  return { error: null };
 }
 
 async function fetchQuotationLineItems(quotationId) {
@@ -401,7 +512,7 @@ function buildVersionRow(quotation, supersededByVersion, itemsCache, lineItemsCa
 }
 
 function itemRowTemplate() {
-  return { term_name: '', amount: '', due_condition: '' };
+  return { term_name: '', amount: '', due_condition: '', stageId: null, relationType: null };
 }
 
 function lineItemRowTemplate(parentId = null) {
@@ -470,6 +581,19 @@ function computeLineItemsTotal(items) {
   return items
     .filter((item) => !isParentItem(items, item))
     .reduce((sum, item) => sum + computeLineItemAmount(item, items), 0);
+}
+
+// Pajak RAB, hardcode 2.5% untuk saat ini (fitur atur tarif custom per RAB
+// ditunda ke task terpisah — lihat Issue #177). Dihitung on-the-fly, TIDAK
+// disimpan sebagai kolom database.
+const TAX_RATE = 0.025;
+
+function computeTaxAmount(subtotal) {
+  return subtotal * TAX_RATE;
+}
+
+function computeGrandTotal(subtotal) {
+  return subtotal + computeTaxAmount(subtotal);
 }
 
 function getSiblings(items, item) {
@@ -548,7 +672,7 @@ function renderEditableItems(container, state, onChange) {
   }
 
   state.items.forEach((item, index) => {
-    const row = element('div', 'client-quotation-item-row');
+    const card = element('div', 'client-quotation-item-card');
 
     const nameInput = element('input', 'form-control');
     nameInput.type = 'text';
@@ -567,11 +691,54 @@ function renderEditableItems(container, state, onChange) {
       onChange?.();
     });
 
+    const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
+    primaryLine.append(
+      labeledField('Nama Termin', nameInput),
+      labeledField('Jumlah (Rp)', amountInput)
+    );
+
+    const stageSelect = element('select', 'form-control client-quotation-item-stage');
+    const stagePlaceholder = element('option', '', 'Pilih tahapan…');
+    stagePlaceholder.value = '';
+    stageSelect.appendChild(stagePlaceholder);
+    (state.stages || []).forEach((stage) => {
+      const option = element('option', '', stage.name);
+      option.value = stage.id;
+      stageSelect.appendChild(option);
+    });
+    stageSelect.value = item.stageId || '';
+    stageSelect.addEventListener('change', () => {
+      item.stageId = stageSelect.value || null;
+      onChange?.();
+    });
+
+    const relationSelect = element('select', 'form-control client-quotation-item-relation');
+    const relationPlaceholder = element('option', '', 'Sebelum/sesudah…');
+    relationPlaceholder.value = '';
+    relationSelect.appendChild(relationPlaceholder);
+    [['BEFORE', 'Sebelum'], ['AFTER', 'Sesudah']].forEach(([value, label]) => {
+      const option = element('option', '', label);
+      option.value = value;
+      relationSelect.appendChild(option);
+    });
+    relationSelect.value = item.relationType || '';
+    relationSelect.addEventListener('change', () => {
+      item.relationType = relationSelect.value || null;
+      onChange?.();
+    });
+
     const conditionInput = element('input', 'form-control');
     conditionInput.type = 'text';
-    conditionInput.placeholder = 'Syarat (mis. saat kontrak ditandatangani)';
+    conditionInput.placeholder = 'Catatan tambahan (opsional)';
     conditionInput.value = item.due_condition || '';
     conditionInput.addEventListener('input', () => { item.due_condition = conditionInput.value; });
+
+    const secondaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-secondary');
+    secondaryLine.append(
+      labeledField('Tahapan', stageSelect),
+      labeledField('Sebelum/Sesudah', relationSelect),
+      labeledField('Catatan Tambahan', conditionInput)
+    );
 
     const moveUp = element('button', 'client-quotation-item-move', '↑');
     moveUp.type = 'button';
@@ -602,8 +769,11 @@ function renderEditableItems(container, state, onChange) {
       onChange?.();
     });
 
-    row.append(nameInput, amountInput, conditionInput, moveUp, moveDown, removeBtn);
-    container.appendChild(row);
+    const actionsLine = element('div', 'client-quotation-item-line client-quotation-item-line-actions');
+    actionsLine.append(moveUp, moveDown, removeBtn);
+
+    card.append(primaryLine, secondaryLine, actionsLine);
+    container.appendChild(card);
   });
 }
 
@@ -615,10 +785,6 @@ function renderEditableLineItems(container, state, onChange) {
     return;
   }
 
-  // Amount display tiap row disimpan di sini supaya kita bisa update angka
-  // Rupiah-nya (row ini + semua ancestor-nya, karena amount parent = SUM
-  // children) tanpa full re-render — full re-render bikin input kehilangan
-  // fokus tiap kali user ngetik qty/rate.
   const amountDisplays = new Map();
 
   function refreshAmountChain(item) {
@@ -637,17 +803,15 @@ function renderEditableLineItems(container, state, onChange) {
     const isParent = isParentItem(state.items, item);
 
     if (isParent) {
-      // Parent item gak diisi manual — qty/rate di-lock, amount derivatif
-      // dari children (lihat computeLineItemAmount).
       item.qty = 1;
       item.rate = 0;
     }
 
-    const row = element('div', 'client-quotation-line-item-row');
-    row.style.marginLeft = `${(depth - 1) * 24}px`;
+    const card = element('div', 'client-quotation-line-item-card');
+    card.style.marginLeft = `${(depth - 1) * 24}px`;
 
     if (depth > 1) {
-      row.appendChild(element('span', 'client-quotation-line-item-indent-marker', '↳'));
+      card.appendChild(element('span', 'client-quotation-line-item-indent-marker', '↳'));
     }
 
     const descInput = element('input', 'form-control');
@@ -661,6 +825,12 @@ function renderEditableLineItems(container, state, onChange) {
     detailInput.placeholder = 'Detail (opsional)';
     detailInput.value = item.detail || '';
     detailInput.addEventListener('input', () => { item.detail = detailInput.value; });
+
+    const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
+    primaryLine.append(
+      labeledField('Deskripsi', descInput),
+      labeledField('Detail', detailInput)
+    );
 
     const qtyInput = element('input', 'form-control');
     qtyInput.type = 'number';
@@ -683,6 +853,13 @@ function renderEditableLineItems(container, state, onChange) {
 
     const amountDisplay = element('span', 'client-quotation-line-item-amount', rupiah.format(computeLineItemAmount(item, state.items)));
     amountDisplays.set(item.id, amountDisplay);
+
+    const secondaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-secondary');
+    secondaryLine.append(
+      labeledField('Qty', qtyInput),
+      labeledField('Rate (Rp)', rateInput),
+      labeledField('Jumlah', amountDisplay)
+    );
 
     const addSubBtn = element('button', 'client-quotation-item-add-sub', '+ Sub-step');
     addSubBtn.type = 'button';
@@ -749,8 +926,11 @@ function renderEditableLineItems(container, state, onChange) {
       onChange?.();
     });
 
-    row.append(descInput, detailInput, qtyInput, rateInput, amountDisplay, addSubBtn, moveSelect, moveUp, moveDown, removeBtn);
-    container.appendChild(row);
+    const actionsLine = element('div', 'client-quotation-item-line client-quotation-item-line-actions');
+    actionsLine.append(addSubBtn, moveSelect, moveUp, moveDown, removeBtn);
+
+    card.append(primaryLine, secondaryLine, actionsLine);
+    container.appendChild(card);
   });
 }
 
@@ -759,6 +939,9 @@ async function saveQuotationItems(draftId, items) {
     const amount = Number(item.amount);
     if (!item.term_name.trim() || !Number.isFinite(amount) || amount <= 0) {
       return { error: new Error('Nama termin wajib diisi dan jumlah harus lebih dari 0.') };
+    }
+    if (!item.stageId || !item.relationType) {
+      return { error: new Error('Setiap termin wajib memilih tahapan dan sebelum/sesudah.') };
     }
   }
 
@@ -776,7 +959,9 @@ async function saveQuotationItems(draftId, items) {
         term_name: item.term_name.trim(),
         amount: Number(item.amount),
         due_condition: item.due_condition?.trim() || null,
-        order_index: index
+        order_index: index,
+        stage_id: item.stageId,
+        relation_type: item.relationType
       })));
     if (insertError) {return { error: insertError };}
   }
@@ -888,6 +1073,61 @@ function buildDescriptionEditor(draft) {
 // account even if it has since been deactivated in Project Setting — so
 // picking a bank never has to disappear from an already-saved draft, and
 // changing it still only ever offers active accounts as new choices.
+// Tahapan Pekerjaan — bebas ditambah/dihapus/diurutkan per Case, mirip
+// pola Rincian Pekerjaan. Fungsinya jadi anchor Termin Pembayaran
+// (sebelum/sesudah tahapan mana). Issue #177.
+function buildWorkStagesEditor(ctx) {
+  const wrap = element('div', 'client-quotation-stages-block');
+  const itemsContainer = element('div', 'client-quotation-stages-list');
+  itemsContainer.appendChild(element('div', 'client-quotation-empty', 'Memuat tahapan…'));
+
+  const state = { items: [] };
+
+  function rerender() {
+    renderEditableWorkStages(itemsContainer, state, () => {});
+  }
+
+  const addBtn = element('button', 'btn btn-outline btn-sm', '+ Tambah Tahapan');
+  addBtn.type = 'button';
+  addBtn.addEventListener('click', () => {
+    state.items.push(workStageRowTemplate());
+    rerender();
+  });
+
+  function persist() {
+    return saveWorkStages(ctx.caseId, state.items);
+  }
+
+  const saveBtn = element('button', 'btn btn-primary btn-sm', 'Simpan Tahapan');
+  saveBtn.type = 'button';
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Menyimpan…';
+    const { error } = await persist();
+    if (error) {
+      showToast(error.message || 'Gagal menyimpan tahapan.', { variant: 'error' });
+    } else {
+      showToast('Tahapan berhasil disimpan.', { variant: 'success' });
+    }
+    if (saveBtn.isConnected) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Simpan Tahapan';
+    }
+  });
+
+  const actions = element('div', 'client-quotation-items-actions');
+  actions.append(addBtn, saveBtn);
+
+  wrap.append(itemsContainer, actions);
+
+  fetchWorkStages(ctx.caseId).then((stages) => {
+    state.items = (stages || []).map((stage) => ({ name: stage.name }));
+    rerender();
+  });
+
+  return { wrap, save: persist };
+}
+
 function buildBankAccountEditor(draft, bankAccounts) {
   const wrap = element('div', 'client-quotation-bank-editor');
   const fieldId = `client-quotation-bank-account-${draft.id}`;
@@ -950,16 +1190,25 @@ function buildBankAccountEditor(draft, bankAccounts) {
 function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
   const wrap = element('div', 'client-quotation-line-items-block');
   const itemsContainer = element('div', 'client-quotation-line-items-editor');
-  const totalBar = element('div', 'client-quotation-total-bar');
-  const totalValue = element('strong', '', rupiah.format(draft.total_amount || 0));
-  totalBar.append(element('span', '', 'Total Rincian Pekerjaan (Nilai RAB)'), totalValue);
+  const totalBar = element('div', 'client-quotation-total-bar client-quotation-total-bar-breakdown');
+  const subtotalValue = element('strong', '', rupiah.format(draft.total_amount || 0));
+  const taxValue = element('strong', '', rupiah.format(computeTaxAmount(draft.total_amount || 0)));
+  const grandTotalValue = element('strong', '', rupiah.format(computeGrandTotal(draft.total_amount || 0)));
+  totalBar.append(
+    element('span', '', 'Subtotal Rincian Pekerjaan'), subtotalValue,
+    element('span', '', 'Pajak (2.5%)'), taxValue,
+    element('span', '', 'Total RAB'), grandTotalValue
+  );
 
   const state = { items: [] };
 
   function notifyTotalChange() {
-    const total = computeLineItemsTotal(state.items);
-    totalValue.textContent = rupiah.format(total);
-    onTotalChange?.(total);
+    const subtotal = computeLineItemsTotal(state.items);
+    subtotalValue.textContent = rupiah.format(subtotal);
+    taxValue.textContent = rupiah.format(computeTaxAmount(subtotal));
+    const grandTotal = computeGrandTotal(subtotal);
+    grandTotalValue.textContent = rupiah.format(grandTotal);
+    onTotalChange?.(subtotal, grandTotal);
   }
 
   function rerender() {
@@ -1043,15 +1292,21 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
   const mismatchEl = element('div', 'client-quotation-mismatch-warning');
   mismatchEl.hidden = true;
 
-  const state = { items: [] };
+  const state = { items: [], stages: [] };
 
   function refreshTotals() {
     const terminTotal = computeTotal(state.items);
     totalValue.textContent = rupiah.format(terminTotal);
     const lineTotal = getLineItemsTotal();
-    if (lineTotal > 0 && terminTotal !== lineTotal) {
+    // Dibulatkan ke rupiah utuh sebelum dibandingkan — Total RAB melibatkan
+    // perkalian pajak (subtotal * 1.025) yang bisa menghasilkan sisa
+    // desimal sangat kecil akibat floating point, walau setelah dibulatkan
+    // ke rupiah (rupiah.format sudah maximumFractionDigits: 0) angkanya
+    // identik. Perbandingan strict !== tanpa pembulatan menyebabkan
+    // warning mismatch palsu meski kedua angka yang ditampilkan sama persis.
+    if (lineTotal > 0 && Math.round(terminTotal) !== Math.round(lineTotal)) {
       mismatchEl.hidden = false;
-      mismatchEl.textContent = `Perhatian: total termin (${rupiah.format(terminTotal)}) belum sama dengan total rincian pekerjaan (${rupiah.format(lineTotal)}).`;
+      mismatchEl.textContent = `Perhatian: total termin (${rupiah.format(terminTotal)}) belum sama dengan total RAB termasuk pajak (${rupiah.format(lineTotal)}).`;
     } else {
       mismatchEl.hidden = true;
     }
@@ -1091,28 +1346,47 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
   const actions = element('div', 'client-quotation-items-actions');
   actions.append(addBtn, saveBtn);
 
-  wrap.append(itemsContainer, mismatchEl, totalBar, actions);
-
-  const existingItems = itemsCache.get(draft.id);
-  if (existingItems) {
-    state.items = existingItems.map((item) => ({
-      term_name: item.term_name,
-      amount: item.amount,
-      due_condition: item.due_condition
-    }));
+  const stagesRefreshHint = element('div', 'client-quotation-stages-refresh-hint', 'Baru menambah/mengubah Tahapan? Tekan tombol ini agar dropdown Tahapan di bawah ikut diperbarui.');
+  const stagesRefreshBtn = element('button', 'btn btn-outline btn-sm', '↻ Refresh Tahapan');
+  stagesRefreshBtn.type = 'button';
+  stagesRefreshBtn.addEventListener('click', async () => {
+    stagesRefreshBtn.disabled = true;
+    const stages = await fetchWorkStages(ctx.caseId);
+    state.stages = stages || [];
     renderEditableItems(itemsContainer, state, refreshTotals);
     refreshTotals();
+    stagesRefreshBtn.disabled = false;
+    showToast('Daftar tahapan diperbarui.', { variant: 'success' });
+  });
+
+  const stagesRefreshBar = element('div', 'client-quotation-stages-refresh-bar');
+  stagesRefreshBar.append(stagesRefreshHint, stagesRefreshBtn);
+
+  wrap.append(stagesRefreshBar, itemsContainer, mismatchEl, totalBar, actions);
+
+  function mapItemsToState(rawItems, stages) {
+    state.items = rawItems.map((item) => ({
+      term_name: item.term_name,
+      amount: item.amount,
+      due_condition: item.due_condition,
+      stageId: item.stage_id,
+      relationType: item.relation_type
+    }));
+    state.stages = stages || [];
+    renderEditableItems(itemsContainer, state, refreshTotals);
+    refreshTotals();
+  }
+
+  const existingItems = itemsCache.get(draft.id);
+  const stagesPromise = fetchWorkStages(ctx.caseId);
+
+  if (existingItems) {
+    stagesPromise.then((stages) => mapItemsToState(existingItems, stages));
   } else {
     itemsContainer.appendChild(element('div', 'client-quotation-empty', 'Memuat rincian…'));
-    fetchQuotationItems(draft.id).then((items) => {
+    Promise.all([fetchQuotationItems(draft.id), stagesPromise]).then(([items, stages]) => {
       itemsCache.set(draft.id, items || []);
-      state.items = (items || []).map((item) => ({
-        term_name: item.term_name,
-        amount: item.amount,
-        due_condition: item.due_condition
-      }));
-      renderEditableItems(itemsContainer, state, refreshTotals);
-      refreshTotals();
+      mapItemsToState(items || [], stages);
     });
   }
 
@@ -1139,14 +1413,18 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
   // total for the mismatch warning, and line items need to notify termin
   // whenever the total changes — a shared ref breaks the ordering cycle
   // (termin's own refreshTotals isn't wired up until after it's built).
-  const lineTotalRef = { value: draft.total_amount || 0 };
+  const lineTotalRef = { value: computeGrandTotal(draft.total_amount || 0) };
   let terminSectionRef = null;
 
-  const lineItemsEditor = buildLineItemsEditor(draft, lineItemsCache, ctx, (total) => {
-    lineTotalRef.value = total;
+  const lineItemsEditor = buildLineItemsEditor(draft, lineItemsCache, ctx, (subtotal, grandTotal) => {
+    lineTotalRef.value = grandTotal;
     terminSectionRef?.refreshTotals();
   });
   wrap.appendChild(lineItemsEditor.wrap);
+
+  wrap.appendChild(element('h3', 'client-quotation-draft-title', 'Tahapan Pekerjaan'));
+  const stagesEditor = buildWorkStagesEditor(ctx);
+  wrap.appendChild(stagesEditor.wrap);
 
   wrap.appendChild(element('h3', 'client-quotation-draft-title', `Termin Pembayaran — Draft v${draft.version}`));
 
@@ -1166,6 +1444,7 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
     const sections = [
       ['Deskripsi', descriptionEditor.save],
       ['Detail Pekerjaan', lineItemsEditor.save],
+      ['Tahapan Pekerjaan', stagesEditor.save],
       ['Termin Pembayaran', terminSection.save],
       ['Rekening Bank', bankAccountEditor.save]
     ];
@@ -1612,11 +1891,27 @@ function buildPreviewLineItemsTable(doc, items) {
   table.appendChild(tbody);
 
   const tfoot = doc.createElement('tfoot');
+  const subtotal = computeLineItemsTotal(normalizedItems);
+
+  const subtotalRow = doc.createElement('tr');
+  const subtotalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Subtotal');
+  subtotalLabel.colSpan = 4;
+  subtotalRow.appendChild(subtotalLabel);
+  subtotalRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(subtotal)));
+  tfoot.appendChild(subtotalRow);
+
+  const taxRow = doc.createElement('tr');
+  const taxLabel = docEl(doc, 'td', 'preview-table-total-label', 'Pajak (2.5%)');
+  taxLabel.colSpan = 4;
+  taxRow.appendChild(taxLabel);
+  taxRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(computeTaxAmount(subtotal))));
+  tfoot.appendChild(taxRow);
+
   const totalRow = doc.createElement('tr');
-  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total');
+  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total RAB');
   totalLabel.colSpan = 4;
   totalRow.appendChild(totalLabel);
-  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(computeLineItemsTotal(normalizedItems))));
+  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(computeGrandTotal(subtotal))));
   tfoot.appendChild(totalRow);
   table.appendChild(tfoot);
 

@@ -548,25 +548,73 @@ body[data-page='client-detail'].modal-open .toast-host {
 .client-quotation-items-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
-.client-quotation-item-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) auto auto auto;
-  align-items: center;
+.client-quotation-item-card,
+.client-quotation-line-item-card {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.client-quotation-item-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.client-quotation-item-line-actions {
+  justify-content: flex-end;
+}
+
+.client-quotation-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  flex: 1 1 160px;
+}
+
+.client-quotation-item-line-primary .client-quotation-field {
+  flex-basis: 220px;
+}
+
+.client-quotation-field-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.client-quotation-field select,
+.client-quotation-field input {
+  width: 100%;
 }
 
 .client-quotation-item-move,
-.client-quotation-item-remove {
+.client-quotation-item-remove,
+.client-quotation-item-add-sub {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
   cursor: pointer;
-  min-width: 30px;
   min-height: 30px;
+}
+
+.client-quotation-item-move {
+  min-width: 30px;
+}
+
+.client-quotation-item-add-sub {
+  padding: 0 var(--space-2);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .client-quotation-item-move:disabled {
@@ -580,6 +628,12 @@ body[data-page='client-detail'].modal-open .toast-host {
   color: var(--red);
 }
 
+.client-quotation-item-add-sub:hover,
+.client-quotation-item-add-sub:focus-visible {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
 .client-quotation-total-bar {
   display: flex;
   align-items: center;
@@ -587,6 +641,18 @@ body[data-page='client-detail'].modal-open .toast-host {
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-color-light);
   font-size: 13px;
+}
+
+.client-quotation-total-bar-breakdown {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  justify-content: flex-start;
+  gap: var(--space-2) var(--space-4);
+}
+
+.client-quotation-total-bar-breakdown span {
+  color: var(--text-muted);
+  margin-right: 4px;
 }
 
 .client-quotation-items-actions {
@@ -756,21 +822,20 @@ body[data-page='client-detail'].modal-open .toast-host {
 .client-quotation-line-items-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-}
-
-.client-quotation-line-item-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.5fr) minmax(0, 0.8fr) minmax(0, 0.9fr) auto auto auto;
-  align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .client-quotation-line-item-amount {
   color: var(--text);
   font-size: 12.5px;
   font-weight: var(--font-weight-bold);
-  text-align: right;
+  padding: 6px 0;
+}
+
+.client-quotation-line-item-indent-marker {
+  color: var(--text-muted);
+  font-size: 12px;
+  align-self: flex-start;
 }
 
 .client-quotation-line-item-readonly-row {
@@ -789,6 +854,58 @@ body[data-page='client-detail'].modal-open .toast-host {
   background: color-mix(in srgb, var(--orange) 12%, transparent);
   color: var(--orange);
   font-size: 12px;
+}
+
+.client-quotation-stages-refresh-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.client-quotation-stages-refresh-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.client-quotation-stages-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.client-quotation-stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.client-quotation-stage-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.client-quotation-stage-order {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  min-width: 18px;
+}
+
+.client-quotation-stage-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
 }
 
 .client-documents-state {
@@ -1317,8 +1434,13 @@ body[data-page='client-detail'].modal-open .toast-host {
     content: none;
   }
 
-  .client-quotation-item-row {
-    grid-template-columns: minmax(0, 1fr);
+  .client-quotation-item-line {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .client-quotation-field {
+    flex-basis: auto;
   }
 
   .client-quotation-item-readonly-row {
@@ -1326,17 +1448,9 @@ body[data-page='client-detail'].modal-open .toast-host {
     gap: 2px;
   }
 
-  .client-quotation-line-item-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .client-quotation-line-item-readonly-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
-  }
-
-  .client-quotation-line-item-amount {
-    text-align: left;
   }
 
   .client-quotation-items-actions {

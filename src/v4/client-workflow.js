@@ -364,10 +364,16 @@ async function loadWorkflow(root) {
   }
 }
 
+// Tab Workflow dinonaktifkan sementara — case_stages (data & trigger)
+// TIDAK dihapus, cuma tampilan di-ganti jadi pesan maintenance sampai
+// fondasi Tahapan Pekerjaan di RAB Builder selesai & stabil sampai ke
+// mekanisme persetujuan/penolakan (Issue #177 dan lanjutannya). Semua
+// fungsi lain di file ini sengaja dibiarkan utuh, tidak dipanggil untuk
+// saat ini — supaya gampang diaktifkan lagi begitu Workflow digarap ulang.
 export async function initClientWorkflow({ clientId } = {}) {
   const root = document.getElementById('client-workflow-root');
   if (!root || initialized) { return; }
   initialized = true;
   activeClientId = clientId || '';
-  await loadWorkflow(root);
+  setRootState(root, 'Fitur Workflow sedang dalam maintenance.', 'info');
 }

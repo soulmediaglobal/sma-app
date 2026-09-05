@@ -176,6 +176,9 @@ table.table tbody tr:hover { background: var(--bg-surface-secondary); }
 .status-red { color: var(--red); }
 .status-red::before { background: var(--red); }
 
+.status-gray { color: var(--text-muted); }
+.status-gray::before { background: var(--text-muted); }
+
 // Progress bar (inline) — used in stat tiles, plan/quota progress, KPI rows.
 .progress-thin {
   height: 5px;
