@@ -390,7 +390,7 @@ async function saveWorkStages(caseId, items) {
 async function fetchQuotationLineItems(quotationId) {
   const { data, error } = await supabase
     .from('case_quotation_line_items')
-    .select('id, description, detail, qty, rate, amount, order_index, parent_item_id')
+    .select('id, description, detail, qty, rate, amount, order_index, parent_item_id, satuan')
     .eq('quotation_id', quotationId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
@@ -574,7 +574,7 @@ function itemRowTemplate() {
 }
 
 function lineItemRowTemplate(parentId = null) {
-  return { id: crypto.randomUUID(), parentId, description: '', detail: '', qty: 1, rate: '' };
+  return { id: crypto.randomUUID(), parentId, description: '', detail: '', qty: 1, rate: '', satuan: '' };
 }
 
 function computeTotal(items) {
@@ -873,23 +873,23 @@ function renderEditableLineItems(container, state, onChange) {
       card.appendChild(element('span', 'client-quotation-line-item-indent-marker', '↳'));
     }
 
-    const descInput = element('input', 'form-control');
+    const descInput = element('input', 'client-quotation-desc-input');
     descInput.type = 'text';
     descInput.placeholder = 'Deskripsi pekerjaan';
     descInput.value = item.description;
     descInput.addEventListener('input', () => { item.description = descInput.value; });
 
-    const detailInput = element('input', 'form-control');
+    const detailInput = element('input', 'client-quotation-detail-input');
     detailInput.type = 'text';
     detailInput.placeholder = 'Detail (opsional)';
     detailInput.value = item.detail || '';
     detailInput.addEventListener('input', () => { item.detail = detailInput.value; });
 
+    const descDetailBox = element('div', 'client-quotation-desc-detail-box');
+    descDetailBox.append(descInput, detailInput);
+
     const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
-    primaryLine.append(
-      labeledField('Deskripsi', descInput),
-      labeledField('Detail', detailInput)
-    );
+    primaryLine.append(descDetailBox);
 
     const qtyInput = createFormattedNumberInput('Qty', item.qty, (value) => {
       item.qty = value;
@@ -897,6 +897,13 @@ function renderEditableLineItems(container, state, onChange) {
       onChange?.();
     });
     qtyInput.disabled = isParent;
+
+    const satuanInput = element('input', 'form-control');
+    satuanInput.type = 'text';
+    satuanInput.placeholder = 'Satuan (mis. orang, hari)';
+    satuanInput.value = item.satuan || '';
+    satuanInput.disabled = isParent;
+    satuanInput.addEventListener('input', () => { item.satuan = satuanInput.value; });
 
     const rateInput = createFormattedNumberInput('Rate (Rp)', item.rate, (value) => {
       item.rate = value;
@@ -911,6 +918,7 @@ function renderEditableLineItems(container, state, onChange) {
     const secondaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-secondary');
     secondaryLine.append(
       labeledField('Qty', qtyInput),
+      labeledField('Satuan', satuanInput),
       labeledField('Rate (Rp)', rateInput),
       labeledField('Jumlah', amountDisplay)
     );
@@ -1056,7 +1064,8 @@ async function saveQuotationLineItems(draftId, items) {
         rate: Number(item.rate),
         amount: computeLineItemAmount(item, items),
         order_index: index,
-        parent_item_id: item.parentId
+        parent_item_id: item.parentId,
+        satuan: item.satuan?.trim() || null
       })));
     if (insertError) {return { error: insertError };}
   }
@@ -1313,7 +1322,8 @@ function buildLineItemsEditor(draft, lineItemsCache, ctx, onTotalChange) {
       description: item.description,
       detail: item.detail,
       qty: item.qty,
-      rate: item.rate
+      rate: item.rate,
+      satuan: item.satuan || ''
     }));
     rerender();
   } else {
