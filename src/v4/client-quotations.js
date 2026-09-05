@@ -127,6 +127,57 @@ function labeledField(labelText, controlEl) {
   return fieldWrap;
 }
 
+// Format angka jadi string berpemisah ribuan gaya Indonesia (titik untuk
+// ribuan, koma untuk desimal) — dipakai untuk live-formatting field
+// qty/rate/amount di RAB Builder saat user mengetik, supaya nilai besar
+// gampang dibaca dan gak salah input (mis. kelebihan/kekurangan nol).
+function formatThousands(raw) {
+  if (raw === null || raw === undefined || raw === '') {return '';}
+  const cleaned = String(raw).replace(/[^\d,]/g, '');
+  if (!cleaned) {return '';}
+  const commaIndex = cleaned.indexOf(',');
+  const hasComma = commaIndex !== -1;
+  const intPartRaw = hasComma ? cleaned.slice(0, commaIndex) : cleaned;
+  const decPart = hasComma ? cleaned.slice(commaIndex + 1).replace(/,/g, '') : '';
+  const intPart = intPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  const groupedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return hasComma ? `${groupedInt},${decPart}` : groupedInt;
+}
+
+// Kebalikan formatThousands — ambil nilai numerik mentah (Number) dari
+// string berformat ribuan/koma, dipakai untuk update state item sebelum
+// dihitung/dikirim ke Supabase.
+function parseThousands(formatted) {
+  if (!formatted) {return '';}
+  const cleaned = String(formatted).replace(/\./g, '').replace(',', '.');
+  const num = Number(cleaned);
+  return Number.isNaN(num) ? '' : num;
+}
+
+// Bikin <input type="text"> dengan live thousand-separator formatting
+// (bukan <input type="number"> karena browser tidak mengizinkan karakter
+// pemisah ribuan pada tipe itu sama sekali). onValueChange dipanggil
+// dengan NILAI MENTAH (Number) setiap kali user mengetik, supaya caller
+// tetap bisa update state/derived value seperti pola input biasa.
+function createFormattedNumberInput(placeholder, initialValue, onValueChange) {
+  const input = element('input', 'form-control');
+  input.type = 'text';
+  input.inputMode = 'decimal';
+  input.placeholder = placeholder;
+  input.value = formatThousands(initialValue);
+
+  input.addEventListener('input', () => {
+    const cursorFromEnd = input.value.length - input.selectionStart;
+    const formatted = formatThousands(input.value);
+    input.value = formatted;
+    const newPos = Math.max(0, formatted.length - cursorFromEnd);
+    input.setSelectionRange(newPos, newPos);
+    onValueChange(parseThousands(formatted));
+  });
+
+  return input;
+}
+
 function formatDate(value) {
   if (!value) {return null;}
   const date = new Date(value);
@@ -687,14 +738,8 @@ function renderEditableItems(container, state, onChange) {
     nameInput.value = item.term_name;
     nameInput.addEventListener('input', () => { item.term_name = nameInput.value; });
 
-    const amountInput = element('input', 'form-control');
-    amountInput.type = 'number';
-    amountInput.min = '0';
-    amountInput.step = 'any';
-    amountInput.placeholder = 'Jumlah (Rp)';
-    amountInput.value = item.amount;
-    amountInput.addEventListener('input', () => {
-      item.amount = amountInput.value;
+    const amountInput = createFormattedNumberInput('Jumlah (Rp)', item.amount, (value) => {
+      item.amount = value;
       onChange?.();
     });
 
@@ -846,24 +891,19 @@ function renderEditableLineItems(container, state, onChange) {
       labeledField('Detail', detailInput)
     );
 
-    const qtyInput = element('input', 'form-control');
-    qtyInput.type = 'number';
-    qtyInput.min = '0';
-    qtyInput.step = 'any';
-    qtyInput.placeholder = 'Qty';
-    qtyInput.value = item.qty;
+    const qtyInput = createFormattedNumberInput('Qty', item.qty, (value) => {
+      item.qty = value;
+      refreshAmountChain(item);
+      onChange?.();
+    });
     qtyInput.disabled = isParent;
 
-    const rateInput = element('input', 'form-control');
-    rateInput.type = 'number';
-    rateInput.min = '0';
-    rateInput.step = 'any';
-    rateInput.placeholder = 'Rate (Rp)';
-    rateInput.value = item.rate;
+    const rateInput = createFormattedNumberInput('Rate (Rp)', item.rate, (value) => {
+      item.rate = value;
+      refreshAmountChain(item);
+      onChange?.();
+    });
     rateInput.disabled = isParent;
-
-    qtyInput.addEventListener('input', () => { item.qty = qtyInput.value; refreshAmountChain(item); onChange?.(); });
-    rateInput.addEventListener('input', () => { item.rate = rateInput.value; refreshAmountChain(item); onChange?.(); });
 
     const amountDisplay = element('span', 'client-quotation-line-item-amount', rupiah.format(computeLineItemAmount(item, state.items)));
     amountDisplays.set(item.id, amountDisplay);
