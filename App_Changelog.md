@@ -27,6 +27,21 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   debug logging yang berpotensi memuat credential session telah dihapus. QA
   lokal memverifikasi routing staff/client, proteksi bootstrap CMS, logout lokal
   dari seluruh entry, retry kegagalan jaringan, serta navigasi tanpa redirect loop.
+- **Issue #177**: RAB & Penawaran kini menghitung pajak 2.5% (hardcode,
+  dihitung on-the-fly, tidak ada kolom database baru) — breakdown
+  Subtotal/Pajak/Total RAB tampil di editor Rincian Pekerjaan, validasi
+  Termin, dan preview/print. Tahapan Pekerjaan (tabel baru
+  `case_work_stages`) memungkinkan admin/internal menambah, menghapus,
+  dan mengurutkan tahapan bebas per Case — terpisah dari `case_stages`
+  (tab Workflow, fixed generic template). Termin Pembayaran sekarang
+  wajib memilih 1 Tahapan beserta Sebelum/Sesudah; field syarat
+  pembayaran lama menjadi catatan tambahan opsional. Tab Workflow
+  (`client-workflow.js`) dinonaktifkan sementara menampilkan pesan
+  maintenance — data dan trigger `case_stages` tidak dihapus, menunggu
+  fondasi Tahapan stabil sampai mekanisme persetujuan/penolakan selesai.
+  Layout editor Rincian Pekerjaan dan Termin dirombak menjadi kartu
+  multi-baris berlabel per field (memperbaiki bug CSS grid yang
+  kehabisan kolom setelah beberapa fitur ditambahkan).
 - **Issue #175**: RAB Builder mendukung hierarki 3 level (step/sub-step/
   sub-sub-step) pada Rincian Pekerjaan, memanfaatkan kolom `parent_item_id`
   yang sudah tersedia sejak Issue #153 (Task 2) — tidak ada migration
@@ -68,6 +83,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Issue #177**: validasi mismatch total Termin vs total RAB sempat
+  memunculkan peringatan palsu akibat sisa desimal floating point dari
+  perkalian pajak, walau kedua angka yang ditampilkan identik — sekarang
+  dibandingkan setelah dibulatkan ke rupiah utuh. Migration korektif
+  `20260905140000` mencabut 2 policy RLS internal (`INSERT`/`DELETE`)
+  yang sempat tidak sengaja ditambahkan ke tabel `case_stages` di tengah
+  proses investigasi awal Issue ini, mengembalikan ke desain semula
+  (internal hanya `SELECT`+`UPDATE`).
 - **Issue #175**: `computeLineItemsTotal()` sebelumnya melakukan flat sum
   seluruh row termasuk parent, menyebabkan double-count begitu hierarki
   dipakai — sekarang SUM hanya menghitung leaf item (row tanpa child).
