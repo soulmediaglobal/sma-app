@@ -273,7 +273,7 @@ async function fetchActiveBankAccounts() {
 async function fetchQuotationItems(quotationId) {
   const { data, error } = await supabase
     .from('case_quotation_items')
-    .select('id, term_name, amount, due_condition, order_index, stage_id, relation_type')
+    .select('id, term_name, amount, due_condition, order_index, stage_id, relation_type, percentage_snapshot')
     .eq('quotation_id', quotationId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
@@ -570,7 +570,7 @@ function buildVersionRow(quotation, supersededByVersion, itemsCache, lineItemsCa
 }
 
 function itemRowTemplate() {
-  return { term_name: '', amount: '', due_condition: '', stageId: null, relationType: null };
+  return { term_name: '', amount: '', due_condition: '', stageId: null, relationType: null, percentage_snapshot: null };
 }
 
 function lineItemRowTemplate(parentId = null) {
@@ -738,15 +738,49 @@ function renderEditableItems(container, state, onChange) {
     nameInput.value = item.term_name;
     nameInput.addEventListener('input', () => { item.term_name = nameInput.value; });
 
-    const amountInput = createFormattedNumberInput('Jumlah (Rp)', item.amount, (value) => {
+    function updateBreakdown() {
+      const amount = Number(item.amount) || 0;
+      const tax = computeTaxAmount(amount);
+      const postTax = computeGrandTotal(amount);
+      taxDisplay.textContent = rupiah.format(tax);
+      postTaxDisplay.textContent = rupiah.format(postTax);
+
+      const subtotal = state.getSubtotal?.() || 0;
+      const percentage = subtotal > 0 ? (amount / subtotal) * 100 : 0;
+      item.percentage_snapshot = subtotal > 0 ? percentage : null;
+      percentDisplay.textContent = subtotal > 0 ? `${percentage.toFixed(1)}%` : '—';
+
+      const stage = (state.stages || []).find((candidate) => candidate.id === item.stageId);
+      const relationLabel = item.relationType === 'BEFORE' ? 'Sebelum' : item.relationType === 'AFTER' ? 'Sesudah' : null;
+      if (subtotal > 0 && stage && relationLabel) {
+        sentenceDisplay.textContent = `Nilai ${percentage.toFixed(1)}% (${rupiah.format(amount)} + pajak ${rupiah.format(tax)} = ${rupiah.format(postTax)}) dibayarkan ${relationLabel} ${stage.name} dilakukan.`;
+      } else {
+        sentenceDisplay.textContent = '';
+      }
+    }
+
+    const amountInput = createFormattedNumberInput('Jumlah (Rp) — sebelum pajak', item.amount, (value) => {
       item.amount = value;
+      updateBreakdown();
       onChange?.();
     });
+
+    const taxDisplay = element('span', 'client-quotation-item-breakdown-value', rupiah.format(0));
+    const postTaxDisplay = element('span', 'client-quotation-item-breakdown-value', rupiah.format(0));
+    const percentDisplay = element('span', 'client-quotation-item-breakdown-value', '—');
+    const sentenceDisplay = element('div', 'client-quotation-item-sentence', '');
 
     const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
     primaryLine.append(
       labeledField('Nama Termin', nameInput),
-      labeledField('Jumlah (Rp)', amountInput)
+      labeledField('Jumlah (Rp) — sebelum pajak', amountInput)
+    );
+
+    const breakdownLine = element('div', 'client-quotation-item-line client-quotation-item-line-breakdown');
+    breakdownLine.append(
+      labeledField('Pajak (2.5%)', taxDisplay),
+      labeledField('Total Ditagih (setelah pajak)', postTaxDisplay),
+      labeledField('Persentase dari Subtotal', percentDisplay)
     );
 
     const stageSelect = element('select', 'form-control client-quotation-item-stage');
@@ -761,6 +795,7 @@ function renderEditableItems(container, state, onChange) {
     stageSelect.value = item.stageId || '';
     stageSelect.addEventListener('change', () => {
       item.stageId = stageSelect.value || null;
+      updateBreakdown();
       onChange?.();
     });
 
@@ -776,6 +811,7 @@ function renderEditableItems(container, state, onChange) {
     relationSelect.value = item.relationType || '';
     relationSelect.addEventListener('change', () => {
       item.relationType = relationSelect.value || null;
+      updateBreakdown();
       onChange?.();
     });
 
@@ -791,6 +827,8 @@ function renderEditableItems(container, state, onChange) {
       labeledField('Sebelum/Sesudah', relationSelect),
       labeledField('Catatan Tambahan', conditionInput)
     );
+
+    updateBreakdown();
 
     const moveUp = element('button', 'client-quotation-item-move', '↑');
     moveUp.type = 'button';
@@ -824,7 +862,7 @@ function renderEditableItems(container, state, onChange) {
     const actionsLine = element('div', 'client-quotation-item-line client-quotation-item-line-actions');
     actionsLine.append(moveUp, moveDown, removeBtn);
 
-    card.append(primaryLine, secondaryLine, actionsLine);
+    card.append(primaryLine, breakdownLine, sentenceDisplay, secondaryLine, actionsLine);
     container.appendChild(card);
   });
 }
@@ -1015,7 +1053,8 @@ async function saveQuotationItems(draftId, items) {
         due_condition: item.due_condition?.trim() || null,
         order_index: index,
         stage_id: item.stageId,
-        relation_type: item.relationType
+        relation_type: item.relationType,
+        percentage_snapshot: item.percentage_snapshot ?? null
       })));
     if (insertError) {return { error: insertError };}
   }
@@ -1346,7 +1385,7 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
   const mismatchEl = element('div', 'client-quotation-mismatch-warning');
   mismatchEl.hidden = true;
 
-  const state = { items: [], stages: [] };
+  const state = { items: [], stages: [], getSubtotal: getLineItemsTotal };
 
   function refreshTotals() {
     const terminTotal = computeTotal(state.items);
@@ -1360,7 +1399,7 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
     // warning mismatch palsu meski kedua angka yang ditampilkan sama persis.
     if (lineTotal > 0 && Math.round(terminTotal) !== Math.round(lineTotal)) {
       mismatchEl.hidden = false;
-      mismatchEl.textContent = `Perhatian: total termin (${rupiah.format(terminTotal)}) belum sama dengan total RAB termasuk pajak (${rupiah.format(lineTotal)}).`;
+      mismatchEl.textContent = `Perhatian: total termin (${rupiah.format(terminTotal)}) belum sama dengan Subtotal Pekerjaan sebelum pajak (${rupiah.format(lineTotal)}).`;
     } else {
       mismatchEl.hidden = true;
     }
@@ -1424,7 +1463,8 @@ function buildTerminEditor(draft, itemsCache, ctx, getLineItemsTotal) {
       amount: item.amount,
       due_condition: item.due_condition,
       stageId: item.stage_id,
-      relationType: item.relation_type
+      relationType: item.relation_type,
+      percentage_snapshot: item.percentage_snapshot
     }));
     state.stages = stages || [];
     renderEditableItems(itemsContainer, state, refreshTotals);
@@ -1467,11 +1507,14 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
   // total for the mismatch warning, and line items need to notify termin
   // whenever the total changes — a shared ref breaks the ordering cycle
   // (termin's own refreshTotals isn't wired up until after it's built).
-  const lineTotalRef = { value: computeGrandTotal(draft.total_amount || 0) };
+  // Termin dibandingkan ke SUBTOTAL (pre-tax), bukan grand total lagi —
+  // field "Jumlah" Termin sekarang berarti nilai sebelum pajak, pajak
+  // dihitung otomatis per-termin saat ditampilkan (Issue #188).
+  const lineTotalRef = { value: draft.total_amount || 0 };
   let terminSectionRef = null;
 
-  const lineItemsEditor = buildLineItemsEditor(draft, lineItemsCache, ctx, (subtotal, grandTotal) => {
-    lineTotalRef.value = grandTotal;
+  const lineItemsEditor = buildLineItemsEditor(draft, lineItemsCache, ctx, (subtotal) => {
+    lineTotalRef.value = subtotal;
     terminSectionRef?.refreshTotals();
   });
   wrap.appendChild(lineItemsEditor.wrap);

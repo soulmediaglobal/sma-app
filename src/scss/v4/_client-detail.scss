@@ -1435,3 +1435,21 @@ body[data-page='client-detail'].modal-open .toast-host {
     align-items: stretch;
   }
 }
+
+.client-quotation-item-breakdown-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.client-quotation-item-line-breakdown {
+  background: var(--bg-surface-secondary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.client-quotation-item-sentence {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0 var(--space-2);
+}
