@@ -19,6 +19,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #186**: redesign layout Rincian Pekerjaan pada modal RAB &
+  Penawaran — Deskripsi dan Detail digabung jadi satu box (Deskripsi
+  tampil lebih menonjol dari Detail), kolom baru Satuan (free text
+  sementara — preset/dropdown Satuan direncanakan sebagai fitur
+  terpisah di Project Setting) ditempatkan antara Qty dan Rate. Modal
+  diperlebar dari `xl` (960px) ke 1140px supaya tidak sesak.
+- **Issue #187**: Tahapan Pekerjaan kini punya field Deskripsi
+  (opsional) selain Nama, supaya tiap tahapan di RAB punya penjelasan
+  tambahan.
 - **Issue #184**: field Qty, Rate, dan Jumlah di RAB Builder (Rincian
   Pekerjaan & Termin Pembayaran) kini menampilkan pemisah ribuan secara
   live saat mengetik (mis. ketik "20000000" langsung tampil
@@ -87,6 +96,21 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   `DELETE`. `PUBLIC` dan `anon` tidak memiliki privilege, sedangkan
   `TRUNCATE`, `REFERENCES`, dan `TRIGGER` tidak diberikan kepada
   `authenticated`.
+
+### Changed
+
+- **Issue #188**: field "Jumlah" di Termin Pembayaran sekarang berarti
+  nilai SEBELUM pajak (sebelumnya nilai final termasuk pajak). Pajak
+  dihitung otomatis per-termin secara live (2.5%, tidak disimpan kolom
+  baru — konsisten dengan pola Pajak RAB dari Issue #177), ditampilkan
+  bersama Total Ditagih (setelah pajak) dan persentase kontribusi
+  terhadap Subtotal Pekerjaan. Persentase disimpan sebagai snapshot
+  (`percentage_snapshot`) saat Termin disimpan — tidak auto-update kalau
+  RAB diedit ulang setelahnya. Validasi SUM Termin sekarang dibandingkan
+  ke Subtotal Pekerjaan (pre-tax), bukan Total RAB lagi. Kalimat
+  otomatis ditampilkan per baris, contoh: "Nilai 30% (Rp 20.000.000 +
+  pajak Rp 500.000 = Rp 20.500.000) dibayarkan Sebelum Tahap I
+  dilakukan."
 
 ### Fixed
 
