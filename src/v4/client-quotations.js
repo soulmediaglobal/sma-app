@@ -286,7 +286,7 @@ async function fetchQuotationItems(quotationId) {
 async function fetchWorkStages(caseId) {
   const { data, error } = await supabase
     .from('case_work_stages')
-    .select('id, name, order_index')
+    .select('id, name, description, order_index')
     .eq('case_id', caseId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
@@ -294,7 +294,7 @@ async function fetchWorkStages(caseId) {
 }
 
 function workStageRowTemplate() {
-  return { id: crypto.randomUUID(), name: '' };
+  return { id: crypto.randomUUID(), name: '', description: '' };
 }
 
 function renderEditableWorkStages(container, state, onChange) {
@@ -313,8 +313,17 @@ function renderEditableWorkStages(container, state, onChange) {
     nameInput.value = item.name;
     nameInput.addEventListener('input', () => { item.name = nameInput.value; });
 
+    const descriptionInput = element('input', 'form-control');
+    descriptionInput.type = 'text';
+    descriptionInput.placeholder = 'Deskripsi tahapan (opsional)';
+    descriptionInput.value = item.description || '';
+    descriptionInput.addEventListener('input', () => { item.description = descriptionInput.value; });
+
     const primaryLine = element('div', 'client-quotation-item-line client-quotation-item-line-primary');
-    primaryLine.append(labeledField('Nama Tahapan', nameInput));
+    primaryLine.append(
+      labeledField('Nama Tahapan', nameInput),
+      labeledField('Deskripsi Tahapan', descriptionInput)
+    );
 
     const moveUp = element('button', 'client-quotation-item-move', '↑');
     moveUp.type = 'button';
@@ -379,6 +388,7 @@ async function saveWorkStages(caseId, items) {
         id: item.id,
         case_id: caseId,
         name: item.name.trim(),
+        description: item.description?.trim() || null,
         order_index: index
       })), { onConflict: 'id' });
     if (upsertError) {return { error: upsertError };}
@@ -1175,7 +1185,7 @@ function buildWorkStagesEditor(ctx) {
   wrap.append(itemsContainer, actions);
 
   fetchWorkStages(ctx.caseId).then((stages) => {
-    state.items = (stages || []).map((stage) => ({ id: stage.id, name: stage.name }));
+    state.items = (stages || []).map((stage) => ({ id: stage.id, name: stage.name, description: stage.description || '' }));
     rerender();
   });
 
