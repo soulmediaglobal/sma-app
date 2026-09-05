@@ -119,6 +119,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
   menghapus policy; tidak mengimplementasikan flow Reject Issue #161 dan tidak
   mengubah migration approval gate Issue #165.
 
+### Maintenance
+
+- **Issue #179**: membersihkan sisa kode dari Issue #177 yang sudah
+  tidak terpakai — 3 CSS class (`client-quotation-stage-row`, `-order`,
+  `-name`) dari versi awal section Tahapan Pekerjaan yang read-only
+  (sebelum direvisi jadi fully editable) dihapus, terverifikasi tidak
+  direferensikan di JS maupun HTML manapun. Melengkapi kembali 2
+  komentar penjelasan yang hilang saat rewrite `renderEditableLineItems`
+  (alasan `amountDisplays` memakai `Map`, alasan parent item dikunci
+  `qty=1`/`rate=0`). Tidak ada perubahan behavior atau tampilan.
+
 > **Catatan (Mike, 2026-08-31):** Konten "Issue #99" di bawah ini semula berlabel terpisah `[Unreleased] - Issue #99` dan nyasar di paling bawah file. Tidak pernah diberi nomor versi resmi, dan tidak ada commit/tag yang cocok persis dengan kontennya di antara 9 tag yang sebelumnya tanpa entry changelog — jadi tetap tercatat sebagai Unreleased sampai Ray/Dimas konfirmasi versi rilisnya.
 
 ### Added
