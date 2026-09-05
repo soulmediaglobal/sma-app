@@ -19,6 +19,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #184**: field Qty, Rate, dan Jumlah di RAB Builder (Rincian
+  Pekerjaan & Termin Pembayaran) kini menampilkan pemisah ribuan secara
+  live saat mengetik (mis. ketik "20000000" langsung tampil
+  "20.000.000"), menggantikan `<input type="number">` yang tidak bisa
+  menampilkan separator sama sekali. Value mentah tetap tersimpan
+  sebagai angka biasa, tidak ada perubahan pada data yang dikirim ke
+  Supabase.
 - **Issue #163**: routing session CMS internal dan Client Portal kini memverifikasi
   profile aktif serta role sebelum merender aplikasi. Staff aktif diarahkan ke
   CMS, client aktif diarahkan ke Client Portal, sedangkan profile hilang,
