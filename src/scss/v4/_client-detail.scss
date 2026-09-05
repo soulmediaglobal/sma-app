@@ -596,6 +596,45 @@ body[data-page='client-detail'].modal-open .toast-host {
   width: 100%;
 }
 
+// Box gabungan Deskripsi+Detail (Issue #186) — satu container visual,
+// dua input di dalamnya (bukan dua field terpisah), Deskripsi lebih
+// menonjol dari Detail lewat font-size/weight, bukan lewat kolom beda.
+.client-quotation-desc-detail-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 2 1 320px;
+  min-width: 240px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.client-quotation-desc-detail-box .client-quotation-desc-input,
+.client-quotation-desc-detail-box .client-quotation-detail-input {
+  border: none;
+  padding: 0;
+  background: transparent;
+  width: 100%;
+}
+
+.client-quotation-desc-detail-box .client-quotation-desc-input {
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text);
+}
+
+.client-quotation-desc-detail-box .client-quotation-detail-input {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.client-quotation-desc-detail-box .client-quotation-desc-input:focus,
+.client-quotation-desc-detail-box .client-quotation-detail-input:focus {
+  outline: none;
+}
+
 .client-quotation-item-move,
 .client-quotation-item-remove,
 .client-quotation-item-add-sub {
