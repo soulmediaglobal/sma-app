@@ -243,7 +243,7 @@ async function fetchWorkStages(caseId) {
 }
 
 function workStageRowTemplate() {
-  return { name: '' };
+  return { id: crypto.randomUUID(), name: '' };
 }
 
 function renderEditableWorkStages(container, state, onChange) {
@@ -309,21 +309,28 @@ async function saveWorkStages(caseId, items) {
     }
   }
 
-  const { error: deleteError } = await supabase
-    .from('case_work_stages')
-    .delete()
-    .eq('case_id', caseId);
+  // Delete-removed + upsert (BUKAN delete-all+insert-all) — supaya id
+  // row yang tidak berubah tetap stabil antar-save. ID stabil ini
+  // krusial karena Termin Pembayaran menyimpan FK ke stage_id; kalau id
+  // berubah setiap save, referensi Termin yang sudah dipilih user jadi
+  // orphan (lihat Issue #180).
+  const keepIds = items.map((item) => item.id);
+  const deleteQuery = supabase.from('case_work_stages').delete().eq('case_id', caseId);
+  const { error: deleteError } = keepIds.length > 0
+    ? await deleteQuery.not('id', 'in', `(${keepIds.join(',')})`)
+    : await deleteQuery;
   if (deleteError) {return { error: deleteError };}
 
   if (items.length > 0) {
-    const { error: insertError } = await supabase
+    const { error: upsertError } = await supabase
       .from('case_work_stages')
-      .insert(items.map((item, index) => ({
+      .upsert(items.map((item, index) => ({
+        id: item.id,
         case_id: caseId,
         name: item.name.trim(),
         order_index: index
-      })));
-    if (insertError) {return { error: insertError };}
+      })), { onConflict: 'id' });
+    if (upsertError) {return { error: upsertError };}
   }
 
   return { error: null };
@@ -1121,7 +1128,7 @@ function buildWorkStagesEditor(ctx) {
   wrap.append(itemsContainer, actions);
 
   fetchWorkStages(ctx.caseId).then((stages) => {
-    state.items = (stages || []).map((stage) => ({ name: stage.name }));
+    state.items = (stages || []).map((stage) => ({ id: stage.id, name: stage.name }));
     rerender();
   });
 
