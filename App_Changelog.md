@@ -83,6 +83,17 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Issue #180**: `saveWorkStages()` sebelumnya melakukan delete-all +
+  insert-all setiap kali Tahapan Pekerjaan disimpan, sehingga Postgres
+  selalu men-generate `id` baru walau konten tidak berubah. Karena
+  `saveAll()` menyimpan Tahapan Pekerjaan sebelum Termin Pembayaran,
+  `stage_id` yang sudah dipilih user di Termin menjadi orphan satu
+  langkah sebelum insert — menyebabkan RAB gagal disimpan dengan error
+  FK `case_quotation_items_stage_id_fkey` pada hampir setiap percobaan
+  simpan. Diperbaiki dengan pola delete-removed + upsert (`onConflict:
+  'id'`) sehingga `id` tetap stabil antar-save selama konten tidak
+  dihapus user; `id` kini digenerate di klien (`crypto.randomUUID()`)
+  untuk baris baru, mengikuti pola yang sama seperti Rincian Pekerjaan.
 - **Issue #177**: validasi mismatch total Termin vs total RAB sempat
   memunculkan peringatan palsu akibat sisa desimal floating point dari
   perkalian pajak, walau kedua angka yang ditampilkan identik — sekarang
