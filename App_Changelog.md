@@ -108,6 +108,20 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Issue #194**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
+  kini difilter berdasarkan `document_templates.default_service_types`
+  vs `service_type` Case yang sedang dibuka — sebelumnya menampilkan
+  semua template aktif tanpa filter, membuat checklist yang sama
+  muncul di semua Case apapun jenis layanannya. Template dengan
+  `default_service_types` NULL/kosong dianggap universal (tetap tampil
+  di semua Case). Pesan empty-state dipecah jadi 2: tidak ada template
+  aktif sama sekali, vs tidak ada template terdaftar untuk service_type
+  spesifik. Known gap: 8 `service_type` di data production (BPJS
+  Ketenagakerjaan, Merek Dagang, Merek Dagang (HKI), PBG Baru, PBG
+  Gedung Komersial, Pendirian PT + OSS, Perpanjangan NIB, Perubahan
+  Alamat) belum punya representasi di `default_service_types` manapun
+  — Case dengan service_type tsb untuk sementara hanya melihat template
+  universal, sampai di-assign manual lewat Project Setting.
 - **Issue #188**: field "Jumlah" di Termin Pembayaran sekarang berarti
   nilai SEBELUM pajak (sebelumnya nilai final termasuk pajak). Pajak
   dihitung otomatis per-termin secara live (2.5%, tidak disimpan kolom
@@ -161,6 +175,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Maintenance
 
+- **Issue #99/#105**: menambahkan migration file retroaktif untuk 2
+  perubahan skema yang sudah live di production sejak 2026-08-24 tapi
+  belum pernah punya file migration (dieksekusi manual via SQL Editor
+  saat itu) — kolom `profiles.full_name`/`email` beserta koreksi data
+  `full_name` yang sebelumnya salah diisi dari prefix email, dan
+  constraint `profiles_role_check` yang memvalidasi kolom `role`. Murni
+  dokumentasi, tidak ada perubahan ke production (sudah diverifikasi
+  via psql: constraint dan kedua kolom sudah ada).
 - **Issue #179**: membersihkan sisa kode dari Issue #177 yang sudah
   tidak terpakai — 3 CSS class (`client-quotation-stage-row`, `-order`,
   `-name`) dari versi awal section Tahapan Pekerjaan yang read-only
