@@ -506,6 +506,7 @@ async function loadProjects(root) {
         negotiation_count,
         created_at,
         created_by,
+        case_number,
         creator:profiles!created_by(id, name)
       `)
       .eq('client_id', clientId)
@@ -565,7 +566,8 @@ async function loadProjects(root) {
       const heading = document.createElement('div');
       heading.append(
         element('h2', '', project.service_type || 'Project tanpa jenis'),
-        element('div', 'client-project-meta', `Dibuat ${displayValue('created_at', project.created_at)}`)
+        element('div', 'client-project-meta', `Dibuat ${displayValue('created_at', project.created_at)}`),
+        element('div', 'client-project-meta', `No. Project: ${project.case_number || '—'}`)
       );
 
       if (canUpdateStatus) {
@@ -578,7 +580,7 @@ async function loadProjects(root) {
         select.dataset.caseId = project.id;
         select.setAttribute(
           'aria-label',
-          `Ubah status project ${project.service_type || 'tanpa jenis'}, ID ${project.id.slice(0, 8)}`
+          `Ubah status project ${project.service_type || 'tanpa jenis'}, ${project.case_number || `ID ${project.id.slice(0, 8)}`}`
         );
         STATUS_OPTIONS.forEach((status) => {
           const option = element('option', '', status);
