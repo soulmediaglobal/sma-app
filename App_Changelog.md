@@ -19,6 +19,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #200**: tambah 3 paragraf intro editable di RAB & Penawaran
+  — "Intro Rincian Pekerjaan", "Intro Dokumen Wajib", dan "Intro
+  Tahapan Pekerjaan" — masing-masing punya textarea + tombol Simpan
+  sendiri di editor modal, pre-fill teks default kalau belum pernah
+  diisi. Teksnya disimpan per-RAB (kolom baru di `case_quotations`:
+  `line_items_intro`, `documents_intro`, `stages_intro`), bisa
+  disesuaikan admin/internal per-client. Scope ini cuma data model +
+  editor UI — rendering paragraf ini ke preview/print RAB ada di
+  issue terpisah.
 - **Issue #198**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
   (Issue #192) kini ditampilkan dalam grid 2 kolom, bukan 1 kolom
   vertikal panjang — dengan 10 kategori dokumen, modal sebelumnya
