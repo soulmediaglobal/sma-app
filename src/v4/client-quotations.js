@@ -1132,6 +1132,61 @@ async function saveQuotationLineItems(draftId, items) {
   return { error: null, total };
 }
 
+const INTRO_FIELD_DEFAULTS = {
+  line_items_intro: 'Untuk layanan yang Bpk/Ibu minta maka berikut ini adalah detil dari pekerjaan yang akan kami lakukan.',
+  documents_intro: 'Agar kami bisa mengerjakan dengan baik, maka berikut adalah daftar dokumen yang kami butuhkan.',
+  stages_intro: 'Berikut adalah tahapan yang akan kami kerjakan.'
+};
+
+function buildIntroEditor(draft, fieldName, label) {
+  const wrap = element('div', 'client-quotation-description-editor');
+  const fieldId = `client-quotation-${fieldName}-${draft.id}`;
+  const labelEl = element('label', 'client-quotation-description-label', label);
+  labelEl.htmlFor = fieldId;
+  wrap.appendChild(labelEl);
+
+  const textarea = element('textarea', 'form-control client-quotation-description-input');
+  textarea.id = fieldId;
+  textarea.rows = 3;
+  textarea.value = draft[fieldName] || INTRO_FIELD_DEFAULTS[fieldName];
+  textarea.placeholder = INTRO_FIELD_DEFAULTS[fieldName];
+
+  async function persist() {
+    const value = textarea.value.trim() || null;
+    const { error, count } = await supabase
+      .from('case_quotations')
+      .update({ [fieldName]: value }, { count: 'exact' })
+      .eq('id', draft.id)
+      .in('status', EDITABLE_STATUSES);
+    if (error || count !== 1) {return { error: error || new Error(`Gagal menyimpan ${label.toLowerCase()}.`) };}
+    draft[fieldName] = value;
+    return { error: null };
+  }
+
+  const saveBtn = element('button', 'btn btn-outline btn-sm', `Simpan ${label}`);
+  saveBtn.type = 'button';
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Menyimpan…';
+    const { error } = await persist();
+    if (error) {
+      showToast(`Gagal menyimpan ${label.toLowerCase()}.`, { variant: 'error' });
+    } else {
+      showToast(`${label} berhasil disimpan.`, { variant: 'success' });
+    }
+    if (saveBtn.isConnected) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = `Simpan ${label}`;
+    }
+  });
+
+  const actions = element('div', 'client-quotation-description-actions');
+  actions.appendChild(saveBtn);
+
+  wrap.append(textarea, actions);
+  return { wrap, save: persist };
+}
+
 function buildDescriptionEditor(draft) {
   const wrap = element('div', 'client-quotation-description-editor');
   const fieldId = `client-quotation-description-${draft.id}`;
@@ -1538,9 +1593,13 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
     lineTotalRef.value = subtotal;
     terminSectionRef?.refreshTotals();
   });
+  const lineItemsIntroEditor = buildIntroEditor(draft, 'line_items_intro', 'Intro Rincian Pekerjaan');
+  wrap.appendChild(lineItemsIntroEditor.wrap);
   wrap.appendChild(lineItemsEditor.wrap);
 
   wrap.appendChild(element('h3', 'client-quotation-draft-title', 'Tahapan Pekerjaan'));
+  const stagesIntroEditor = buildIntroEditor(draft, 'stages_intro', 'Intro Tahapan Pekerjaan');
+  wrap.appendChild(stagesIntroEditor.wrap);
   const stagesEditor = buildWorkStagesEditor(ctx);
   wrap.appendChild(stagesEditor.wrap);
 
@@ -1561,7 +1620,9 @@ function buildDraftEditor(draft, itemsCache, lineItemsCache, ctx, bankAccounts) 
   async function saveAll() {
     const sections = [
       ['Deskripsi', descriptionEditor.save],
+      ['Intro Rincian Pekerjaan', lineItemsIntroEditor.save],
       ['Detail Pekerjaan', lineItemsEditor.save],
+      ['Intro Tahapan Pekerjaan', stagesIntroEditor.save],
       ['Tahapan Pekerjaan', stagesEditor.save],
       ['Termin Pembayaran', terminSection.save],
       ['Rekening Bank', bankAccountEditor.save]
@@ -2479,6 +2540,11 @@ async function renderModalBody(bodyEl, ctx) {
   } else if (editableQuotation) {
     draftEditor = buildDraftEditor(editableQuotation, itemsCache, lineItemsCache, ctx, bankAccounts);
     bodyEl.appendChild(draftEditor.wrap);
+  }
+
+  if (editableQuotation) {
+    const documentsIntroEditor = buildIntroEditor(editableQuotation, 'documents_intro', 'Intro Dokumen Wajib');
+    bodyEl.appendChild(documentsIntroEditor.wrap);
   }
 
   bodyEl.appendChild(element('h3', 'client-quotation-section-title', 'Dokumen Wajib'));
