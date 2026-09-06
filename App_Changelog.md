@@ -19,6 +19,19 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #204**: tabel `cases` (Project) kini punya nomor referensi
+  human-readable (`case_number`, format `SMA/{YYYY-MM}/{kode-layanan}/
+  {urutan}`), auto-generate via trigger saat Case dibuat — sebelumnya
+  cuma bisa dirujuk lewat `id` (UUID). 54 Case existing di-backfill
+  (urut `created_at`, tahun-bulan mengikuti tanggal Case masing-masing).
+  `quotation_number` (Nomor RAB) kini diturunkan dari `case_number`
+  (`{case_number}-RAB`) untuk case yang belum pernah punya RAB
+  sebelumnya — mempersiapkan chain Nomor Project → Nomor RAB → (nanti)
+  Nomor Invoice yang bisa ditelusuri langsung dari nomornya tanpa buka
+  database. RAB yang sudah punya nomor (termasuk negosiasi v2/v3 yang
+  sedang berjalan) tidak berubah sama sekali — warisan nomor existing
+  tetap jalan seperti biasa. UI menampilkan `case_number` belum masuk
+  di sini — issue terpisah.
 - **Issue #202**: redesign menyeluruh preview/print RAB & Penawaran.
   Rincian Pekerjaan dan Dokumen yang Diperlukan kini menampilkan
   paragraf intro (dari kolom yang ditambah di #200) sebelum konten,
