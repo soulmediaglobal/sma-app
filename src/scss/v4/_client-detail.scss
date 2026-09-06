@@ -710,12 +710,16 @@ body[data-page='client-detail'].modal-open .toast-host {
   margin-bottom: var(--space-3);
 }
 
-.client-quotation-doc-acc-item {
-  border-bottom: 1px solid var(--border-color-light);
+.client-quotation-doc-accordion {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
 }
 
-.client-quotation-doc-acc-item:last-child {
-  border-bottom: none;
+.client-quotation-doc-acc-item {
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .client-quotation-doc-acc-header {
@@ -1519,6 +1523,10 @@ body[data-page='client-detail'].modal-open .toast-host {
   .client-quotation-items-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .client-quotation-doc-accordion {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
