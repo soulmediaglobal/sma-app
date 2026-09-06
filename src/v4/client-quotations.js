@@ -1925,6 +1925,7 @@ body {
 .preview-table th { background: #f0f0f0; text-align: left; }
 .preview-table-num { text-align: right; white-space: nowrap; }
 .preview-table-detail { font-size: 12px; color: #555; }
+.preview-table-note { font-size: 12px; color: #333; }
 .preview-table-total-label { text-align: right; font-weight: bold; }
 .preview-table-total { font-weight: bold; }
 .preview-doc-list { margin: 0 0 16px; padding-left: 20px; }
@@ -2036,39 +2037,75 @@ function buildPreviewLineItemsTable(doc, items) {
   return table;
 }
 
-function buildPreviewTerminTable(doc, items) {
+function buildPreviewTerminTable(doc, items, stages) {
   if (!items || items.length === 0) {
     return docEl(doc, 'p', 'preview-empty', 'Belum ada rincian termin.');
   }
   const table = docEl(doc, 'table', 'preview-table');
   const thead = doc.createElement('thead');
   const headRow = doc.createElement('tr');
-  ['No', 'Nama Termin', 'Syarat Pembayaran', 'Jumlah'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  ['No', 'Nama Termin', 'Syarat Pembayaran', 'Jumlah (Sebelum Pajak)', 'Keterangan'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
   thead.appendChild(headRow);
   table.appendChild(thead);
 
   const tbody = doc.createElement('tbody');
-  let total = 0;
+  let subtotal = 0;
   items.forEach((item, index) => {
+    const amount = Number(item.amount) || 0;
+    subtotal += amount;
+
     const row = doc.createElement('tr');
     row.appendChild(docEl(doc, 'td', '', String(index + 1)));
     row.appendChild(docEl(doc, 'td', '', item.term_name));
     row.appendChild(docEl(doc, 'td', '', item.due_condition || '—'));
-    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(item.amount || 0)));
+    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(amount)));
+
+    // Kalimat auto-generate memakai percentage_snapshot yang TERSIMPAN di
+    // DB (bukan dihitung ulang dari subtotal saat ini) -- sesuai keputusan
+    // desain Issue #188: snapshot ini justru dibuat khusus untuk consumer
+    // yang membaca kolom DB langsung tanpa lewat modal edit, seperti
+    // preview/print ini.
+    const stage = (stages || []).find((candidate) => candidate.id === item.stage_id);
+    const relationLabel = item.relation_type === 'BEFORE' ? 'Sebelum' : item.relation_type === 'AFTER' ? 'Sesudah' : null;
+    let sentence = '—';
+    if (item.percentage_snapshot != null && stage && relationLabel) {
+      const tax = computeTaxAmount(amount);
+      const postTax = computeGrandTotal(amount);
+      sentence = `Nilai ${Number(item.percentage_snapshot).toFixed(1)}% (${rupiah.format(amount)} + pajak ${rupiah.format(tax)} = ${rupiah.format(postTax)}) dibayarkan ${relationLabel} ${stage.name} dilakukan.`;
+    }
+    row.appendChild(docEl(doc, 'td', 'preview-table-note', sentence));
+
     tbody.appendChild(row);
-    total += Number(item.amount) || 0;
   });
   table.appendChild(tbody);
 
   const tfoot = doc.createElement('tfoot');
+
+  const subtotalRow = doc.createElement('tr');
+  const subtotalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Subtotal Termin');
+  subtotalLabel.colSpan = 3;
+  subtotalRow.appendChild(subtotalLabel);
+  subtotalRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(subtotal)));
+  subtotalRow.appendChild(docEl(doc, 'td', ''));
+  tfoot.appendChild(subtotalRow);
+
+  const taxRow = doc.createElement('tr');
+  const taxLabel = docEl(doc, 'td', 'preview-table-total-label', 'Pajak (2.5%)');
+  taxLabel.colSpan = 3;
+  taxRow.appendChild(taxLabel);
+  taxRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(computeTaxAmount(subtotal))));
+  taxRow.appendChild(docEl(doc, 'td', ''));
+  tfoot.appendChild(taxRow);
+
   const totalRow = doc.createElement('tr');
-  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total');
+  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total Ditagih');
   totalLabel.colSpan = 3;
   totalRow.appendChild(totalLabel);
-  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(total)));
+  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(computeGrandTotal(subtotal))));
+  totalRow.appendChild(docEl(doc, 'td', ''));
   tfoot.appendChild(totalRow);
-  table.appendChild(tfoot);
 
+  table.appendChild(tfoot);
   return table;
 }
 
@@ -2083,7 +2120,7 @@ function buildPreviewDocumentsList(doc, documents) {
 }
 
 function buildPreviewContent(doc, data) {
-  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, terminItems, documents, bankAccount, contact } = data;
+  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, terminItems, stages, documents, bankAccount, contact } = data;
 
   const root = docEl(doc, 'div', 'preview-doc');
 
@@ -2119,7 +2156,7 @@ function buildPreviewContent(doc, data) {
   root.appendChild(buildPreviewDocumentsList(doc, documents));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Termin Pembayaran'));
-  root.appendChild(buildPreviewTerminTable(doc, terminItems));
+  root.appendChild(buildPreviewTerminTable(doc, terminItems, stages));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rekening Pembayaran'));
   if (bankAccount) {
@@ -2199,11 +2236,12 @@ async function openQuotationPreview(quotation, ctx, documents) {
   loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
   win.document.body.appendChild(loading);
 
-  const [lineItems, terminItems, bankAccount, contact] = await Promise.all([
+  const [lineItems, terminItems, bankAccount, contact, stages] = await Promise.all([
     fetchQuotationLineItems(quotation.id),
     fetchQuotationItems(quotation.id),
     fetchBankAccount(quotation.bank_account_id),
-    fetchCaseCreatorContact(ctx.caseId)
+    fetchCaseCreatorContact(ctx.caseId),
+    fetchWorkStages(ctx.caseId)
   ]);
 
   if (win.closed) {return;}
@@ -2223,6 +2261,7 @@ async function openQuotationPreview(quotation, ctx, documents) {
     description: quotation.description,
     lineItems: lineItems || [],
     terminItems: terminItems || [],
+    stages: stages || [],
     documents: documents || [],
     bankAccount,
     contact
