@@ -19,6 +19,21 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #196**: preview/print RAB kini menampilkan breakdown pajak
+  dan persentase Termin Pembayaran, menyusul perubahan makna field
+  "Jumlah" jadi nilai sebelum pajak sejak Issue #188 — sebelumnya
+  preview cuma menampilkan angka polos tanpa breakdown, tanpa
+  persentase kontribusi ke Subtotal Pekerjaan, dan tanpa kalimat
+  auto-generate yang sudah ada di editor modal. Header tabel Termin
+  kini `No, Nama Termin, Syarat Pembayaran, Jumlah (Sebelum Pajak),
+  Keterangan`; kolom Keterangan berisi kalimat auto-generate per
+  baris (mis. "Nilai 30% (Rp 20.000.000 + pajak Rp 500.000 = Rp
+  20.500.000) dibayarkan Sebelum Tahap I dilakukan."), dibangun dari
+  `percentage_snapshot` yang tersimpan di DB, bukan dihitung ulang.
+  Known gap: 81 dari 84 baris `case_quotation_items` existing belum
+  punya `percentage_snapshot` terisi (cuma keisi saat RAB terkait
+  di-resave lewat editor setelah kolom ini ada) — kolom Keterangan
+  untuk baris tsb tampil "—" sampai di-resave.
 - **Issue #192**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
   diredesign jadi accordion per kategori dilengkapi search — sebelumnya
   flat list panjang yang selalu full-expand tanpa cara menyaring.
