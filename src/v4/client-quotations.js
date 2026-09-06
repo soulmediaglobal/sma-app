@@ -2360,7 +2360,7 @@ async function renderModalBody(bodyEl, ctx) {
       .order('version', { ascending: false }),
     supabase
       .from('document_templates')
-      .select('id, name, category_id, category:document_categories(name)')
+      .select('id, name, category_id, default_service_types, category:document_categories(name)')
       .eq('is_active', true)
       .order('name', { ascending: true }),
     supabase
@@ -2376,10 +2376,22 @@ async function renderModalBody(bodyEl, ctx) {
   }
 
   const quotations = quotationsResult.data || [];
-  const templates = (templatesResult.data || []).slice().sort((a, b) => {
+  const allTemplates = (templatesResult.data || []).slice().sort((a, b) => {
     const catA = a.category?.name || 'Lainnya';
     const catB = b.category?.name || 'Lainnya';
     return catA === catB ? a.name.localeCompare(b.name) : catA.localeCompare(catB);
+  });
+  // Filter berdasarkan service_type Case ini. Template dengan
+  // default_service_types NULL/kosong dianggap universal (berlaku untuk
+  // semua service_type) — keputusan disepakati di Issue #194, bukan
+  // "belum di-assign". Lihat Issue #160 section B untuk struktur
+  // requirement yang lebih granular (REQUIRED/OPTIONAL/CONDITIONAL/
+  // ONE_OF), yang belum dikerjakan di sini.
+  const caseServiceType = ctx.project?.service_type;
+  const templates = allTemplates.filter((template) => {
+    const scopes = template.default_service_types;
+    if (!scopes || scopes.length === 0) {return true;}
+    return scopes.includes(caseServiceType);
   });
   const documents = documentsResult.data || [];
   const activeQuotation = quotations.find((q) => INTERNAL_ACTIVE_STATUSES.includes(q.status)) || null;
@@ -2431,8 +2443,10 @@ async function renderModalBody(bodyEl, ctx) {
   }
 
   bodyEl.appendChild(element('h3', 'client-quotation-section-title', 'Dokumen Wajib'));
-  if (templates.length === 0) {
+  if (allTemplates.length === 0) {
     bodyEl.appendChild(element('div', 'client-quotation-empty', 'Belum ada template dokumen aktif.'));
+  } else if (templates.length === 0) {
+    bodyEl.appendChild(element('div', 'client-quotation-empty', `Tidak ada dokumen wajib terdaftar untuk jenis layanan "${caseServiceType || '-'}".`));
   } else {
     bodyEl.appendChild(buildDocumentChecklist(templates, documents, ctx, !activeQuotation || Boolean(editableQuotation)));
   }
