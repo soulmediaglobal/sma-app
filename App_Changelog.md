@@ -19,6 +19,11 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #206**: kartu Project di tab client kini menampilkan
+  "No. Project: {case_number}" di bawah tanggal dibuat — sebelumnya
+  cuma nama layanan + tanggal, belum ada nomor referensi yang bisa
+  dirujuk. Aria-label tombol ubah status juga diganti dari potongan
+  UUID jadi `case_number`.
 - **Issue #204**: tabel `cases` (Project) kini punya nomor referensi
   human-readable (`case_number`, format `SMA/{YYYY-MM}/{kode-layanan}/
   {urutan}`), auto-generate via trigger saat Case dibuat — sebelumnya
