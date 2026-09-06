@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #198**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
+  (Issue #192) kini ditampilkan dalam grid 2 kolom, bukan 1 kolom
+  vertikal panjang — dengan 10 kategori dokumen, modal sebelumnya
+  harus di-scroll banyak walau tiap kategori masih collapsed. Tiap
+  kategori kini tampil sebagai card mandiri (border penuh + rounded
+  corner) alih-alih baris list dengan garis pemisah, karena gaya list
+  tidak align rapi di tata 2 kolom. Fallback ke 1 kolom di layar
+  mobile (≤768px). Murni CSS, tidak ada perubahan JS/behavior/data.
 - **Issue #196**: preview/print RAB kini menampilkan breakdown pajak
   dan persentase Termin Pembayaran, menyusul perubahan makna field
   "Jumlah" jadi nilai sebelum pajak sejak Issue #188 — sebelumnya
