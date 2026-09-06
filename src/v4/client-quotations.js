@@ -1917,16 +1917,6 @@ async function fetchBankAccount(bankAccountId) {
   return data;
 }
 
-async function fetchCaseCreatorContact(caseId) {
-  const { data, error } = await supabase
-    .from('cases')
-    .select('created_by, creator:profiles!created_by(id, name, phone)')
-    .eq('id', caseId)
-    .single();
-  if (error || !data) {return null;}
-  return (Array.isArray(data.creator) ? data.creator[0] : data.creator) || null;
-}
-
 function docEl(doc, tag, className, text) {
   const node = doc.createElement(tag);
   if (className) {node.className = className;}
@@ -1986,19 +1976,53 @@ body {
 .preview-table th { background: #f0f0f0; text-align: left; }
 .preview-table-num { text-align: right; white-space: nowrap; }
 .preview-table-detail { font-size: 12px; color: #555; }
-.preview-table-note { font-size: 12px; color: #333; }
 .preview-table-total-label { text-align: right; font-weight: bold; }
 .preview-table-total { font-weight: bold; }
-.preview-doc-list { margin: 0 0 16px; padding-left: 20px; }
-.preview-rekening p, .preview-kontak p { margin: 2px 0; }
-.preview-signature { margin-top: 32px; }
+.preview-doc-list, .preview-stage-list { margin: 0 0 16px; padding-left: 20px; }
+.preview-stage-list li { margin-bottom: 12px; }
+.preview-stage-title { font-weight: bold; }
+.preview-stage-desc { margin: 4px 0 0 20px; text-align: justify; }
+.preview-page-break-marker {
+  margin: 32px -56px;
+  padding: 6px 56px;
+  border-top: 2px dashed #999;
+  border-bottom: 2px dashed #999;
+  background: #f5f5f5;
+  font-size: 11px;
+  color: #777;
+  text-align: center;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.preview-page-badge {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  color: #444;
+  margin-right: auto;
+}
+.preview-rekening p { margin: 2px 0; }
+.preview-signature-block { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 48px; break-inside: avoid; }
+.preview-signature-col { text-align: center; }
+.preview-signature-space { height: 64px; }
+.preview-signature-name { display: inline-block; min-width: 160px; border-top: 1px solid #1a1a1a; padding-top: 4px; margin-top: 0; }
+.preview-table-lineitems { table-layout: fixed; }
+.preview-table-lineitems th:nth-child(1), .preview-table-lineitems td:nth-child(1) { width: 40px; }
+.preview-table-lineitems th:nth-child(3), .preview-table-lineitems td:nth-child(3) { width: 56px; }
+.preview-table-lineitems th:nth-child(4), .preview-table-lineitems td:nth-child(4) { width: 145px; }
+.preview-table-lineitems th:nth-child(5), .preview-table-lineitems td:nth-child(5) { width: 145px; }
 .preview-table-group-header { font-weight: bold; background: #fafafa; }
 .preview-table tbody tr.preview-table-group-continue > td { border-top: hidden; }
 .preview-empty { color: #777; font-style: italic; }
+@page {
+  size: A4;
+  margin: 20mm 18mm;
+}
 @media print {
   body { background: #ffffff; }
   .preview-toolbar { display: none; }
   .preview-page { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+  .preview-table tr { break-inside: avoid; }
+  .preview-section-title { break-after: avoid; }
+  .preview-page-break-marker { display: none; }
 }
 `;
 
@@ -2013,7 +2037,7 @@ function buildPreviewLineItemsTable(doc, items) {
   // sekali di awal.
   const normalizedItems = items.map((item) => ({ ...item, parentId: item.parent_item_id }));
 
-  const table = docEl(doc, 'table', 'preview-table');
+  const table = docEl(doc, 'table', 'preview-table preview-table-lineitems');
   const thead = doc.createElement('thead');
   const headRow = doc.createElement('tr');
   ['No', 'Deskripsi', 'Qty', 'Rate', 'Jumlah'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
@@ -2025,8 +2049,9 @@ function buildPreviewLineItemsTable(doc, items) {
   function buildHeaderRow(item, numberLabel, depth, isContinuation) {
     const row = doc.createElement('tr');
     if (isContinuation) {row.classList.add('preview-table-group-continue');}
-    const cell = docEl(doc, 'td', 'preview-table-group-header', `${numberLabel}. ${item.description}`);
-    cell.colSpan = 5;
+    row.appendChild(docEl(doc, 'td', '', numberLabel));
+    const cell = docEl(doc, 'td', 'preview-table-group-header', item.description);
+    cell.colSpan = 4;
     cell.style.paddingLeft = `${8 + (depth - 1) * 16}px`;
     row.appendChild(cell);
     return row;
@@ -2098,14 +2123,14 @@ function buildPreviewLineItemsTable(doc, items) {
   return table;
 }
 
-function buildPreviewTerminTable(doc, items, stages) {
+function buildPreviewTerminTable(doc, items) {
   if (!items || items.length === 0) {
     return docEl(doc, 'p', 'preview-empty', 'Belum ada rincian termin.');
   }
   const table = docEl(doc, 'table', 'preview-table');
   const thead = doc.createElement('thead');
   const headRow = doc.createElement('tr');
-  ['No', 'Nama Termin', 'Syarat Pembayaran', 'Jumlah (Sebelum Pajak)', 'Keterangan'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  ['No', 'Nama Termin', 'Syarat Pembayaran', 'Jumlah'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
   thead.appendChild(headRow);
   table.appendChild(thead);
 
@@ -2119,54 +2144,23 @@ function buildPreviewTerminTable(doc, items, stages) {
     row.appendChild(docEl(doc, 'td', '', String(index + 1)));
     row.appendChild(docEl(doc, 'td', '', item.term_name));
     row.appendChild(docEl(doc, 'td', '', item.due_condition || '—'));
-    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(amount)));
-
-    // Kalimat auto-generate memakai percentage_snapshot yang TERSIMPAN di
-    // DB (bukan dihitung ulang dari subtotal saat ini) -- sesuai keputusan
-    // desain Issue #188: snapshot ini justru dibuat khusus untuk consumer
-    // yang membaca kolom DB langsung tanpa lewat modal edit, seperti
-    // preview/print ini.
-    const stage = (stages || []).find((candidate) => candidate.id === item.stage_id);
-    const relationLabel = item.relation_type === 'BEFORE' ? 'Sebelum' : item.relation_type === 'AFTER' ? 'Sesudah' : null;
-    let sentence = '—';
-    if (item.percentage_snapshot != null && stage && relationLabel) {
-      const tax = computeTaxAmount(amount);
-      const postTax = computeGrandTotal(amount);
-      sentence = `Nilai ${Number(item.percentage_snapshot).toFixed(1)}% (${rupiah.format(amount)} + pajak ${rupiah.format(tax)} = ${rupiah.format(postTax)}) dibayarkan ${relationLabel} ${stage.name} dilakukan.`;
-    }
-    row.appendChild(docEl(doc, 'td', 'preview-table-note', sentence));
-
+    // Ditampilkan SUDAH termasuk pajak -- breakdown pajak sengaja tidak
+    // diperlihatkan di sini (keputusan Issue #202); rinciannya nanti
+    // muncul di invoice per-termin, bukan di dokumen penawaran ini.
+    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(computeGrandTotal(amount))));
     tbody.appendChild(row);
   });
   table.appendChild(tbody);
 
   const tfoot = doc.createElement('tfoot');
-
-  const subtotalRow = doc.createElement('tr');
-  const subtotalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Subtotal Termin');
-  subtotalLabel.colSpan = 3;
-  subtotalRow.appendChild(subtotalLabel);
-  subtotalRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(subtotal)));
-  subtotalRow.appendChild(docEl(doc, 'td', ''));
-  tfoot.appendChild(subtotalRow);
-
-  const taxRow = doc.createElement('tr');
-  const taxLabel = docEl(doc, 'td', 'preview-table-total-label', 'Pajak (2.5%)');
-  taxLabel.colSpan = 3;
-  taxRow.appendChild(taxLabel);
-  taxRow.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah.format(computeTaxAmount(subtotal))));
-  taxRow.appendChild(docEl(doc, 'td', ''));
-  tfoot.appendChild(taxRow);
-
   const totalRow = doc.createElement('tr');
   const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total Ditagih');
   totalLabel.colSpan = 3;
   totalRow.appendChild(totalLabel);
   totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah.format(computeGrandTotal(subtotal))));
-  totalRow.appendChild(docEl(doc, 'td', ''));
   tfoot.appendChild(totalRow);
-
   table.appendChild(tfoot);
+
   return table;
 }
 
@@ -2180,8 +2174,26 @@ function buildPreviewDocumentsList(doc, documents) {
   return list;
 }
 
+// Paragraf/bullet, BUKAN tabel -- keputusan desain eksplisit (Issue #202).
+function buildPreviewStagesList(doc, stages) {
+  if (!stages || stages.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Belum ada tahapan pekerjaan.');
+  }
+  const list = doc.createElement('ul');
+  list.className = 'preview-stage-list';
+  stages.forEach((stage) => {
+    const li = doc.createElement('li');
+    li.appendChild(docEl(doc, 'div', 'preview-stage-title', stage.name));
+    if (stage.description) {
+      li.appendChild(docEl(doc, 'div', 'preview-stage-desc', stage.description));
+    }
+    list.appendChild(li);
+  });
+  return list;
+}
+
 function buildPreviewContent(doc, data) {
-  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, terminItems, stages, documents, bankAccount, contact } = data;
+  const { generatedDate, quotationNumber, serviceType, client, description, lineItems, lineItemsIntro, terminItems, stages, stagesIntro, documents, documentsIntro, bankAccount } = data;
 
   const root = docEl(doc, 'div', 'preview-doc');
 
@@ -2211,13 +2223,19 @@ function buildPreviewContent(doc, data) {
   }
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rincian Pekerjaan'));
+  if (lineItemsIntro) {root.appendChild(docEl(doc, 'p', 'preview-paragraph', lineItemsIntro));}
   root.appendChild(buildPreviewLineItemsTable(doc, lineItems));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Dokumen yang Diperlukan'));
+  if (documentsIntro) {root.appendChild(docEl(doc, 'p', 'preview-paragraph', documentsIntro));}
   root.appendChild(buildPreviewDocumentsList(doc, documents));
 
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Tahapan Pekerjaan'));
+  if (stagesIntro) {root.appendChild(docEl(doc, 'p', 'preview-paragraph', stagesIntro));}
+  root.appendChild(buildPreviewStagesList(doc, stages));
+
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Termin Pembayaran'));
-  root.appendChild(buildPreviewTerminTable(doc, terminItems, stages));
+  root.appendChild(buildPreviewTerminTable(doc, terminItems));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rekening Pembayaran'));
   if (bankAccount) {
@@ -2230,22 +2248,60 @@ function buildPreviewContent(doc, data) {
     root.appendChild(docEl(doc, 'p', 'preview-empty', 'Rekening bank belum dipilih untuk penawaran ini.'));
   }
 
-  if (contact?.name) {
-    root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Kontak'));
-    const kontak = docEl(doc, 'div', 'preview-kontak');
-    kontak.appendChild(docEl(doc, 'p', '', contact.name));
-    if (contact.phone) {kontak.appendChild(docEl(doc, 'p', '', contact.phone));}
-    root.appendChild(kontak);
-  }
-
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Penutup'));
   root.appendChild(docEl(doc, 'p', 'preview-paragraph', 'Demikian penawaran ini kami sampaikan. Bapak/Ibu dapat menanggapi penawaran ini dengan menerima, menolak, atau mengajukan negosiasi melalui tombol respon yang akan tersedia pada portal client. Atas perhatian dan kerja sama Bapak/Ibu, kami ucapkan terima kasih.'));
 
-  const signature = docEl(doc, 'div', 'preview-signature');
-  signature.appendChild(docEl(doc, 'p', '', 'Hormat kami,'));
-  signature.appendChild(docEl(doc, 'p', '', 'Soul Mitra Abadi'));
-  root.appendChild(signature);
+  const signatureBlock = docEl(doc, 'div', 'preview-signature-block');
+
+  const smaCol = docEl(doc, 'div', 'preview-signature-col');
+  smaCol.appendChild(docEl(doc, 'p', '', 'Soul Mitra Abadi,'));
+  smaCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  smaCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(smaCol);
+
+  const clientCol = docEl(doc, 'div', 'preview-signature-col');
+  clientCol.appendChild(docEl(doc, 'p', '', `${companyLine || 'Pihak Client'},`));
+  clientCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  clientCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(clientCol);
+
+  root.appendChild(signatureBlock);
 
   return root;
+}
+
+// Estimasi VISUAL jumlah halaman di layar (bukan hasil print asli --
+// browser print engine punya algoritma break yang lebih presisi).
+// Berguna karena @page CSS cuma "aktif" saat benar-benar print/PDF,
+// tidak bisa dibaca balik jadi angka di tampilan layar biasa.
+// PAGE_HEIGHT_PX = tinggi konten 1 halaman A4 (297mm) dikurangi margin
+// atas+bawah cetak (20mm+20mm = 40mm), dikonversi ke px @ 96dpi:
+// (297 - 40) * 96 / 25.4 ≈ 971px.
+const PAGE_HEIGHT_PX = 971;
+
+function estimatePageBreaks(doc, root, badgeEl) {
+  const children = Array.from(root.children);
+  let pageCount = 1;
+  let usedHeight = 0;
+  let lastWasHeading = false;
+
+  children.forEach((child) => {
+    const height = child.getBoundingClientRect().height;
+
+    if (usedHeight > 0 && usedHeight + height > PAGE_HEIGHT_PX && !lastWasHeading) {
+      const marker = docEl(doc, 'div', 'preview-page-break-marker', `Halaman ${pageCount + 1}`);
+      root.insertBefore(marker, child);
+      pageCount += 1;
+      usedHeight = 0;
+    }
+
+    usedHeight += height;
+    lastWasHeading = child.tagName === 'H3';
+  });
+
+  if (badgeEl) {
+    badgeEl.textContent = `Estimasi: ${pageCount} halaman`;
+  }
 }
 
 function renderPreviewWindow(win, data) {
@@ -2272,9 +2328,15 @@ function renderPreviewWindow(win, data) {
   toolbar.append(printBtn, closeBtn);
   doc.body.appendChild(toolbar);
 
+  const pageBadge = docEl(doc, 'span', 'preview-page-badge', '');
+  toolbar.prepend(pageBadge);
+
   const page = docEl(doc, 'div', 'preview-page');
-  page.appendChild(buildPreviewContent(doc, data));
+  const content = buildPreviewContent(doc, data);
+  page.appendChild(content);
   doc.body.appendChild(page);
+
+  estimatePageBreaks(doc, content, pageBadge);
 }
 
 /**
@@ -2297,11 +2359,10 @@ async function openQuotationPreview(quotation, ctx, documents) {
   loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
   win.document.body.appendChild(loading);
 
-  const [lineItems, terminItems, bankAccount, contact, stages] = await Promise.all([
+  const [lineItems, terminItems, bankAccount, stages] = await Promise.all([
     fetchQuotationLineItems(quotation.id),
     fetchQuotationItems(quotation.id),
     fetchBankAccount(quotation.bank_account_id),
-    fetchCaseCreatorContact(ctx.caseId),
     fetchWorkStages(ctx.caseId)
   ]);
 
@@ -2321,11 +2382,13 @@ async function openQuotationPreview(quotation, ctx, documents) {
     client: ctx.client,
     description: quotation.description,
     lineItems: lineItems || [],
+    lineItemsIntro: quotation.line_items_intro || INTRO_FIELD_DEFAULTS.line_items_intro,
     terminItems: terminItems || [],
     stages: stages || [],
+    stagesIntro: quotation.stages_intro || INTRO_FIELD_DEFAULTS.stages_intro,
     documents: documents || [],
-    bankAccount,
-    contact
+    documentsIntro: quotation.documents_intro || INTRO_FIELD_DEFAULTS.documents_intro,
+    bankAccount
   });
 }
 
@@ -2455,7 +2518,7 @@ async function renderModalBody(bodyEl, ctx) {
   const [quotationsResult, templatesResult, documentsResult, bankAccounts] = await Promise.all([
     supabase
       .from('case_quotations')
-      .select('id, case_id, version, status, total_amount, notes, rejection_reason, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name), internal_submitted_at, internal_approved_at, internal_revision_requested_at, internal_revision_reason, internal_reopened_at, internal_reopen_reason, internal_submitter:profiles!internal_submitted_by(id, name), internal_approver:profiles!internal_approved_by(id, name), internal_revision_requester:profiles!internal_revision_requested_by(id, name), internal_reopener:profiles!internal_reopened_by(id, name)')
+      .select('id, case_id, version, status, total_amount, notes, rejection_reason, quotation_number, description, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name), internal_submitted_at, internal_approved_at, internal_revision_requested_at, internal_revision_reason, internal_reopened_at, internal_reopen_reason, internal_submitter:profiles!internal_submitted_by(id, name), internal_approver:profiles!internal_approved_by(id, name), internal_revision_requester:profiles!internal_revision_requested_by(id, name), internal_reopener:profiles!internal_reopened_by(id, name), line_items_intro, documents_intro, stages_intro')
       .eq('case_id', ctx.caseId)
       .order('version', { ascending: false }),
     supabase
