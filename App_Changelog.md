@@ -19,6 +19,22 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #202**: redesign menyeluruh preview/print RAB & Penawaran.
+  Rincian Pekerjaan dan Dokumen yang Diperlukan kini menampilkan
+  paragraf intro (dari kolom yang ditambah di #200) sebelum konten,
+  baris grup di tabel Rincian Pekerjaan diperbaiki alignment-nya (kolom
+  No terpisah dari Deskripsi, konsisten dengan baris item biasa).
+  Section baru **Tahapan Pekerjaan** ditambahkan (sebelumnya tidak ada
+  di preview sama sekali) — paragraf intro + list per tahapan (bukan
+  tabel). Termin Pembayaran: kolom Keterangan (#196) dihapus, nilai per
+  baris kini ditampilkan sudah termasuk pajak. Kontak diganti Penutup
+  (nama/HP dihapus), ditambahkan blok tanda tangan 2 kolom (Soul Mitra
+  Abadi & Client). Layout kini mengikuti standar kertas A4 dengan
+  page-break yang wajar untuk dokumen multi-halaman, dilengkapi
+  estimator jumlah halaman (murni heuristik layar, disembunyikan saat
+  print sungguhan). Turut memperbaiki bug dari #200: kolom intro belum
+  ter-select di query utama RAB, membuat teks custom yang disimpan
+  user tidak ter-load ulang saat modal dibuka kembali.
 - **Issue #200**: tambah 3 paragraf intro editable di RAB & Penawaran
   — "Intro Rincian Pekerjaan", "Intro Dokumen Wajib", dan "Intro
   Tahapan Pekerjaan" — masing-masing punya textarea + tombol Simpan
