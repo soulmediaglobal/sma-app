@@ -117,6 +117,13 @@ export async function getWorkStagesForCase(caseId) {
   return fetchWorkStages(caseId);
 }
 
+export async function getAcceptedTerminForCase(caseId) {
+  const quotations = quotationsByCaseId.get(caseId) || [];
+  const accepted = quotations.find((q) => q.status === 'ACCEPTED');
+  if (!accepted) {return [];}
+  return (await fetchQuotationItems(accepted.id)) || [];
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) {node.className = className;}
