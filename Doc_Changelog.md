@@ -17,6 +17,15 @@ Tiap bullet mengutip poin terdampak dengan kode `C{chapter}P{point}` (lihat C0P2
 
 ---
 
+## [2.4.2] - 2026-09-02
+
+### Added
+- **C6P10 — Format Command untuk Eksekusi Manual**: setiap kali AI meminta Ray menjalankan command di terminal atau tempat lain, command wajib ditulis dalam bash code block terpisah dari teks penjelasan, siap copy-paste tanpa perlu diedit. Sebelumnya ini cuma kebiasaan tidak tertulis. Issue #212.
+
+**Disetujui oleh Ray.**
+
+---
+
 ## [2.4.1] - 2026-09-02
 
 ### Added
