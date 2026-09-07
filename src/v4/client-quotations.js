@@ -245,7 +245,7 @@ export async function loadQuotationsForCases(caseIds) {
 
   const { data, error } = await supabase
     .from('case_quotations')
-    .select('id, case_id, version, status, total_amount, notes, quotation_number, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name)')
+    .select('id, case_id, version, status, total_amount, notes, quotation_number, bank_account_id, sent_at, responded_at, client_response_notes, created_by, created_at, creator:profiles!created_by(id, name)')
     .in('case_id', caseIds)
     .order('case_id', { ascending: true })
     .order('version', { ascending: false });
@@ -1947,7 +1947,7 @@ const previewDateFmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month:
 // key/value rows — those stay in the DB unused (legacy). Returns null for
 // quotations that predate this feature or a draft that hasn't picked one
 // yet; the caller renders a placeholder instead of crashing on it.
-async function fetchBankAccount(bankAccountId) {
+export async function fetchBankAccount(bankAccountId) {
   if (!bankAccountId) {return null;}
   const { data, error } = await supabase
     .from('bank_accounts')
@@ -1958,14 +1958,14 @@ async function fetchBankAccount(bankAccountId) {
   return data;
 }
 
-function docEl(doc, tag, className, text) {
+export function docEl(doc, tag, className, text) {
   const node = doc.createElement(tag);
   if (className) {node.className = className;}
   if (text !== undefined && text !== null) {node.textContent = text;}
   return node;
 }
 
-const PREVIEW_CSS = `
+export const PREVIEW_CSS = `
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
 body {
@@ -2320,7 +2320,7 @@ function buildPreviewContent(doc, data) {
 // (297 - 40) * 96 / 25.4 ≈ 971px.
 const PAGE_HEIGHT_PX = 971;
 
-function estimatePageBreaks(doc, root, badgeEl) {
+export function estimatePageBreaks(doc, root, badgeEl) {
   const children = Array.from(root.children);
   let pageCount = 1;
   let usedHeight = 0;
