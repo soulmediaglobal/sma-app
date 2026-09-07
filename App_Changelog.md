@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #219**: tombol "Setujui RAB (mewakili Client)" untuk
+  admin/supervisor pada quotation berstatus SENT — solusi sementara
+  sampai client portal live, mencatat jejak audit lewat kolom baru
+  `accepted_on_behalf_by`/`accepted_on_behalf_at` dan activity log
+  eksplisit. Migration juga menonaktifkan auto-generate baris `payments`
+  dari SEMUA Termin saat RAB ACCEPTED (perilaku lama di
+  `handle_quotation_response()`) — invoice sekarang dibuat manual
+  per-tahap lewat Issue #218, bukan sekaligus di titik RAB disetujui.
 - **Issue #216**: kolom `payments.quotation_item_id` (link ke Termin RAB
   `case_quotation_items`) dengan constraint UNIQUE (satu Termin maksimal
   1 invoice aktif), dan trigger `generate_invoice_number()` yang
