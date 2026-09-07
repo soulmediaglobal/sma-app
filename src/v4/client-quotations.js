@@ -113,6 +113,10 @@ export function getQuotationsByCaseId() {
   return quotationsByCaseId;
 }
 
+export async function getWorkStagesForCase(caseId) {
+  return fetchWorkStages(caseId);
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) {node.className = className;}
@@ -290,7 +294,7 @@ async function fetchQuotationItems(quotationId) {
 async function fetchWorkStages(caseId) {
   const { data, error } = await supabase
     .from('case_work_stages')
-    .select('id, name, description, order_index')
+    .select('id, name, description, order_index, status, parent_stage_id')
     .eq('case_id', caseId)
     .order('order_index', { ascending: true });
   if (error) {return null;}
