@@ -19,6 +19,11 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #214**: tombol update status ("Tandai Selesai"/"Tandai
+  Terhambat") untuk tahapan pekerjaan leaf node di Client Detail v2,
+  render hierarki tab Workflow (tahap utama → sub-tahap dengan badge 4
+  status), dan progress % per Project berbasis proporsi tahap utama
+  selesai.
 - **Issue #210**: `case_work_stages` (Tahapan Pekerjaan) sekarang
   punya kolom `status` (`PENDING`/`IN_PROGRESS`/`DONE`/`BLOCKED`) dan
   `parent_stage_id` (hierarki 2 level: Tahap utama → Sub-tahap) —

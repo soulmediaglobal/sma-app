@@ -25,7 +25,7 @@ import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openAddCaseModal } from './case-form.js';
-import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId } from './client-quotations.js';
+import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase } from './client-quotations.js';
 
 const CLIENT_FIELDS = [
   'id', 'name', 'type', 'pic_name', 'pic_title', 'pic_phone', 'pic_email',
@@ -140,7 +140,134 @@ function renderSummary(summary) {
   document.getElementById('cdv2-sum-followup').textContent = summary.followUpCount > 0 ? `${summary.followUpCount} RAB` : '0';
 }
 
-function renderProjectRow(project) {
+const WORK_STAGE_STATUS_LABEL = {
+  PENDING: 'Menunggu',
+  IN_PROGRESS: 'Berjalan',
+  DONE: 'Selesai',
+  BLOCKED: 'Terhambat'
+};
+
+async function updateWorkStageStatus(stage, newStatus, ctx) {
+  if (!ctx.profile?.id) {
+    showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
+    return false;
+  }
+  const { error } = await supabase
+    .from('case_work_stages')
+    .update({ status: newStatus })
+    .eq('id', stage.id);
+  if (error) {
+    showToast('Gagal update status.', { variant: 'error' });
+    return false;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: ctx.caseId,
+    type: 'Status Tahapan',
+    notes: `Tahap "${stage.name}" ditandai ${newStatus === 'DONE' ? 'selesai' : 'terhambat'}.`,
+    by_user: ctx.profile.id
+  });
+  return true;
+}
+
+function calcProgress(stages) {
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  if (mainStages.length === 0) {return null;}
+  const done = mainStages.filter((s) => s.status === 'DONE').length;
+  return Math.round((done / mainStages.length) * 100);
+}
+
+function workStageStatusBadge(status) {
+  const key = (status || 'PENDING').toLowerCase();
+  return element('span', `cdv2-status-pill cdv2-status-${key}`, WORK_STAGE_STATUS_LABEL[status] || status || '—');
+}
+
+function buildWorkStageActions(stage, project) {
+  if (stage.status === 'DONE') {return null;}
+
+  const actions = element('div', 'cdv2-workflow-actions');
+  const doneBtn = element('button', 'btn btn-sm btn-success', 'Selesai');
+  doneBtn.type = 'button';
+  const blockedBtn = element('button', 'btn btn-sm btn-warning', 'Terhambat');
+  blockedBtn.type = 'button';
+
+  const handleClick = (newStatus) => async () => {
+    doneBtn.disabled = true;
+    blockedBtn.disabled = true;
+    const ok = await updateWorkStageStatus(stage, newStatus, { caseId: project.id, profile: currentProfile });
+    if (ok) {
+      showToast('Status tahap diperbarui.', { variant: 'success' });
+      await loadAndRenderProjects();
+      return;
+    }
+    doneBtn.disabled = false;
+    blockedBtn.disabled = false;
+  };
+
+  doneBtn.addEventListener('click', handleClick('DONE'));
+  blockedBtn.addEventListener('click', handleClick('BLOCKED'));
+  actions.append(doneBtn, blockedBtn);
+  return actions;
+}
+
+function buildWorkflowSection(project, stages) {
+  const wrap = element('div', 'cdv2-proj-workflow');
+  wrap.appendChild(element('span', 'cdv2-workflow-label', 'Tahapan Pekerjaan'));
+
+  if (!stages || stages.length === 0) {
+    wrap.appendChild(element('div', 'cdv2-workflow-empty', 'Belum ada tahapan pekerjaan.'));
+    return wrap;
+  }
+
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const subStagesByParent = new Map();
+  stages.forEach((s) => {
+    if (!s.parent_stage_id) {return;}
+    const siblings = subStagesByParent.get(s.parent_stage_id) || [];
+    siblings.push(s);
+    subStagesByParent.set(s.parent_stage_id, siblings);
+  });
+
+  const list = element('div', 'cdv2-workflow-list');
+
+  mainStages.forEach((stage) => {
+    const subStages = subStagesByParent.get(stage.id) || [];
+    const stageEl = element('div', 'cdv2-workflow-stage');
+    const head = element('div', 'cdv2-workflow-stage-head');
+    head.append(
+      element('span', 'cdv2-workflow-stage-name', stage.name),
+      workStageStatusBadge(stage.status)
+    );
+    stageEl.appendChild(head);
+
+    if (subStages.length === 0) {
+      const actions = buildWorkStageActions(stage, project);
+      if (actions) {stageEl.appendChild(actions);}
+    } else {
+      const subList = element('div', 'cdv2-workflow-substages');
+      subStages.forEach((sub) => {
+        const subEl = element('div', 'cdv2-workflow-substage');
+        const subHead = element('div', 'cdv2-workflow-substage-head');
+        subHead.append(
+          element('span', 'cdv2-workflow-substage-name', sub.name),
+          workStageStatusBadge(sub.status)
+        );
+        subEl.appendChild(subHead);
+        const subActions = buildWorkStageActions(sub, project);
+        if (subActions) {subEl.appendChild(subActions);}
+        subList.appendChild(subEl);
+      });
+      stageEl.appendChild(subList);
+    }
+
+    list.appendChild(stageEl);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
+async function renderProjectRow(project) {
   const row = element('div', 'cdv2-proj-row');
   const main = element('div', 'cdv2-proj-main');
   main.append(
@@ -149,6 +276,19 @@ function renderProjectRow(project) {
   );
   const statusKey = (project.status || '').toLowerCase();
   const statusBadge = element('span', `cdv2-status-pill cdv2-status-${statusKey}`, project.status || '—');
+
+  const stages = (await getWorkStagesForCase(project.id)) || [];
+  const progress = calcProgress(stages);
+  if (progress !== null) {
+    const progressEl = element('div', 'cdv2-proj-progress');
+    const bar = element('div', 'cdv2-proj-progress-bar');
+    const fill = element('div', 'cdv2-proj-progress-fill');
+    fill.style.width = `${progress}%`;
+    bar.appendChild(fill);
+    progressEl.append(bar, element('span', 'cdv2-proj-progress-label', `Progress: ${progress}%`));
+    main.appendChild(progressEl);
+  }
+
   row.append(main, statusBadge);
 
   const quotation = buildQuotationSection(project, {
@@ -159,6 +299,10 @@ function renderProjectRow(project) {
   });
   quotation.classList.add('cdv2-proj-quotation');
   row.appendChild(quotation);
+
+  const workflow = buildWorkflowSection(project, stages);
+  row.appendChild(workflow);
+
   return row;
 }
 
@@ -186,7 +330,9 @@ async function loadAndRenderProjects() {
 
   await loadQuotationsForCases(projects.map((p) => p.id));
   renderSummary(computeSummary(projects));
-  projects.forEach((project) => table.appendChild(renderProjectRow(project)));
+  for (const project of projects) {
+    table.appendChild(await renderProjectRow(project));
+  }
 }
 
 function wireAddProject() {
