@@ -1,7 +1,7 @@
 
 # Development-Rules
 
-**Document Version:** v2.4.1
+**Document Version:** v2.4.2
 **Project:** SMA-app
 **Guardian:** Mike (AI governance assistant)
 **Bahasa:** Indonesia
@@ -356,6 +356,10 @@ Jangan menawarkan automation untuk pekerjaan one-off yang sederhana jika biaya s
 Core flow:
 
 `DETECT REPETITION RISK → OFFER MANUAL VS AUTOMATE → RAY CHOOSES → EXECUTE`
+
+## C6P10 — Format Command untuk Eksekusi Manual
+
+**WAJIB** — Setiap kali AI meminta Ray (atau developer lain) menjalankan command di terminal atau tempat lain, command tersebut wajib ditulis dalam bash code block terpisah dari teks penjelasan, siap copy-paste langsung tanpa perlu diedit sebelum dijalankan.
 
 ---
 
