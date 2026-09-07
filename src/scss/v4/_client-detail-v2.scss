@@ -1,0 +1,171 @@
+// Client Detail v2 (eksperimen, Issue #208) — semua class di-prefix
+// cdv2- biar tidak nabrak style global/tab lama sama sekali.
+
+.cdv2-type-badge {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 3px 10px;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cdv2-info-bar {
+  display: flex;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius);
+  margin: var(--space-4) 0 var(--space-6);
+  overflow: hidden;
+}
+
+.cdv2-info-bar-cell {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--border-color-light);
+}
+
+.cdv2-info-bar-cell:last-child { border-right: none; }
+.cdv2-info-bar-cell--action { flex: 0 0 auto; display: flex; align-items: center; }
+
+.cdv2-info-bar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.cdv2-info-bar-value { font-size: 13px; font-weight: var(--font-weight-medium); }
+
+.cdv2-text-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: 0 var(--space-4);
+}
+
+.cdv2-info-full {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-7);
+}
+
+.cdv2-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-color-light);
+  font-size: 12.5px;
+}
+
+.cdv2-info-row-label { color: var(--text-muted); }
+.cdv2-info-row-value.empty { color: var(--text-disabled); font-style: italic; }
+
+.cdv2-section { margin-top: var(--space-6); }
+
+.cdv2-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.cdv2-section-title {
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.cdv2-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.cdv2-sum-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color-light);
+  border-left: 3px solid var(--border-color-light);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4);
+}
+
+.cdv2-sum-card.cdv2-acc-blue { border-left-color: var(--blue); }
+.cdv2-sum-card.cdv2-acc-green { border-left-color: var(--green); }
+.cdv2-sum-card.cdv2-acc-orange { border-left-color: var(--orange); }
+
+.cdv2-sum-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.cdv2-sum-value {
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
+}
+
+.cdv2-proj-table {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cdv2-proj-row {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.cdv2-proj-row:last-child { border-bottom: none; }
+
+.cdv2-proj-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.cdv2-proj-name { font-weight: var(--font-weight-bold); font-size: 14.5px; }
+.cdv2-proj-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.cdv2-status-pill {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  padding: 4px 11px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cdv2-status-baru { background: var(--blue-lt); color: var(--blue); }
+.cdv2-status-proses { background: var(--yellow-lt); color: var(--orange); }
+.cdv2-status-selesai { background: var(--green-lt); color: var(--green); }
+.cdv2-status-batal { background: var(--red-lt); color: var(--red); }
+
+.cdv2-proj-quotation { margin-top: var(--space-3); }
+
+.cdv2-note {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border: 1px dashed var(--border-color-light);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.cdv2-note a { color: var(--primary); }

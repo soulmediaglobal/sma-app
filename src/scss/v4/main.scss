@@ -11,6 +11,7 @@
 @use "auth";
 @use "apps";
 @use "client-detail";
+@use './client-detail-v2';
 @use './client-workflow';
 @use './project-setting';
 @use './client-portal-auth';

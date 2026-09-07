@@ -117,6 +117,9 @@ async function initializeAdminPage() {
   if (document.getElementById('client-detail-root')) {
     import('./v4/client-detail.js').then((m) => m.initClientDetail());
   }
+  if (document.getElementById('client-detail-v2-root')) {
+    import('./v4/client-detail-v2.js').then((m) => m.initClientDetailV2());
+  }
   if (document.getElementById('client-form')) {
     import('./v4/client-form.js').then((m) => m.initClientForm());
   }
