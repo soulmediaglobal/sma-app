@@ -1864,6 +1864,32 @@ async function sendQuotation(quotation, ctx) {
   await ctx.refresh();
 }
 
+// SEMENTARA (Issue #219) -- client portal belum live, jadi admin/
+// supervisor approve mewakili client. Hapus/nonaktifkan fungsi ini
+// begitu client portal (Dimas) sudah live dan client bisa approve
+// sendiri lewat portal.
+async function approveOnBehalfOfClient(quotation, ctx) {
+  const { error } = await updateQuotationStatus(
+    quotation,
+    'SENT',
+    { status: 'ACCEPTED', responded_at: new Date().toISOString() },
+    'Status quotation sudah berubah.'
+  );
+  if (error) {
+    showToast('Gagal menyetujui RAB.', { variant: 'error' });
+    return;
+  }
+  await logActivity({
+    clientId: ctx.clientId,
+    caseId: ctx.caseId,
+    type: 'Approve RAB (Admin/Supervisor, mewakili Client)',
+    notes: `RAB versi ${quotation.version} disetujui oleh admin/supervisor mewakili client (client portal belum live).`,
+    profile: ctx.profile
+  });
+  showToast('RAB berhasil disetujui.', { variant: 'success' });
+  await ctx.refresh();
+}
+
 async function rejectQuotation(quotation, reason, ctx) {
   const { error } = await updateQuotationStatus(
     quotation,
@@ -2710,10 +2736,13 @@ async function renderModalBody(bodyEl, ctx) {
   const rejectableQuotation = quotations.find((quotation) => quotation.status === 'SENT') || null;
   if (rejectableQuotation && canRejectQuotation(ctx.profile?.role)) {
     const rejectSection = element('div', 'client-quotation-send-section');
+    const approveBtn = element('button', 'btn btn-primary', 'Setujui RAB (mewakili Client)');
+    approveBtn.type = 'button';
+    approveBtn.addEventListener('click', () => approveOnBehalfOfClient(rejectableQuotation, ctx));
     const rejectBtn = element('button', 'btn btn-danger', 'Tolak Penawaran');
     rejectBtn.type = 'button';
     rejectBtn.addEventListener('click', () => openRejectQuotationModal(rejectableQuotation, ctx));
-    rejectSection.appendChild(rejectBtn);
+    rejectSection.append(approveBtn, rejectBtn);
     bodyEl.appendChild(rejectSection);
   }
 }
