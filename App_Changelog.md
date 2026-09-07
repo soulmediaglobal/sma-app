@@ -19,6 +19,15 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #210**: `case_work_stages` (Tahapan Pekerjaan) sekarang
+  punya kolom `status` (`PENDING`/`IN_PROGRESS`/`DONE`/`BLOCKED`) dan
+  `parent_stage_id` (hierarki 2 level: Tahap utama → Sub-tahap) —
+  prasyarat buat progress % asli di Client Detail v2, tab Workflow
+  beneran (sekarang "sedang maintenance"), dan konteks tahap di
+  section Pembayaran. Tahap induk auto `DONE` kalau semua
+  sub-tahapnya `DONE` (dan otomatis lepas dari `DONE` kalau ada yang
+  direvisi) lewat trigger `sync_parent_stage_status()`. 11 row
+  existing di-backfill `PENDING` otomatis via DEFAULT kolom.
 - **Issue #208**: halaman eksperimen `client-detail-v2.html` — versi
   baru Client Detail yang TIDAK menggantikan halaman production yang
   ada (`client-detail.html`), belum di-link dari navigasi manapun,
