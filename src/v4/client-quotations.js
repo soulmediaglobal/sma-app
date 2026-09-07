@@ -109,6 +109,10 @@ const INTERNAL_ACTIVE_STATUSES = [
 
 let quotationsByCaseId = new Map();
 
+export function getQuotationsByCaseId() {
+  return quotationsByCaseId;
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) {node.className = className;}

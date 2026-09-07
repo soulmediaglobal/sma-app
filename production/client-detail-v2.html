@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detail Client v2 (Eksperimen) | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="client-detail-v2" data-breadcrumb="Home > Client|client.html > Detail Client v2 (Eksperimen)">
+
+<main class="main">
+<div class="page-wrapper">
+  <section id="client-detail-v2-root" class="cdv2-root" aria-busy="true">
+
+    <div class="page-header cdv2-header">
+      <div class="page-header-row">
+        <div>
+          <div class="page-pretitle">Client Management — Eksperimen v2</div>
+          <h1 class="page-title" id="cdv2-name">Detail Client</h1>
+          <span class="cdv2-type-badge" id="cdv2-type" hidden></span>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-outline" id="cdv2-edit-link" href="#">Edit Info</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="cdv2-info-bar">
+      <div class="cdv2-info-bar-cell">
+        <div class="cdv2-info-bar-label">PIC &amp; Kontak</div>
+        <div class="cdv2-info-bar-value" id="cdv2-info-pic">—</div>
+      </div>
+      <div class="cdv2-info-bar-cell">
+        <div class="cdv2-info-bar-label">Bidang Usaha</div>
+        <div class="cdv2-info-bar-value" id="cdv2-info-bidang">—</div>
+      </div>
+      <div class="cdv2-info-bar-cell">
+        <div class="cdv2-info-bar-label">Terdaftar Sejak</div>
+        <div class="cdv2-info-bar-value" id="cdv2-info-terdaftar">—</div>
+      </div>
+      <div class="cdv2-info-bar-cell cdv2-info-bar-cell--action">
+        <button class="cdv2-text-link" type="button" id="cdv2-info-toggle">Lihat detail lengkap →</button>
+      </div>
+    </div>
+
+    <div class="cdv2-info-full" id="cdv2-info-full" hidden></div>
+
+    <div class="cdv2-section">
+      <div class="cdv2-section-title">Ringkasan Eksekutif &amp; Status</div>
+      <div class="cdv2-summary-grid">
+        <div class="cdv2-sum-card cdv2-acc-blue">
+          <div class="cdv2-sum-label">Sisa Piutang (semua project)</div>
+          <div class="cdv2-sum-value" id="cdv2-sum-piutang">Rp 0</div>
+        </div>
+        <div class="cdv2-sum-card cdv2-acc-green">
+          <div class="cdv2-sum-label">Project Aktif</div>
+          <div class="cdv2-sum-value" id="cdv2-sum-aktif">0</div>
+        </div>
+        <div class="cdv2-sum-card cdv2-acc-orange">
+          <div class="cdv2-sum-label">Perlu Tindak Lanjut</div>
+          <div class="cdv2-sum-value" id="cdv2-sum-followup">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cdv2-section">
+      <div class="cdv2-section-head">
+        <div class="cdv2-section-title">Project — Performance</div>
+        <button class="btn btn-primary btn-sm" type="button" id="cdv2-add-project-btn">+ Tambah Project</button>
+      </div>
+      <div class="cdv2-proj-table" id="cdv2-project-table" aria-busy="true"></div>
+    </div>
+
+    <div class="cdv2-section">
+      <div class="cdv2-section-title">Pembayaran</div>
+      <div id="client-payments-root" class="client-payments" aria-busy="true"></div>
+    </div>
+
+    <div class="cdv2-note">
+      Ini halaman eksperimen (Issue #208) — belum menggantikan
+      <a href="#" id="cdv2-note-link">Detail Client versi lama</a>.
+      Tab Dokumen/Workflow/Aktivitas dan Repository Dokumen belum
+      di-port ke sini.
+    </div>
+
+  </section>
+</div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const id = new URLSearchParams(window.location.search).get('id') || '';
+    const link = document.getElementById('cdv2-note-link');
+    if (link) {link.href = `client-detail.html?id=${encodeURIComponent(id)}`;}
+  });
+</script>
+</body>
+</html>
