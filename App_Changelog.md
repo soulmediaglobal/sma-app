@@ -19,6 +19,20 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #208**: halaman eksperimen `client-detail-v2.html` — versi
+  baru Client Detail yang TIDAK menggantikan halaman production yang
+  ada (`client-detail.html`), belum di-link dari navigasi manapun,
+  akses manual via URL. Isinya: header + info bar ringkas dengan
+  toggle detail lengkap, strip Ringkasan Eksekutif (Sisa Piutang,
+  Project Aktif, Perlu Tindak Lanjut — dihitung dari status quotation
+  aktif), dan tabel Project — Performance. Reuse penuh fungsi yang
+  sudah ada dan teruji (bukan bangun ulang): `buildQuotationSection()`
+  untuk tombol Kelola RAB/Buat RAB, `openAddCaseModal()` untuk +
+  Tambah Project, dan `initClientPayments()` untuk section Pembayaran
+  — semuanya fungsional penuh sejak hari pertama. CSS baru full
+  di-prefix `cdv2-` supaya tidak menyentuh style/status badge global.
+  Repository Dokumen client-level dan progress % Workflow belum
+  di-port (depends fitur yang belum ada).
 - **Issue #206**: kartu Project di tab client kini menampilkan
   "No. Project: {case_number}" di bawah tanggal dibuat — sebelumnya
   cuma nama layanan + tanggal, belum ada nomor referensi yang bisa
