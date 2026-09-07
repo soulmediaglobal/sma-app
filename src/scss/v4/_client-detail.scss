@@ -1233,6 +1233,11 @@ body[data-page='client-detail'].modal-open .toast-host {
   text-align: right;
 }
 
+.client-payment-invoice-number {
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
 .client-payment-actions {
   display: flex;
   align-items: center;

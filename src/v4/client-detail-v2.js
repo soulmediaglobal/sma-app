@@ -25,7 +25,8 @@ import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openAddCaseModal } from './case-form.js';
-import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase } from './client-quotations.js';
+import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase, getAcceptedTerminForCase } from './client-quotations.js';
+import { getInvoicedTerminIds } from './client-payments.js';
 
 const CLIENT_FIELDS = [
   'id', 'name', 'type', 'pic_name', 'pic_title', 'pic_phone', 'pic_email',
@@ -210,7 +211,78 @@ function buildWorkStageActions(stage, project) {
   return actions;
 }
 
-function buildWorkflowSection(project, stages) {
+async function createInvoiceFromTermin(termin, project) {
+  const { error } = await supabase.from('payments').insert({
+    case_id: project.id,
+    type: termin.term_name,
+    amount: termin.amount,
+    quotation_item_id: termin.id
+  });
+  if (error) {
+    showToast('Gagal membuat invoice.', { variant: 'error' });
+    return false;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: project.id,
+    type: 'Invoice Dibuat',
+    notes: `Invoice untuk Termin "${termin.term_name}" sebesar ${rupiah(termin.amount)} berhasil dibuat.`,
+    by_user: currentProfile?.id
+  });
+  return true;
+}
+
+function buildInvoiceAlert(termin, project) {
+  const alert = element('div', 'cdv2-workflow-invoice-alert');
+  const info = element('div', 'cdv2-workflow-invoice-alert-info');
+  info.append(
+    element('span', 'cdv2-workflow-invoice-alert-name', termin.term_name),
+    element('span', 'cdv2-workflow-invoice-alert-amount', rupiah(termin.amount))
+  );
+  alert.appendChild(info);
+
+  const createBtn = element('button', 'btn btn-sm btn-primary', 'Buat Invoice');
+  createBtn.type = 'button';
+  createBtn.addEventListener('click', async () => {
+    createBtn.disabled = true;
+    const ok = await createInvoiceFromTermin(termin, project);
+    if (ok) {
+      showToast('Invoice berhasil dibuat.', { variant: 'success' });
+      await loadAndRenderProjects();
+      return;
+    }
+    createBtn.disabled = false;
+  });
+  alert.appendChild(createBtn);
+  return alert;
+}
+
+function buildInvoicedBadge(termin) {
+  const badge = element('div', 'cdv2-workflow-invoiced-badge');
+  badge.append(
+    element('span', 'cdv2-workflow-invoiced-badge-icon', '✓'),
+    element('span', 'cdv2-workflow-invoiced-badge-text', `${termin.term_name} — Sudah di-invoice`)
+  );
+  return badge;
+}
+
+function buildInvoiceAlerts(stage, project, termin, invoicedTerminIds) {
+  if (stage.status !== 'DONE') {return null;}
+  const matchingTermin = termin.filter((t) => t.stage_id === stage.id);
+  if (matchingTermin.length === 0) {return null;}
+
+  const wrap = element('div', 'cdv2-workflow-invoice-alerts');
+  matchingTermin.forEach((t) => {
+    if (invoicedTerminIds.has(t.id)) {
+      wrap.appendChild(buildInvoicedBadge(t));
+    } else {
+      wrap.appendChild(buildInvoiceAlert(t, project));
+    }
+  });
+  return wrap;
+}
+
+function buildWorkflowSection(project, stages, termin, invoicedTerminIds) {
   const wrap = element('div', 'cdv2-proj-workflow');
   wrap.appendChild(element('span', 'cdv2-workflow-label', 'Tahapan Pekerjaan'));
 
@@ -243,7 +315,11 @@ function buildWorkflowSection(project, stages) {
     if (subStages.length === 0) {
       const actions = buildWorkStageActions(stage, project);
       if (actions) {stageEl.appendChild(actions);}
+      const alerts = buildInvoiceAlerts(stage, project, termin, invoicedTerminIds);
+      if (alerts) {stageEl.appendChild(alerts);}
     } else {
+      const alerts = buildInvoiceAlerts(stage, project, termin, invoicedTerminIds);
+      if (alerts) {stageEl.appendChild(alerts);}
       const subList = element('div', 'cdv2-workflow-substages');
       subStages.forEach((sub) => {
         const subEl = element('div', 'cdv2-workflow-substage');
@@ -267,7 +343,7 @@ function buildWorkflowSection(project, stages) {
   return wrap;
 }
 
-async function renderProjectRow(project) {
+async function renderProjectRow(project, invoicedTerminIds) {
   const row = element('div', 'cdv2-proj-row');
   const main = element('div', 'cdv2-proj-main');
   main.append(
@@ -300,7 +376,8 @@ async function renderProjectRow(project) {
   quotation.classList.add('cdv2-proj-quotation');
   row.appendChild(quotation);
 
-  const workflow = buildWorkflowSection(project, stages);
+  const termin = await getAcceptedTerminForCase(project.id);
+  const workflow = buildWorkflowSection(project, stages, termin, invoicedTerminIds);
   row.appendChild(workflow);
 
   return row;
@@ -330,8 +407,9 @@ async function loadAndRenderProjects() {
 
   await loadQuotationsForCases(projects.map((p) => p.id));
   renderSummary(computeSummary(projects));
+  const invoicedTerminIds = await getInvoicedTerminIds(projects.map((p) => p.id));
   for (const project of projects) {
-    table.appendChild(await renderProjectRow(project));
+    table.appendChild(await renderProjectRow(project, invoicedTerminIds));
   }
 }
 

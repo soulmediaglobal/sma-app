@@ -97,6 +97,9 @@ function createPaymentRow(payment) {
     element('div', 'client-payment-type', payment.type),
     element('div', 'client-payment-created', `Dibuat ${formatDate(payment.created_at)}`)
   );
+  if (payment.invoice_number) {
+    info.appendChild(element('div', 'client-payment-invoice-number', payment.invoice_number));
+  }
 
   const amount = element('strong', 'client-payment-amount', formatRupiah(numericValue(payment.amount)));
   const status = element(
@@ -204,7 +207,7 @@ async function loadPayments(root) {
 
     const { data: paymentRows, error: paymentError } = await supabase
       .from('payments')
-      .select('id, case_id, type, amount, status, paid_at, created_at')
+      .select('id, case_id, type, amount, status, paid_at, created_at, invoice_number')
       .in('case_id', projects.map((project) => project.id))
       .order('created_at', { ascending: true });
 
@@ -430,6 +433,17 @@ function wireActions(root) {
     const paidTrigger = event.target.closest('[data-mark-payment-paid]');
     if (paidTrigger) {markPaymentPaid(root, paidTrigger);}
   });
+}
+
+export async function getInvoicedTerminIds(caseIds) {
+  if (!caseIds.length) {return new Set();}
+  const { data, error } = await supabase
+    .from('payments')
+    .select('quotation_item_id')
+    .in('case_id', caseIds)
+    .not('quotation_item_id', 'is', null);
+  if (error) {return new Set();}
+  return new Set((data || []).map((row) => row.quotation_item_id));
 }
 
 export async function initClientPayments({ clientId, profile } = {}) {

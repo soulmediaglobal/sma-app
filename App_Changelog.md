@@ -19,6 +19,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #218**: alert + tombol "Buat Invoice" pada card tahap yang
+  berstatus Selesai dan memiliki Termin RAB terkait (dari RAB berstatus
+  ACCEPTED) — klik langsung membuat baris `payments` terkait Termin
+  tersebut (tanpa form/modal perantara), `invoice_number` ter-generate
+  otomatis. Begitu invoice dibuat, alert berubah jadi badge "Sudah
+  di-invoice". Section Pembayaran juga sekarang menampilkan
+  `invoice_number` per baris.
 - **Issue #219**: tombol "Setujui RAB (mewakili Client)" untuk
   admin/supervisor pada quotation berstatus SENT — solusi sementara
   sampai client portal live, mencatat jejak audit lewat kolom baru
