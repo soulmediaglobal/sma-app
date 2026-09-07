@@ -19,6 +19,16 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #222**: preview/print dokumen invoice formal (layout A4, siap
+  kirim ke client), trigger dari section Pembayaran (tombol "Lihat
+  Invoice") dan tab Workflow (badge "Sudah di-invoice" + tombol
+  terpisah di sampingnya). Rekening bank pada invoice mengikuti
+  `bank_account_id` dari RAB (`case_quotations`) asal Termin terkait,
+  bukan field baru di `payments`. Kolom `invoice_issued_at` sekarang
+  diisi saat invoice dibuat (Issue #218's `createInvoiceFromTermin`),
+  bukan saat preview dibuka — preview jadi murni baca tanpa menulis
+  data, menghindari trigger RLS
+  `prevent_payment_invoice_receipt_tampering` untuk role non-admin.
 - **Issue #218**: alert + tombol "Buat Invoice" pada card tahap yang
   berstatus Selesai dan memiliki Termin RAB terkait (dari RAB berstatus
   ACCEPTED) — klik langsung membuat baris `payments` terkait Termin
