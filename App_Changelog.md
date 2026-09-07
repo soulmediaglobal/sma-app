@@ -19,6 +19,12 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #216**: kolom `payments.quotation_item_id` (link ke Termin RAB
+  `case_quotation_items`) dengan constraint UNIQUE (satu Termin maksimal
+  1 invoice aktif), dan trigger `generate_invoice_number()` yang
+  auto-generate `invoice_number` (format `{case_number}-INV-NN`) khusus
+  untuk baris payments yang link ke Termin — baris payments manual yang
+  tidak link ke Termin tidak terpengaruh.
 - **Issue #214**: tombol update status ("Tandai Selesai"/"Tandai
   Terhambat") untuk tahapan pekerjaan leaf node di Client Detail v2,
   render hierarki tab Workflow (tahap utama → sub-tahap dengan badge 4
