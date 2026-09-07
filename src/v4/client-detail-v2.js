@@ -26,7 +26,7 @@ import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { openAddCaseModal } from './case-form.js';
 import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase, getAcceptedTerminForCase } from './client-quotations.js';
-import { getInvoicedTerminIds } from './client-payments.js';
+import { getInvoicedTerminIds, openInvoicePreview } from './client-payments.js';
 
 const CLIENT_FIELDS = [
   'id', 'name', 'type', 'pic_name', 'pic_title', 'pic_phone', 'pic_email',
@@ -216,7 +216,8 @@ async function createInvoiceFromTermin(termin, project) {
     case_id: project.id,
     type: termin.term_name,
     amount: termin.amount,
-    quotation_item_id: termin.id
+    quotation_item_id: termin.id,
+    invoice_issued_at: new Date().toISOString()
   });
   if (error) {
     showToast('Gagal membuat invoice.', { variant: 'error' });
@@ -257,13 +258,24 @@ function buildInvoiceAlert(termin, project) {
   return alert;
 }
 
-function buildInvoicedBadge(termin) {
+function buildInvoicedBadge(termin, project, payment) {
+  const wrap = element('div', 'cdv2-workflow-invoiced-row');
+
   const badge = element('div', 'cdv2-workflow-invoiced-badge');
   badge.append(
     element('span', 'cdv2-workflow-invoiced-badge-icon', '✓'),
     element('span', 'cdv2-workflow-invoiced-badge-text', `${termin.term_name} — Sudah di-invoice`)
   );
-  return badge;
+  wrap.appendChild(badge);
+
+  if (payment) {
+    const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat Invoice');
+    viewBtn.type = 'button';
+    viewBtn.addEventListener('click', () => openInvoicePreview(payment, project, null));
+    wrap.appendChild(viewBtn);
+  }
+
+  return wrap;
 }
 
 function buildInvoiceAlerts(stage, project, termin, invoicedTerminIds) {
@@ -274,7 +286,7 @@ function buildInvoiceAlerts(stage, project, termin, invoicedTerminIds) {
   const wrap = element('div', 'cdv2-workflow-invoice-alerts');
   matchingTermin.forEach((t) => {
     if (invoicedTerminIds.has(t.id)) {
-      wrap.appendChild(buildInvoicedBadge(t));
+      wrap.appendChild(buildInvoicedBadge(t, project, invoicedTerminIds.get(t.id)));
     } else {
       wrap.appendChild(buildInvoiceAlert(t, project));
     }

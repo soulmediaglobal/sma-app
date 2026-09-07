@@ -5,6 +5,7 @@
 import { supabase } from '../lib/supabaseClient.js';
 import { showModal } from './modal.js';
 import { showToast } from './toast.js';
+import { fetchBankAccount, docEl, PREVIEW_CSS, getQuotationsByCaseId } from './client-quotations.js';
 
 const PAYMENT_TYPES = ['DP', 'Pelunasan'];
 const PENDING_STATUS = 'Pending';
@@ -90,6 +91,125 @@ function createSummary(paymentRows) {
   return summary;
 }
 
+function findAcceptedQuotation(caseId) {
+  const quotations = getQuotationsByCaseId().get(caseId) || [];
+  return quotations.find((q) => q.status === 'ACCEPTED') || null;
+}
+
+async function buildInvoicePreviewContent(doc, data) {
+  const { generatedDate, invoiceNumber, quotationNumber, client, project, termName, amount, bankAccount } = data;
+  const root = docEl(doc, 'div', 'preview-doc');
+
+  const letterhead = docEl(doc, 'div', 'preview-letterhead');
+  letterhead.appendChild(docEl(doc, 'div', 'preview-company-name', 'Soul Mitra Abadi'));
+  letterhead.appendChild(docEl(doc, 'div', 'preview-doc-title', 'Invoice'));
+  root.appendChild(letterhead);
+
+  const meta = docEl(doc, 'div', 'preview-meta');
+  meta.appendChild(docEl(doc, 'span', '', `Tanggal: ${generatedDate}`));
+  meta.appendChild(docEl(doc, 'span', '', `No. Invoice: ${invoiceNumber || '—'}`));
+  meta.appendChild(docEl(doc, 'span', '', `Ref. RAB: ${quotationNumber || '—'}`));
+  root.appendChild(meta);
+
+  root.appendChild(docEl(doc, 'p', 'preview-perihal', `Untuk: ${project?.service_type || '—'} (${project?.case_number || '—'})`));
+
+  const kepada = docEl(doc, 'div', 'preview-kepada');
+  kepada.appendChild(docEl(doc, 'p', '', 'Kepada Yth.'));
+  const picLine = [client?.pic_name, client?.pic_title].filter(Boolean).join(', ');
+  kepada.appendChild(docEl(doc, 'p', '', `Bpk/Ibu ${picLine || '—'}`));
+  const companyLine = [client?.type, client?.name].filter(Boolean).join(' ');
+  kepada.appendChild(docEl(doc, 'p', '', companyLine || '—'));
+  root.appendChild(kepada);
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rincian Tagihan'));
+  const tableWrap = docEl(doc, 'div', 'preview-table-wrap');
+  const table = doc.createElement('table');
+  table.className = 'preview-table';
+  const tbody = doc.createElement('tbody');
+  const row = doc.createElement('tr');
+  const tdLabel = doc.createElement('td');
+  tdLabel.textContent = termName || '—';
+  const tdAmount = doc.createElement('td');
+  tdAmount.textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount || 0);
+  row.append(tdLabel, tdAmount);
+  tbody.appendChild(row);
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  root.appendChild(tableWrap);
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rekening Pembayaran'));
+  if (bankAccount) {
+    const rek = docEl(doc, 'div', 'preview-rekening');
+    rek.appendChild(docEl(doc, 'p', '', `Bank: ${bankAccount.bank_name}`));
+    rek.appendChild(docEl(doc, 'p', '', `No. Rekening: ${bankAccount.account_number}`));
+    rek.appendChild(docEl(doc, 'p', '', `Atas Nama: ${bankAccount.account_holder_name}`));
+    root.appendChild(rek);
+  } else {
+    root.appendChild(docEl(doc, 'p', 'preview-empty', 'Rekening bank belum tersedia.'));
+  }
+
+  return root;
+}
+
+function renderInvoicePreviewWindow(win, data) {
+  const doc = win.document;
+  doc.title = data.invoiceNumber ? `Invoice — ${data.invoiceNumber}` : 'Invoice';
+
+  doc.head.replaceChildren();
+  const meta = doc.createElement('meta');
+  meta.setAttribute('charset', 'utf-8');
+  doc.head.appendChild(meta);
+  const style = doc.createElement('style');
+  style.textContent = PREVIEW_CSS;
+  doc.head.appendChild(style);
+
+  doc.body.replaceChildren();
+
+  const toolbar = docEl(doc, 'div', 'preview-toolbar');
+  const printBtn = docEl(doc, 'button', 'primary', 'Print / Simpan sebagai PDF');
+  printBtn.type = 'button';
+  printBtn.addEventListener('click', () => win.print());
+  const closeBtn = docEl(doc, 'button', '', 'Tutup');
+  closeBtn.type = 'button';
+  closeBtn.addEventListener('click', () => win.close());
+  toolbar.append(printBtn, closeBtn);
+  doc.body.appendChild(toolbar);
+
+  const page = docEl(doc, 'div', 'preview-page');
+  buildInvoicePreviewContent(doc, data).then((content) => {
+    page.appendChild(content);
+  });
+  doc.body.appendChild(page);
+}
+
+export async function openInvoicePreview(payment, project, client) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    showToast('Popup diblokir browser. Izinkan popup untuk membuka preview dokumen.', { variant: 'error' });
+    return;
+  }
+  win.document.title = 'Memuat Invoice…';
+  const loading = docEl(win.document, 'p', '', 'Memuat dokumen…');
+  loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
+  win.document.body.appendChild(loading);
+
+  const quotation = findAcceptedQuotation(payment.case_id);
+  const bankAccount = quotation ? await fetchBankAccount(quotation.bank_account_id) : null;
+
+  if (win.closed) {return;}
+
+  renderInvoicePreviewWindow(win, {
+    generatedDate: dateFmt.format(new Date(payment.invoice_issued_at || payment.created_at)),
+    invoiceNumber: payment.invoice_number,
+    quotationNumber: quotation?.quotation_number,
+    client,
+    project,
+    termName: payment.type,
+    amount: payment.amount,
+    bankAccount
+  });
+}
+
 function createPaymentRow(payment) {
   const row = element('li', 'client-payment-row');
   const info = element('div', 'client-payment-info');
@@ -98,7 +218,16 @@ function createPaymentRow(payment) {
     element('div', 'client-payment-created', `Dibuat ${formatDate(payment.created_at)}`)
   );
   if (payment.invoice_number) {
-    info.appendChild(element('div', 'client-payment-invoice-number', payment.invoice_number));
+    const invoiceLine = element('div', 'client-payment-invoice-number');
+    invoiceLine.textContent = payment.invoice_number;
+    const previewLink = element('button', 'btn btn-outline btn-sm client-payment-invoice-preview', 'Lihat Invoice');
+    previewLink.type = 'button';
+    previewLink.addEventListener('click', () => {
+      const project = projects.find((p) => p.id === payment.case_id);
+      openInvoicePreview(payment, project, null);
+    });
+    invoiceLine.appendChild(previewLink);
+    info.appendChild(invoiceLine);
   }
 
   const amount = element('strong', 'client-payment-amount', formatRupiah(numericValue(payment.amount)));
@@ -207,7 +336,7 @@ async function loadPayments(root) {
 
     const { data: paymentRows, error: paymentError } = await supabase
       .from('payments')
-      .select('id, case_id, type, amount, status, paid_at, created_at, invoice_number')
+      .select('id, case_id, type, amount, status, paid_at, created_at, invoice_number, invoice_issued_at, quotation_item_id')
       .in('case_id', projects.map((project) => project.id))
       .order('created_at', { ascending: true });
 
@@ -436,14 +565,14 @@ function wireActions(root) {
 }
 
 export async function getInvoicedTerminIds(caseIds) {
-  if (!caseIds.length) {return new Set();}
+  if (!caseIds.length) {return new Map();}
   const { data, error } = await supabase
     .from('payments')
-    .select('quotation_item_id')
+    .select('id, case_id, invoice_number, invoice_issued_at, created_at, amount, quotation_item_id')
     .in('case_id', caseIds)
     .not('quotation_item_id', 'is', null);
-  if (error) {return new Set();}
-  return new Set((data || []).map((row) => row.quotation_item_id));
+  if (error) {return new Map();}
+  return new Map((data || []).map((row) => [row.quotation_item_id, row]));
 }
 
 export async function initClientPayments({ clientId, profile } = {}) {
