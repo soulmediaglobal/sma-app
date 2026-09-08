@@ -2476,6 +2476,10 @@ function buildDocumentRow(template, documents, ctx, quotationEditable) {
   if (isLocked) {
     row.appendChild(element('span', 'client-quotation-doc-lock', `(sudah ${locked[0].status.toLowerCase()})`));
   }
+  const hasFile = matches.some((doc) => doc.client_document_id || doc.file_url);
+  if (hasFile) {
+    row.appendChild(element('span', 'client-quotation-doc-has-file', '✓ Ada file'));
+  }
   return row;
 }
 
@@ -2569,7 +2573,7 @@ async function renderModalBody(bodyEl, ctx) {
       .order('name', { ascending: true }),
     supabase
       .from('documents')
-      .select('id, name, status')
+      .select('id, name, status, client_document_id, file_url')
       .eq('case_id', ctx.caseId),
     fetchActiveBankAccounts()
   ]);

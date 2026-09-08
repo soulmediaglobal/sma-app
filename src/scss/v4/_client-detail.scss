@@ -1076,6 +1076,53 @@ body[data-page='client-detail'].modal-open .toast-host {
   flex-shrink: 0;
 }
 
+.client-document-mode-toggle {
+  margin-bottom: var(--space-4);
+}
+
+.client-document-mode-section + .client-document-mode-section {
+  margin-top: var(--space-4);
+}
+
+.client-document-repo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: var(--space-3);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.client-document-repo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.client-document-repo-row:hover {
+  background: var(--bg-surface-secondary);
+}
+
+.client-document-repo-radio {
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.client-document-repo-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
 .client-document-file-link {
   color: var(--primary);
   font-size: 12px;
