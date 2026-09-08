@@ -26,7 +26,7 @@ import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
 import { showModal } from './modal.js';
 import { openAddCaseModal } from './case-form.js';
-import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase, getAcceptedTerminForCase } from './client-quotations.js';
+import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase, getAcceptedTerminForCase, docEl, PREVIEW_CSS } from './client-quotations.js';
 import { getInvoicedTerminIds, openInvoicePreview } from './client-payments.js';
 
 const CLIENT_FIELDS = [
@@ -153,6 +153,8 @@ const DELIVERABLE_BUCKET = 'case-deliverables';
 const MAX_DELIVERABLE_FILE_SIZE = 10 * 1024 * 1024;
 const DELIVERABLE_TYPE_LABEL = { PRODUK: 'Produk', SUMMARY: 'Summary Tahapan' };
 
+const bastDateFmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
 async function updateWorkStageStatus(stage, newStatus, ctx) {
   if (!ctx.profile?.id) {
     showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
@@ -170,7 +172,7 @@ async function updateWorkStageStatus(stage, newStatus, ctx) {
   }
   const { error } = await supabase
     .from('case_work_stages')
-    .update({ status: newStatus })
+    .update({ status: newStatus, completed_at: newStatus === 'DONE' ? new Date().toISOString() : null })
     .eq('id', stage.id);
   if (error) {
     showToast('Gagal update status.', { variant: 'error' });
@@ -322,6 +324,46 @@ async function fetchDeliverablesForCase(caseId) {
     deliverablesByStage.set(row.stage_id, list);
   });
   return deliverablesByStage;
+}
+
+async function fetchCaseBast(caseId) {
+  const { data, error } = await supabase
+    .from('case_bast')
+    .select('id, bast_number, created_at')
+    .eq('case_id', caseId)
+    .maybeSingle();
+  if (error || !data) {return null;}
+  return data;
+}
+
+async function fetchCasePayments(caseId) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, type, amount, status, paid_at, invoice_number')
+    .eq('case_id', caseId)
+    .order('created_at', { ascending: true });
+  if (error) {return [];}
+  return data || [];
+}
+
+async function createBast(project) {
+  const { data, error } = await supabase
+    .from('case_bast')
+    .insert({ case_id: project.id, created_by: currentProfile?.id })
+    .select('id, bast_number, created_at')
+    .single();
+  if (error || !data) {
+    showToast('Gagal membuat BAST.', { variant: 'error' });
+    return null;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: project.id,
+    type: 'BAST Dibuat',
+    notes: `BAST ${data.bast_number} berhasil dibuat.`,
+    by_user: currentProfile?.id
+  });
+  return data;
 }
 
 async function viewDeliverable(deliverable, trigger) {
@@ -618,6 +660,261 @@ function buildDeliverableSummarySection(stages, deliverablesByStage) {
   return wrap;
 }
 
+function buildBastStagesTable(doc, stages) {
+  if (!stages || stages.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Belum ada tahapan pekerjaan.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tahap', 'Tanggal Selesai'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  stages.forEach((stage) => {
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', stage.name));
+    row.appendChild(docEl(doc, 'td', '', stage.completed_at ? bastDateFmt.format(new Date(stage.completed_at)) : '—'));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function buildBastPaymentsTable(doc, payments) {
+  if (!payments || payments.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Belum ada pembayaran tercatat.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tipe', 'Jumlah', 'Tanggal Lunas'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  let total = 0;
+  payments.forEach((payment) => {
+    total += Number(payment.amount) || 0;
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', payment.type));
+    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah(payment.amount)));
+    row.appendChild(docEl(doc, 'td', '', payment.paid_at ? bastDateFmt.format(new Date(payment.paid_at)) : '—'));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+
+  const tfoot = doc.createElement('tfoot');
+  const totalRow = doc.createElement('tr');
+  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total — Lunas');
+  totalLabel.colSpan = 2;
+  totalRow.appendChild(totalLabel);
+  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah(total)));
+  tfoot.appendChild(totalRow);
+  table.appendChild(tfoot);
+
+  return table;
+}
+
+function buildBastDeliverablesTable(doc, deliverableRows) {
+  if (!deliverableRows || deliverableRows.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Tidak ada dokumen tercatat.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tahap', 'Dokumen'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  deliverableRows.forEach((item) => {
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', item.stageName));
+    row.appendChild(docEl(doc, 'td', '', `${item.name} (${DELIVERABLE_TYPE_LABEL[item.type] || item.type})`));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+async function buildBastPreviewContent(doc, data) {
+  const { generatedDate, bastNumber, project, quotation, stages, payments, deliverableRows } = data;
+  const bastClient = data.client;
+  const root = docEl(doc, 'div', 'preview-doc');
+
+  const letterhead = docEl(doc, 'div', 'preview-letterhead');
+  letterhead.appendChild(docEl(doc, 'div', 'preview-company-name', 'Soul Mitra Abadi'));
+  letterhead.appendChild(docEl(doc, 'div', 'preview-doc-title', 'Berita Acara Serah Terima'));
+  root.appendChild(letterhead);
+
+  const meta = docEl(doc, 'div', 'preview-meta');
+  meta.appendChild(docEl(doc, 'span', '', `Tanggal: ${generatedDate}`));
+  meta.appendChild(docEl(doc, 'span', '', `No. BAST: ${bastNumber || '—'}`));
+  meta.appendChild(docEl(doc, 'span', '', `Ref. RAB: ${quotation?.quotation_number || '—'}`));
+  root.appendChild(meta);
+
+  root.appendChild(docEl(doc, 'p', 'preview-perihal', `Untuk: ${project?.service_type || '—'} (${project?.case_number || '—'})`));
+
+  const kepada = docEl(doc, 'div', 'preview-kepada');
+  kepada.appendChild(docEl(doc, 'p', '', 'Pihak Kedua'));
+  const picLine = [bastClient?.pic_name, bastClient?.pic_title].filter(Boolean).join(', ');
+  kepada.appendChild(docEl(doc, 'p', '', `Bpk/Ibu ${picLine || '—'}`));
+  const companyLine = [bastClient?.type, bastClient?.name].filter(Boolean).join(' ');
+  kepada.appendChild(docEl(doc, 'p', '', companyLine || '—'));
+  root.appendChild(kepada);
+
+  if (quotation?.description) {
+    root.appendChild(docEl(doc, 'p', 'preview-paragraph', quotation.description));
+  }
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Milestone Tahapan'));
+  root.appendChild(buildBastStagesTable(doc, stages));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Ringkasan Pembayaran'));
+  root.appendChild(buildBastPaymentsTable(doc, payments));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Dokumen yang Diserahkan'));
+  root.appendChild(buildBastDeliverablesTable(doc, deliverableRows));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Pernyataan'));
+  root.appendChild(docEl(doc, 'p', 'preview-paragraph', 'Dengan ini Pihak Kedua menyatakan telah menerima seluruh hasil pekerjaan dari Pihak Pertama dengan baik dan lengkap, serta menyatakan bahwa pekerjaan telah selesai dan seluruh pembayaran telah lunas.'));
+
+  const signatureBlock = docEl(doc, 'div', 'preview-signature-block');
+
+  const smaCol = docEl(doc, 'div', 'preview-signature-col');
+  smaCol.appendChild(docEl(doc, 'p', '', 'Soul Mitra Abadi,'));
+  smaCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  smaCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(smaCol);
+
+  const clientCol = docEl(doc, 'div', 'preview-signature-col');
+  clientCol.appendChild(docEl(doc, 'p', '', `${companyLine || 'Pihak Client'},`));
+  clientCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  clientCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(clientCol);
+
+  root.appendChild(signatureBlock);
+
+  return root;
+}
+
+function renderBastPreviewWindow(win, data) {
+  const doc = win.document;
+  doc.title = data.bastNumber ? `BAST — ${data.bastNumber}` : 'BAST';
+
+  doc.head.replaceChildren();
+  const meta = doc.createElement('meta');
+  meta.setAttribute('charset', 'utf-8');
+  doc.head.appendChild(meta);
+  const style = doc.createElement('style');
+  style.textContent = PREVIEW_CSS;
+  doc.head.appendChild(style);
+
+  doc.body.replaceChildren();
+
+  const toolbar = docEl(doc, 'div', 'preview-toolbar');
+  const printBtn = docEl(doc, 'button', 'primary', 'Print / Simpan sebagai PDF');
+  printBtn.type = 'button';
+  printBtn.addEventListener('click', () => win.print());
+  const closeBtn = docEl(doc, 'button', '', 'Tutup');
+  closeBtn.type = 'button';
+  closeBtn.addEventListener('click', () => win.close());
+  toolbar.append(printBtn, closeBtn);
+  doc.body.appendChild(toolbar);
+
+  const page = docEl(doc, 'div', 'preview-page');
+  buildBastPreviewContent(doc, data).then((content) => {
+    page.appendChild(content);
+  });
+  doc.body.appendChild(page);
+}
+
+async function openBastPreview(project, bast, stages, payments, deliverablesByStage) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    showToast('Popup diblokir browser. Izinkan popup untuk membuka preview dokumen.', { variant: 'error' });
+    return;
+  }
+  win.document.title = 'Memuat BAST…';
+  const loading = docEl(win.document, 'p', '', 'Memuat dokumen…');
+  loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
+  win.document.body.appendChild(loading);
+
+  const quotation = (getQuotationsByCaseId().get(project.id) || []).find((q) => q.status === 'ACCEPTED') || null;
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const deliverableRows = [];
+  mainStages.forEach((stage) => {
+    const items = deliverablesByStage.get(stage.id) || [];
+    items.forEach((item) => {
+      deliverableRows.push({ stageName: stage.name, name: item.name, type: item.type });
+    });
+  });
+
+  if (win.closed) {return;}
+
+  renderBastPreviewWindow(win, {
+    generatedDate: bastDateFmt.format(new Date(bast.created_at)),
+    bastNumber: bast.bast_number,
+    client,
+    project,
+    quotation,
+    stages: mainStages,
+    payments,
+    deliverableRows
+  });
+}
+
+function buildBastSection(project, stages, payments, bast, deliverablesByStage) {
+  const wrap = element('div', 'cdv2-bast-section');
+  wrap.appendChild(element('span', 'cdv2-bast-label', 'BAST'));
+
+  if (bast) {
+    const row = element('div', 'cdv2-workflow-invoiced-row');
+    const badge = element('div', 'cdv2-workflow-invoiced-badge');
+    badge.append(
+      element('span', 'cdv2-workflow-invoiced-badge-icon', '✓'),
+      element('span', 'cdv2-workflow-invoiced-badge-text', `${bast.bast_number} — dibuat ${bastDateFmt.format(new Date(bast.created_at))}`)
+    );
+    row.appendChild(badge);
+
+    const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat BAST');
+    viewBtn.type = 'button';
+    viewBtn.addEventListener('click', () => openBastPreview(project, bast, stages, payments, deliverablesByStage));
+    row.appendChild(viewBtn);
+
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const eligible = mainStages.length > 0
+    && mainStages.every((s) => s.status === 'DONE')
+    && payments.length > 0
+    && payments.every((p) => p.status === 'Lunas');
+
+  if (!eligible) {
+    wrap.appendChild(element('div', 'cdv2-bast-empty', 'BAST dapat dibuat setelah semua tahap selesai dan semua pembayaran lunas.'));
+    return wrap;
+  }
+
+  const createBtn = element('button', 'btn btn-sm btn-primary', 'Buat BAST');
+  createBtn.type = 'button';
+  createBtn.addEventListener('click', async () => {
+    createBtn.disabled = true;
+    const created = await createBast(project);
+    if (created) {
+      showToast('BAST berhasil dibuat.', { variant: 'success' });
+      await loadAndRenderProjects();
+      return;
+    }
+    createBtn.disabled = false;
+  });
+  wrap.appendChild(createBtn);
+  return wrap;
+}
+
 async function renderProjectRow(project, invoicedTerminIds) {
   const row = element('div', 'cdv2-proj-row');
   const main = element('div', 'cdv2-proj-main');
@@ -658,6 +955,11 @@ async function renderProjectRow(project, invoicedTerminIds) {
 
   const deliverableSummary = buildDeliverableSummarySection(stages, deliverablesByStage);
   row.appendChild(deliverableSummary);
+
+  const payments = await fetchCasePayments(project.id);
+  const bast = await fetchCaseBast(project.id);
+  const bastSection = buildBastSection(project, stages, payments, bast, deliverablesByStage);
+  row.appendChild(bastSection);
 
   return row;
 }
