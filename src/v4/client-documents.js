@@ -22,6 +22,18 @@ const STATUS_CLASS = {
 // when that lands.
 const LOCKED_STATUSES = ['Terverifikasi', 'Ditolak'];
 
+const REPO_BUCKET = 'client-documents';
+const MAX_REPO_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_REPO_MIME_TYPES = new Map([
+  ['application/pdf', { label: 'PDF', extension: 'pdf' }],
+  ['application/msword', { label: 'DOC', extension: 'doc' }],
+  ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', { label: 'DOCX', extension: 'docx' }],
+  ['application/vnd.ms-excel', { label: 'XLS', extension: 'xls' }],
+  ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { label: 'XLSX', extension: 'xlsx' }],
+  ['image/jpeg', { label: 'JPEG', extension: 'jpg' }],
+  ['image/png', { label: 'PNG', extension: 'png' }]
+]);
+
 function deriveAutoStatus(currentStatus, fileUrl) {
   if (LOCKED_STATUSES.includes(currentStatus)) {return currentStatus;}
   return fileUrl ? 'Upload' : 'Belum';
@@ -65,7 +77,19 @@ function safeFileUrl(value) {
   }
 }
 
+function createRepoDocumentButton(documentRow) {
+  const button = element('button', 'btn btn-outline btn-sm client-document-view-repo', 'Lihat Dokumen');
+  button.type = 'button';
+  button.dataset.viewRepoDocument = '';
+  button.dataset.storagePath = documentRow.client_document?.storage_path || '';
+  button.setAttribute('aria-label', `Lihat dokumen ${documentRow.name}`);
+  return button;
+}
+
 function createFileLink(documentRow) {
+  if (documentRow.client_document_id) {
+    return createRepoDocumentButton(documentRow);
+  }
   const url = safeFileUrl(documentRow.file_url);
   if (!documentRow.file_url) {return element('span', 'client-document-file-empty', 'Belum ada link');}
   if (!url) {return element('span', 'client-document-file-invalid', 'Link tidak valid');}
@@ -117,7 +141,9 @@ function createDocumentRow(documentRow) {
 
   const actions = element('div', 'client-document-actions');
   actions.appendChild(createFileLink(documentRow));
-  actions.appendChild(createEditLinkButton(documentRow));
+  if (!documentRow.client_document_id) {
+    actions.appendChild(createEditLinkButton(documentRow));
+  }
   actions.appendChild(createStatusButton(documentRow));
   row.append(info, actions);
   return row;
@@ -196,7 +222,7 @@ async function loadDocuments(root) {
 
     const { data: documentRows, error: documentError } = await supabase
       .from('documents')
-      .select('id, case_id, name, status, file_url, created_at')
+      .select('id, case_id, name, status, file_url, created_at, client_document_id, client_document:client_documents(storage_path, mime_type)')
       .in('case_id', projects.map((project) => project.id))
       .order('created_at', { ascending: true });
 
@@ -223,8 +249,8 @@ function buildDocumentForm(projectName) {
   const nameGroup = element('div', 'form-group');
   const nameLabel = element('label', 'form-label', 'Nama dokumen');
   nameLabel.htmlFor = 'document-name';
-  const required = element('span', 'required', ' *');
-  nameLabel.appendChild(required);
+  const nameRequired = element('span', 'required', ' *');
+  nameLabel.appendChild(nameRequired);
   const nameInput = element('input', 'form-control');
   nameInput.id = 'document-name';
   nameInput.name = 'name';
@@ -232,18 +258,21 @@ function buildDocumentForm(projectName) {
   nameInput.required = true;
   nameGroup.append(nameLabel, nameInput);
 
-  const urlGroup = element('div', 'form-group');
-  const urlLabel = element('label', 'form-label', 'Link file');
-  urlLabel.htmlFor = 'document-file-url';
-  const urlInput = element('input', 'form-control');
-  urlInput.id = 'document-file-url';
-  urlInput.name = 'file_url';
-  urlInput.type = 'url';
-  urlInput.placeholder = 'Tempel link file';
-  const help = element('div', 'form-help', 'Opsional. Gunakan link Google Drive atau penyimpanan lainnya.');
-  urlGroup.append(urlLabel, urlInput, help);
+  const fileGroup = element('div', 'form-group');
+  const fileLabel = element('label', 'form-label', 'File dokumen');
+  fileLabel.htmlFor = 'document-file';
+  const fileRequired = element('span', 'required', ' *');
+  fileLabel.appendChild(fileRequired);
+  const fileInput = element('input', 'form-control');
+  fileInput.id = 'document-file';
+  fileInput.name = 'file';
+  fileInput.type = 'file';
+  fileInput.accept = Array.from(ALLOWED_REPO_MIME_TYPES.keys()).join(',');
+  fileInput.required = true;
+  const help = element('div', 'form-help', 'Format: PDF, DOC/DOCX, XLS/XLSX, JPG/JPEG, PNG. Maksimal 10 MB.');
+  fileGroup.append(fileLabel, fileInput, help);
 
-  form.append(context, nameGroup, urlGroup);
+  form.append(context, nameGroup, fileGroup);
   return form;
 }
 
@@ -252,31 +281,71 @@ async function submitDocument(ctx, form, root, caseId) {
   if (!form.reportValidity()) {return;}
   const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
   if (submitButton.disabled) {return;}
-  submitButton.disabled = true;
-  submitButton.textContent = 'Menyimpan…';
 
   const name = form.elements.namedItem('name').value.trim();
-  const fileUrl = form.elements.namedItem('file_url').value.trim();
-  const normalizedFileUrl = safeFileUrl(fileUrl);
-  if (fileUrl && !normalizedFileUrl) {
-    showToast('Link file harus menggunakan http atau https.', { variant: 'error' });
-    submitButton.disabled = false;
-    submitButton.textContent = 'Tambah Dokumen';
+  const file = form.elements.namedItem('file').files?.[0];
+
+  if (!file) {
+    showToast('Pilih file dokumen terlebih dahulu.', { variant: 'error' });
     return;
   }
 
+  const typeInfo = ALLOWED_REPO_MIME_TYPES.get(file.type);
+  if (!typeInfo) {
+    showToast('Gunakan file PDF, DOC/DOCX, XLS/XLSX, JPG/JPEG, atau PNG.', { variant: 'error' });
+    return;
+  }
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_REPO_FILE_SIZE) {
+    showToast('Ukuran file maksimal 10 MB.', { variant: 'error' });
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+
+  const storagePath = `${activeClientId}/${crypto.randomUUID()}.${typeInfo.extension}`;
+
   try {
-    const { error } = await supabase
+    const { error: uploadError } = await supabase.storage
+      .from(REPO_BUCKET)
+      .upload(storagePath, file, { contentType: file.type, upsert: false });
+    if (uploadError) {
+      showToast('Gagal upload dokumen.', { variant: 'error' });
+      return;
+    }
+
+    const { data: repoDoc, error: repoError } = await supabase
+      .from('client_documents')
+      .insert({
+        client_id: activeClientId,
+        name,
+        storage_path: storagePath,
+        mime_type: file.type,
+        file_size_bytes: file.size,
+        uploaded_by: currentProfile?.id
+      })
+      .select('id')
+      .single();
+
+    if (repoError || !repoDoc) {
+      await supabase.storage.from(REPO_BUCKET).remove([storagePath]);
+      showToast('Gagal menyimpan dokumen ke repository.', { variant: 'error' });
+      return;
+    }
+
+    const { error: docError } = await supabase
       .from('documents')
       .insert({
         case_id: caseId,
         name,
-        status: deriveAutoStatus('Belum', normalizedFileUrl),
-        file_url: normalizedFileUrl
+        status: 'Upload',
+        client_document_id: repoDoc.id
       });
 
-    if (error) {
-      showToast('Gagal menambahkan dokumen.', { variant: 'error' });
+    if (docError) {
+      await supabase.from('client_documents').delete().eq('id', repoDoc.id);
+      await supabase.storage.from(REPO_BUCKET).remove([storagePath]);
+      showToast('Gagal menambahkan dokumen ke checklist.', { variant: 'error' });
       return;
     }
 
@@ -559,6 +628,32 @@ function openStatusMenu(root, trigger) {
   })));
 }
 
+async function viewRepoDocument(trigger) {
+  if (trigger.disabled) {return;}
+  const storagePath = trigger.dataset.storagePath;
+  if (!storagePath) {
+    showToast('Dokumen tidak ditemukan.', { variant: 'error' });
+    return;
+  }
+  trigger.disabled = true;
+  try {
+    const { data, error } = await supabase.storage
+      .from(REPO_BUCKET)
+      .createSignedUrl(storagePath, 60);
+    if (error || !data?.signedUrl) {
+      showToast('Dokumen belum dapat dibuka. Silakan coba lagi.', { variant: 'error' });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = data.signedUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+  } finally {
+    trigger.disabled = false;
+  }
+}
+
 function wireActions(root) {
   root.addEventListener('click', (event) => {
     const addTrigger = event.target.closest('[data-add-document]');
@@ -572,6 +667,9 @@ function wireActions(root) {
       openEditLinkModal(root, editLinkTrigger);
       return;
     }
+
+    const viewRepoTrigger = event.target.closest('[data-view-repo-document]');
+    if (viewRepoTrigger) {viewRepoDocument(viewRepoTrigger); return;}
 
     const statusTrigger = event.target.closest('[data-document-status-trigger]');
     if (statusTrigger) {openStatusMenu(root, statusTrigger);}
