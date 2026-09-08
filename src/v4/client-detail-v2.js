@@ -24,6 +24,7 @@
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
+import { showModal } from './modal.js';
 import { openAddCaseModal } from './case-form.js';
 import { loadQuotationsForCases, buildQuotationSection, getQuotationsByCaseId, getWorkStagesForCase, getAcceptedTerminForCase } from './client-quotations.js';
 import { getInvoicedTerminIds, openInvoicePreview } from './client-payments.js';
@@ -148,10 +149,24 @@ const WORK_STAGE_STATUS_LABEL = {
   BLOCKED: 'Terhambat'
 };
 
+const DELIVERABLE_BUCKET = 'case-deliverables';
+const MAX_DELIVERABLE_FILE_SIZE = 10 * 1024 * 1024;
+const DELIVERABLE_TYPE_LABEL = { PRODUK: 'Produk', SUMMARY: 'Summary Tahapan' };
+
 async function updateWorkStageStatus(stage, newStatus, ctx) {
   if (!ctx.profile?.id) {
     showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
     return false;
+  }
+  if (newStatus === 'DONE') {
+    const { count } = await supabase
+      .from('case_deliverables')
+      .select('id', { count: 'exact', head: true })
+      .eq('stage_id', stage.id);
+    if (!count) {
+      showToast('Upload minimal 1 Produk atau Summary Tahapan sebelum menandai tahap ini selesai.', { variant: 'error' });
+      return false;
+    }
   }
   const { error } = await supabase
     .from('case_work_stages')
@@ -294,7 +309,232 @@ function buildInvoiceAlerts(stage, project, termin, invoicedTerminIds) {
   return wrap;
 }
 
-function buildWorkflowSection(project, stages, termin, invoicedTerminIds) {
+async function fetchDeliverablesForCase(caseId) {
+  const { data, error } = await supabase
+    .from('case_deliverables')
+    .select('id, stage_id, type, name, storage_path, created_at')
+    .eq('case_id', caseId);
+  if (error) {return new Map();}
+  const deliverablesByStage = new Map();
+  (data || []).forEach((row) => {
+    const list = deliverablesByStage.get(row.stage_id) || [];
+    list.push(row);
+    deliverablesByStage.set(row.stage_id, list);
+  });
+  return deliverablesByStage;
+}
+
+async function viewDeliverable(deliverable, trigger) {
+  if (trigger.disabled) {return;}
+  trigger.disabled = true;
+  try {
+    const { data, error } = await supabase.storage
+      .from(DELIVERABLE_BUCKET)
+      .createSignedUrl(deliverable.storage_path, 60);
+    if (error || !data?.signedUrl) {
+      showToast('Dokumen belum dapat dibuka. Silakan coba lagi.', { variant: 'error' });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = data.signedUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+  } finally {
+    trigger.disabled = false;
+  }
+}
+
+function buildDeliverableRow(deliverable) {
+  const row = element('div', 'cdv2-deliverable-row');
+  const info = element('div', 'cdv2-deliverable-info');
+  info.append(
+    element('span', 'cdv2-deliverable-type', DELIVERABLE_TYPE_LABEL[deliverable.type] || deliverable.type),
+    element('span', 'cdv2-deliverable-name', deliverable.name)
+  );
+  row.appendChild(info);
+
+  const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat');
+  viewBtn.type = 'button';
+  viewBtn.addEventListener('click', () => viewDeliverable(deliverable, viewBtn));
+  row.appendChild(viewBtn);
+
+  return row;
+}
+
+function buildDeliverableForm(state) {
+  const form = document.createElement('form');
+  form.id = 'deliverable-form';
+  form.noValidate = true;
+
+  const segmented = element('div', 'segmented client-document-mode-toggle');
+  const produkLabel = document.createElement('label');
+  const produkRadio = element('input', '');
+  produkRadio.type = 'radio';
+  produkRadio.name = 'deliverable_type';
+  produkRadio.value = 'PRODUK';
+  produkRadio.checked = true;
+  produkLabel.append(produkRadio, element('span', '', DELIVERABLE_TYPE_LABEL.PRODUK));
+
+  const summaryLabel = document.createElement('label');
+  const summaryRadio = element('input', '');
+  summaryRadio.type = 'radio';
+  summaryRadio.name = 'deliverable_type';
+  summaryRadio.value = 'SUMMARY';
+  summaryLabel.append(summaryRadio, element('span', '', DELIVERABLE_TYPE_LABEL.SUMMARY));
+
+  segmented.append(produkLabel, summaryLabel);
+  produkRadio.addEventListener('change', () => {state.type = 'PRODUK';});
+  summaryRadio.addEventListener('change', () => {state.type = 'SUMMARY';});
+
+  const nameGroup = element('div', 'form-group');
+  const nameLabel = element('label', 'form-label', 'Nama Dokumen');
+  nameLabel.htmlFor = 'deliverable-name';
+  nameLabel.appendChild(element('span', 'required', ' *'));
+  const nameInput = element('input', 'form-control');
+  nameInput.id = 'deliverable-name';
+  nameInput.name = 'name';
+  nameInput.type = 'text';
+  nameInput.required = true;
+  nameGroup.append(nameLabel, nameInput);
+
+  const fileGroup = element('div', 'form-group');
+  const fileLabel = element('label', 'form-label', 'File PDF');
+  fileLabel.htmlFor = 'deliverable-file';
+  fileLabel.appendChild(element('span', 'required', ' *'));
+  const fileInput = element('input', 'form-control');
+  fileInput.id = 'deliverable-file';
+  fileInput.name = 'file';
+  fileInput.type = 'file';
+  fileInput.accept = 'application/pdf';
+  fileInput.required = true;
+  const help = element('div', 'form-help', 'Format PDF. Maksimal 10 MB.');
+  fileGroup.append(fileLabel, fileInput, help);
+
+  form.append(segmented, nameGroup, fileGroup);
+  return form;
+}
+
+async function submitDeliverable(ctx, form, stage, project) {
+  if (!form.reportValidity()) {return false;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return false;}
+
+  const type = form.elements.namedItem('deliverable_type').value;
+  const name = form.elements.namedItem('name').value.trim();
+  const file = form.elements.namedItem('file').files?.[0];
+
+  if (!file) {
+    showToast('Pilih file PDF terlebih dahulu.', { variant: 'error' });
+    return false;
+  }
+  if (file.type !== 'application/pdf') {
+    showToast('Gunakan file PDF.', { variant: 'error' });
+    return false;
+  }
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_DELIVERABLE_FILE_SIZE) {
+    showToast('Ukuran file maksimal 10 MB.', { variant: 'error' });
+    return false;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+
+  const storagePath = `${project.id}/${stage.id}/${crypto.randomUUID()}.pdf`;
+
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from(DELIVERABLE_BUCKET)
+      .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
+    if (uploadError) {
+      showToast('Gagal upload deliverable.', { variant: 'error' });
+      return false;
+    }
+
+    const { error: insertError } = await supabase.from('case_deliverables').insert({
+      case_id: project.id,
+      stage_id: stage.id,
+      type,
+      name,
+      storage_path: storagePath,
+      mime_type: 'application/pdf',
+      file_size_bytes: file.size,
+      uploaded_by: currentProfile?.id
+    });
+
+    if (insertError) {
+      await supabase.storage.from(DELIVERABLE_BUCKET).remove([storagePath]);
+      showToast('Gagal menyimpan deliverable.', { variant: 'error' });
+      return false;
+    }
+
+    ctx.close();
+    showToast('Deliverable berhasil diupload.', { variant: 'success' });
+    await loadAndRenderProjects();
+    return true;
+  } catch {
+    showToast('Gagal upload deliverable.', { variant: 'error' });
+    return false;
+  } finally {
+    if (submitButton.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Upload Deliverable';
+    }
+  }
+}
+
+function openUploadDeliverableModal(stage, project) {
+  if (!currentProfile?.id) {
+    showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
+    return;
+  }
+  const state = { type: 'PRODUK' };
+  const form = buildDeliverableForm(state);
+
+  const ctx = showModal({
+    title: 'Upload Deliverable',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Upload Deliverable',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => submitDeliverable(ctx, form, stage, project)
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitDeliverable(ctx, form, stage, project);
+  });
+}
+
+function buildDeliverableSection(stage, project, deliverablesByStage) {
+  const wrap = element('div', 'cdv2-deliverable-section');
+  wrap.appendChild(element('span', 'cdv2-deliverable-label', 'Deliverable'));
+
+  const items = deliverablesByStage.get(stage.id) || [];
+  if (items.length === 0) {
+    wrap.appendChild(element('div', 'cdv2-deliverable-empty', 'Belum ada deliverable untuk tahap ini.'));
+  } else {
+    const list = element('div', 'cdv2-deliverable-list');
+    items.forEach((item) => list.appendChild(buildDeliverableRow(item)));
+    wrap.appendChild(list);
+  }
+
+  const uploadBtn = element('button', 'btn btn-outline btn-sm', 'Upload Deliverable');
+  uploadBtn.type = 'button';
+  uploadBtn.addEventListener('click', () => openUploadDeliverableModal(stage, project));
+  wrap.appendChild(uploadBtn);
+
+  return wrap;
+}
+
+function buildWorkflowSection(project, stages, termin, invoicedTerminIds, deliverablesByStage) {
   const wrap = element('div', 'cdv2-proj-workflow');
   wrap.appendChild(element('span', 'cdv2-workflow-label', 'Tahapan Pekerjaan'));
 
@@ -327,6 +567,7 @@ function buildWorkflowSection(project, stages, termin, invoicedTerminIds) {
     if (subStages.length === 0) {
       const actions = buildWorkStageActions(stage, project);
       if (actions) {stageEl.appendChild(actions);}
+      stageEl.appendChild(buildDeliverableSection(stage, project, deliverablesByStage));
       const alerts = buildInvoiceAlerts(stage, project, termin, invoicedTerminIds);
       if (alerts) {stageEl.appendChild(alerts);}
     } else {
@@ -343,6 +584,7 @@ function buildWorkflowSection(project, stages, termin, invoicedTerminIds) {
         subEl.appendChild(subHead);
         const subActions = buildWorkStageActions(sub, project);
         if (subActions) {subEl.appendChild(subActions);}
+        subEl.appendChild(buildDeliverableSection(sub, project, deliverablesByStage));
         subList.appendChild(subEl);
       });
       stageEl.appendChild(subList);
@@ -389,7 +631,8 @@ async function renderProjectRow(project, invoicedTerminIds) {
   row.appendChild(quotation);
 
   const termin = await getAcceptedTerminForCase(project.id);
-  const workflow = buildWorkflowSection(project, stages, termin, invoicedTerminIds);
+  const deliverablesByStage = await fetchDeliverablesForCase(project.id);
+  const workflow = buildWorkflowSection(project, stages, termin, invoicedTerminIds, deliverablesByStage);
   row.appendChild(workflow);
 
   return row;
