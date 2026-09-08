@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #224**: upload & verifikasi bukti transfer oleh
+  admin/supervisor untuk payment berstatus Pending. Bucket storage baru
+  `payment-proofs` (private, PDF/JPEG/PNG/GIF, 10MB) dengan RLS:
+  admin/supervisor bisa upload, admin/supervisor/`created_by`/
+  `assigned_to` case terkait bisa lihat. Bukti dibuka lewat signed URL
+  (60 detik), bukan public URL permanen. "Tandai Lunas" sekarang
+  mensyaratkan `verification_status = TERVERIFIKASI` terlebih dahulu —
+  mengganti alur lama yang murni manual tanpa jejak bukti apapun.
 - **Issue #222**: preview/print dokumen invoice formal (layout A4, siap
   kirim ke client), trigger dari section Pembayaran (tombol "Lihat
   Invoice") dan tab Workflow (badge "Sudah di-invoice" + tombol
