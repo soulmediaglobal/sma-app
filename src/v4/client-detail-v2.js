@@ -597,6 +597,27 @@ function buildWorkflowSection(project, stages, termin, invoicedTerminIds, delive
   return wrap;
 }
 
+function buildDeliverableSummarySection(stages, deliverablesByStage) {
+  const wrap = element('div', 'cdv2-deliverable-summary');
+  wrap.appendChild(element('span', 'cdv2-deliverable-summary-label', 'Ringkasan Deliverable'));
+
+  const groups = stages.filter((stage) => (deliverablesByStage.get(stage.id) || []).length > 0);
+  if (groups.length === 0) {
+    wrap.appendChild(element('div', 'cdv2-deliverable-summary-empty', 'Belum ada deliverable untuk project ini.'));
+    return wrap;
+  }
+
+  groups.forEach((stage) => {
+    const group = element('div', 'cdv2-deliverable-summary-group');
+    group.appendChild(element('div', 'cdv2-deliverable-summary-stage-name', stage.name));
+    const items = deliverablesByStage.get(stage.id) || [];
+    items.forEach((item) => group.appendChild(buildDeliverableRow(item)));
+    wrap.appendChild(group);
+  });
+
+  return wrap;
+}
+
 async function renderProjectRow(project, invoicedTerminIds) {
   const row = element('div', 'cdv2-proj-row');
   const main = element('div', 'cdv2-proj-main');
@@ -634,6 +655,9 @@ async function renderProjectRow(project, invoicedTerminIds) {
   const deliverablesByStage = await fetchDeliverablesForCase(project.id);
   const workflow = buildWorkflowSection(project, stages, termin, invoicedTerminIds, deliverablesByStage);
   row.appendChild(workflow);
+
+  const deliverableSummary = buildDeliverableSummarySection(stages, deliverablesByStage);
+  row.appendChild(deliverableSummary);
 
   return row;
 }
