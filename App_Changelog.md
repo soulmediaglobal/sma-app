@@ -19,6 +19,11 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #236**: section "Ringkasan Deliverable" di Client Detail V2
+  — menampilkan semua deliverable milik case (lintas tahap),
+  dikelompokkan per nama tahap, ditaruh setelah section Workflow.
+  Reuse skema `case_deliverables` dari Issue #234, tanpa migration
+  baru.
 - **Issue #234**: Case Deliverables — Produk & Summary Tahapan wajib
   di-upload sebelum tahap kerja bisa ditandai "Selesai" (prasyarat
   untuk fitur BAST yang akan menyusul). Tabel baru `case_deliverables`,
