@@ -11,6 +11,18 @@ const PAYMENT_TYPES = ['DP', 'Pelunasan'];
 const PENDING_STATUS = 'Pending';
 const PAID_STATUS = 'Lunas';
 
+const PROOF_BUCKET = 'payment-proofs';
+const MAX_PROOF_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_PROOF_MIME_TYPES = new Map([
+  ['application/pdf', { label: 'PDF', extension: 'pdf' }],
+  ['image/jpeg', { label: 'JPEG', extension: 'jpg' }],
+  ['image/png', { label: 'PNG', extension: 'png' }],
+  ['image/gif', { label: 'GIF', extension: 'gif' }]
+]);
+const VERIFICATION_UNVERIFIED = 'BELUM_BAYAR';
+const VERIFICATION_UPLOADED = 'BUKTI_DIUPLOAD';
+const VERIFICATION_VERIFIED = 'TERVERIFIKASI';
+
 const rupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR'
@@ -245,16 +257,164 @@ function createPaymentRow(payment) {
   actions.append(status, paidAt);
 
   if (canManagePayments && payment.status === PENDING_STATUS) {
-    const markPaid = element('button', 'btn btn-primary btn-sm', 'Tandai Lunas');
-    markPaid.type = 'button';
-    markPaid.dataset.markPaymentPaid = '';
-    markPaid.dataset.paymentId = payment.id;
-    markPaid.dataset.caseId = payment.case_id;
-    actions.appendChild(markPaid);
+    if (!payment.verification_status || payment.verification_status === VERIFICATION_UNVERIFIED) {
+      const uploadBtn = element('button', 'btn btn-outline btn-sm', 'Upload Bukti Transfer');
+      uploadBtn.type = 'button';
+      uploadBtn.dataset.uploadProof = '';
+      uploadBtn.dataset.paymentId = payment.id;
+      uploadBtn.dataset.caseId = payment.case_id;
+      actions.appendChild(uploadBtn);
+    } else if (payment.verification_status === VERIFICATION_UPLOADED) {
+      const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat Bukti');
+      viewBtn.type = 'button';
+      viewBtn.dataset.viewProof = '';
+      viewBtn.dataset.paymentId = payment.id;
+      actions.appendChild(viewBtn);
+
+      const verifyBtn = element('button', 'btn btn-outline btn-sm', 'Verifikasi');
+      verifyBtn.type = 'button';
+      verifyBtn.dataset.verifyProof = '';
+      verifyBtn.dataset.paymentId = payment.id;
+      verifyBtn.dataset.caseId = payment.case_id;
+      actions.appendChild(verifyBtn);
+    } else if (payment.verification_status === VERIFICATION_VERIFIED) {
+      const verifiedBadge = element('span', 'status status-green', 'Bukti Terverifikasi');
+      actions.appendChild(verifiedBadge);
+
+      const markPaid = element('button', 'btn btn-primary btn-sm', 'Tandai Lunas');
+      markPaid.type = 'button';
+      markPaid.dataset.markPaymentPaid = '';
+      markPaid.dataset.paymentId = payment.id;
+      markPaid.dataset.caseId = payment.case_id;
+      actions.appendChild(markPaid);
+    }
   }
 
   row.append(info, amount, actions);
   return row;
+}
+
+function uploadPaymentProof(root, trigger) {
+  if (!canManagePayments || trigger.disabled) {return;}
+  const paymentId = trigger.dataset.paymentId;
+  const caseId = trigger.dataset.caseId;
+  const payment = paymentsById.get(paymentId);
+  if (!payment || payment.case_id !== caseId) {
+    showToast('Pembayaran tidak ditemukan.', { variant: 'error' });
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = Array.from(ALLOWED_PROOF_MIME_TYPES.keys()).join(',');
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    document.body.removeChild(input);
+    if (!file) {return;}
+
+    const typeInfo = ALLOWED_PROOF_MIME_TYPES.get(file.type);
+    if (!typeInfo) {
+      showToast('Gunakan file PDF, JPG/JPEG, PNG, atau GIF.', { variant: 'error' });
+      return;
+    }
+    if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_PROOF_FILE_SIZE) {
+      showToast('Ukuran file maksimal 10 MB.', { variant: 'error' });
+      return;
+    }
+
+    trigger.disabled = true;
+    const storagePath = `${caseId}/${crypto.randomUUID()}.${typeInfo.extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(PROOF_BUCKET)
+      .upload(storagePath, file, { contentType: file.type, upsert: false });
+    if (uploadError) {
+      showToast('Gagal upload bukti transfer.', { variant: 'error' });
+      trigger.disabled = false;
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({
+        proof_storage_path: storagePath,
+        proof_uploaded_at: new Date().toISOString(),
+        verification_status: VERIFICATION_UPLOADED
+      })
+      .eq('id', paymentId)
+      .eq('case_id', caseId);
+
+    if (updateError) {
+      await supabase.storage.from(PROOF_BUCKET).remove([storagePath]);
+      showToast('Gagal menyimpan bukti transfer.', { variant: 'error' });
+      trigger.disabled = false;
+      return;
+    }
+
+    showToast('Bukti transfer berhasil diupload.', { variant: 'success' });
+    await loadPayments(root);
+  });
+
+  input.click();
+}
+
+async function viewPaymentProof(trigger) {
+  if (trigger.disabled) {return;}
+  const paymentId = trigger.dataset.paymentId;
+  const payment = paymentsById.get(paymentId);
+  if (!payment?.proof_storage_path) {
+    showToast('Bukti transfer tidak ditemukan.', { variant: 'error' });
+    return;
+  }
+
+  trigger.disabled = true;
+  try {
+    const { data, error } = await supabase.storage
+      .from(PROOF_BUCKET)
+      .createSignedUrl(payment.proof_storage_path, 60);
+    if (error || !data?.signedUrl) {
+      showToast('Bukti transfer belum dapat dibuka. Silakan coba lagi.', { variant: 'error' });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = data.signedUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+  } finally {
+    trigger.disabled = false;
+  }
+}
+
+async function verifyPaymentProof(root, trigger) {
+  if (!canManagePayments || trigger.disabled) {return;}
+  const paymentId = trigger.dataset.paymentId;
+  const caseId = trigger.dataset.caseId;
+  const payment = paymentsById.get(paymentId);
+  if (!payment || payment.case_id !== caseId || payment.verification_status !== VERIFICATION_UPLOADED) {
+    showToast('Bukti transfer belum dapat diverifikasi.', { variant: 'error' });
+    return;
+  }
+
+  trigger.disabled = true;
+  const { error } = await supabase
+    .from('payments')
+    .update({ verification_status: VERIFICATION_VERIFIED })
+    .eq('id', paymentId)
+    .eq('case_id', caseId)
+    .eq('verification_status', VERIFICATION_UPLOADED);
+
+  if (error) {
+    showToast('Gagal memverifikasi bukti transfer.', { variant: 'error' });
+    trigger.disabled = false;
+    return;
+  }
+
+  showToast('Bukti transfer diverifikasi.', { variant: 'success' });
+  await loadPayments(root);
 }
 
 function createProjectGroup(project, paymentRows) {
@@ -336,7 +496,7 @@ async function loadPayments(root) {
 
     const { data: paymentRows, error: paymentError } = await supabase
       .from('payments')
-      .select('id, case_id, type, amount, status, paid_at, created_at, invoice_number, invoice_issued_at, quotation_item_id')
+      .select('id, case_id, type, amount, status, paid_at, created_at, invoice_number, invoice_issued_at, quotation_item_id, verification_status, proof_storage_path')
       .in('case_id', projects.map((project) => project.id))
       .order('created_at', { ascending: true });
 
@@ -492,6 +652,7 @@ async function markPaymentPaid(root, trigger) {
     payment.case_id !== caseId ||
     payment.status !== PENDING_STATUS ||
     payment.paid_at ||
+    payment.verification_status !== VERIFICATION_VERIFIED ||
     !projects.some((project) => project.id === caseId)
   ) {
     showToast('Pembayaran tidak dapat ditandai lunas.', { variant: 'error' });
@@ -560,7 +721,16 @@ function wireActions(root) {
     }
 
     const paidTrigger = event.target.closest('[data-mark-payment-paid]');
-    if (paidTrigger) {markPaymentPaid(root, paidTrigger);}
+    if (paidTrigger) {markPaymentPaid(root, paidTrigger); return;}
+
+    const uploadTrigger = event.target.closest('[data-upload-proof]');
+    if (uploadTrigger) {uploadPaymentProof(root, uploadTrigger); return;}
+
+    const viewProofTrigger = event.target.closest('[data-view-proof]');
+    if (viewProofTrigger) {viewPaymentProof(viewProofTrigger); return;}
+
+    const verifyTrigger = event.target.closest('[data-verify-proof]');
+    if (verifyTrigger) {verifyPaymentProof(root, verifyTrigger);}
   });
 }
 
