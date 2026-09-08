@@ -237,7 +237,7 @@ async function loadDocuments(root) {
   }
 }
 
-function buildDocumentForm(projectName) {
+function buildDocumentForm(projectName, state) {
   const form = document.createElement('form');
   form.id = 'document-form';
   form.noValidate = true;
@@ -245,6 +245,22 @@ function buildDocumentForm(projectName) {
   const context = element('div', 'client-document-form-context');
   context.appendChild(element('span', '', 'Project'));
   context.appendChild(element('strong', '', projectName));
+
+  const segmented = element('div', 'segmented client-document-mode-toggle');
+  const newLabel = document.createElement('label');
+  const newRadio = element('input', '');
+  newRadio.type = 'radio';
+  newRadio.name = 'document_mode';
+  newRadio.value = 'new';
+  newRadio.checked = true;
+  newLabel.append(newRadio, element('span', '', 'Upload Baru'));
+  const existingLabel = document.createElement('label');
+  const existingRadio = element('input', '');
+  existingRadio.type = 'radio';
+  existingRadio.name = 'document_mode';
+  existingRadio.value = 'existing';
+  existingLabel.append(existingRadio, element('span', '', 'Pilih dari Repository'));
+  segmented.append(newLabel, existingLabel);
 
   const nameGroup = element('div', 'form-group');
   const nameLabel = element('label', 'form-label', 'Nama dokumen');
@@ -272,8 +288,140 @@ function buildDocumentForm(projectName) {
   const help = element('div', 'form-help', 'Format: PDF, DOC/DOCX, XLS/XLSX, JPG/JPEG, PNG. Maksimal 10 MB.');
   fileGroup.append(fileLabel, fileInput, help);
 
-  form.append(context, nameGroup, fileGroup);
+  const newModeSection = element('div', 'client-document-mode-section');
+  newModeSection.append(nameGroup, fileGroup);
+
+  const searchBox = element('div', 'search-box client-document-repo-search');
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Cari dokumen…';
+  searchInput.setAttribute('aria-label', 'Cari dokumen repository');
+  searchBox.appendChild(searchInput);
+
+  const repoList = element('div', 'client-document-repo-list');
+  const repoEmpty = element('p', 'client-document-repo-empty', 'Memuat…');
+
+  const existingModeSection = element('div', 'client-document-mode-section');
+  existingModeSection.hidden = true;
+  existingModeSection.append(searchBox, repoList, repoEmpty);
+
+  form.append(context, segmented, newModeSection, existingModeSection);
+
+  form.repoElements = { searchInput, repoList, repoEmpty };
+
+  const toggleMode = () => {
+    const mode = form.querySelector('input[name="document_mode"]:checked').value;
+    state.mode = mode;
+    newModeSection.hidden = mode !== 'new';
+    existingModeSection.hidden = mode !== 'existing';
+    nameInput.required = mode === 'new';
+    fileInput.required = mode === 'new';
+  };
+  newRadio.addEventListener('change', toggleMode);
+  existingRadio.addEventListener('change', toggleMode);
+
+  searchInput.addEventListener('input', () => {
+    renderRepoList(form.repoElements, form.repoItems || [], searchInput.value, state);
+  });
+
   return form;
+}
+
+function renderRepoList(picker, items, query, state) {
+  picker.repoList.replaceChildren();
+  const filtered = items.filter((doc) => doc.name.toLowerCase().includes(query.trim().toLowerCase()));
+  picker.repoEmpty.hidden = filtered.length > 0;
+  if (filtered.length === 0) {
+    picker.repoEmpty.textContent = items.length === 0
+      ? 'Belum ada dokumen di repository client ini.'
+      : 'Tidak ada dokumen yang cocok.';
+  }
+  filtered.forEach((doc) => {
+    const row = element('label', 'client-document-repo-row');
+    const radio = element('input', 'client-document-repo-radio');
+    radio.type = 'radio';
+    radio.name = 'repo_document';
+    radio.value = doc.id;
+    radio.checked = state.selectedRepoDocId === doc.id;
+    radio.addEventListener('change', () => {state.selectedRepoDocId = doc.id;});
+    row.appendChild(radio);
+    row.appendChild(element('span', '', doc.name));
+    picker.repoList.appendChild(row);
+  });
+}
+
+async function loadRepoPickerOptions(form, caseId, state) {
+  const { data: attachedRows } = await supabase
+    .from('documents')
+    .select('client_document_id')
+    .eq('case_id', caseId)
+    .not('client_document_id', 'is', null);
+  const attachedIds = new Set((attachedRows || []).map((row) => row.client_document_id));
+
+  const { data: repoRows, error } = await supabase
+    .from('client_documents')
+    .select('id, name, created_at')
+    .eq('client_id', activeClientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    form.repoElements.repoEmpty.textContent = 'Gagal memuat dokumen repository.';
+    form.repoElements.repoEmpty.hidden = false;
+    return;
+  }
+
+  form.repoItems = (repoRows || []).filter((doc) => !attachedIds.has(doc.id));
+  renderRepoList(form.repoElements, form.repoItems, form.repoElements.searchInput.value, state);
+}
+
+async function attachExistingDocument(ctx, root, caseId, state) {
+  if (!canManageDocuments) {return;}
+  if (!state.selectedRepoDocId) {
+    showToast('Pilih dokumen dari repository terlebih dahulu.', { variant: 'error' });
+    return;
+  }
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return;}
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+
+  try {
+    const { data: repoDoc, error: repoError } = await supabase
+      .from('client_documents')
+      .select('id, name')
+      .eq('id', state.selectedRepoDocId)
+      .single();
+
+    if (repoError || !repoDoc) {
+      showToast('Dokumen repository tidak ditemukan.', { variant: 'error' });
+      return;
+    }
+
+    const { error: docError } = await supabase
+      .from('documents')
+      .insert({
+        case_id: caseId,
+        name: repoDoc.name,
+        status: 'Upload',
+        client_document_id: repoDoc.id
+      });
+
+    if (docError) {
+      showToast('Gagal menambahkan dokumen ke checklist.', { variant: 'error' });
+      return;
+    }
+
+    ctx.close();
+    showToast('Dokumen berhasil ditambahkan.', { variant: 'success' });
+    await loadDocuments(root);
+  } catch {
+    showToast('Gagal menambahkan dokumen.', { variant: 'error' });
+  } finally {
+    if (submitButton.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Tambah Dokumen';
+    }
+  }
 }
 
 async function submitDocument(ctx, form, root, caseId) {
@@ -368,7 +516,8 @@ function openAddDocumentModal(root, trigger) {
     showToast('Project tidak ditemukan.', { variant: 'error' });
     return;
   }
-  const form = buildDocumentForm(projectName);
+  const state = { mode: 'new', selectedRepoDocId: null };
+  const form = buildDocumentForm(projectName, state);
 
   const ctx = showModal({
     title: 'Tambah Dokumen',
@@ -380,7 +529,13 @@ function openAddDocumentModal(root, trigger) {
         label: 'Tambah Dokumen',
         variant: 'primary',
         closeOnAction: false,
-        action: () => {submitDocument(ctx, form, root, caseId);}
+        action: () => {
+          if (state.mode === 'existing') {
+            attachExistingDocument(ctx, root, caseId, state);
+          } else {
+            submitDocument(ctx, form, root, caseId);
+          }
+        }
       }
     ]
   });
@@ -388,8 +543,14 @@ function openAddDocumentModal(root, trigger) {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    submitDocument(ctx, form, root, caseId);
+    if (state.mode === 'existing') {
+      attachExistingDocument(ctx, root, caseId, state);
+    } else {
+      submitDocument(ctx, form, root, caseId);
+    }
   });
+
+  loadRepoPickerOptions(form, caseId, state);
 }
 
 async function insertStatusActivity({ caseId, documentName, oldStatus, newStatus, automatic = false }) {
