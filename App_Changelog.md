@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #228**: fondasi Document Repository — admin/internal bisa
+  upload file dokumen asli (PDF/DOC/DOCX/XLS/XLSX/JPG/JPEG/PNG, maks
+  10MB) dari form "Tambah Dokumen", tersimpan ke tabel baru
+  `client_documents` (repository per client, reusable lintas case
+  tanpa duplikasi file). Kolom baru `documents.client_document_id`
+  menghubungkan checklist per-case ke repository. Dokumen lama
+  (link manual) tidak terpengaruh. Masih di Client Detail V1 —
+  migrasi ke V2 menyusul setelah E2E dipastikan oke.
 - **Issue #226**: lengkapi data client (nama, PIC) di section "Kepada
   Yth." pada preview invoice — sebelumnya tampilkan placeholder "—"
   karena parameter `client` dikirim `null` (gap yang ditandai sengaja
