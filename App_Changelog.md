@@ -290,6 +290,11 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Issue #232**: fix gap RLS — role `supervisor` tidak punya policy
+  sama sekali di `activities` (ditemukan berulang kali di sesi-sesi
+  sebelumnya), dan cuma SELECT+UPDATE (tanpa INSERT) di `payments`.
+  Sekarang supervisor setara admin (FOR ALL) di kedua tabel, mirror
+  persis policy admin yang sudah ada.
 - **Issue #180**: `saveWorkStages()` sebelumnya melakukan delete-all +
   insert-all setiap kali Tahapan Pekerjaan disimpan, sehingga Postgres
   selalu men-generate `id` baru walau konten tidak berubah. Karena
