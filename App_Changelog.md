@@ -19,6 +19,14 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #238**: BAST (Berita Acara Serah Terima) — bisa dibuat kalau
+  semua tahap utama DONE dan semua payment Lunas, 1 BAST per case
+  (final, tidak bisa dibuat ulang). Kolom baru
+  `case_work_stages.completed_at` untuk milestone, tabel baru
+  `case_bast` dengan auto-generate nomor. Preview A4 (pola sama
+  seperti Invoice Preview #222): milestone tahapan, ringkasan
+  pembayaran, dokumen yang diserahkan (dari Case Deliverables #234),
+  pernyataan serah terima, tanda tangan.
 - **Issue #236**: section "Ringkasan Deliverable" di Client Detail V2
   — menampilkan semua deliverable milik case (lintas tahap),
   dikelompokkan per nama tahap, ditaruh setelah section Workflow.
