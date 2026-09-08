@@ -19,6 +19,13 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #230**: reuse dokumen existing dari repository (toggle
+  "Upload Baru"/"Pilih dari Repository" di modal Tambah Dokumen,
+  dengan search dan exclude dokumen yang sudah attached ke case yang
+  sama) — tanpa upload ulang file. Checklist "Dokumen yang Diperlukan"
+  di RAB Builder sekarang tampilkan badge terpisah "✓ Ada file"
+  berdasarkan `client_document_id`/`file_url`, karena status dokumen
+  ternyata bisa diubah manual tanpa file beneran ada.
 - **Issue #228**: fondasi Document Repository — admin/internal bisa
   upload file dokumen asli (PDF/DOC/DOCX/XLS/XLSX/JPG/JPEG/PNG, maks
   10MB) dari form "Tambah Dokumen", tersimpan ke tabel baru
