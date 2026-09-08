@@ -19,6 +19,11 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #226**: lengkapi data client (nama, PIC) di section "Kepada
+  Yth." pada preview invoice — sebelumnya tampilkan placeholder "—"
+  karena parameter `client` dikirim `null` (gap yang ditandai sengaja
+  saat Issue #222). Section Pembayaran fetch data client sekali saat
+  init; tab Workflow reuse variable `client` yang sudah ada.
 - **Issue #224**: upload & verifikasi bukti transfer oleh
   admin/supervisor untuk payment berstatus Pending. Bucket storage baru
   `payment-proofs` (private, PDF/JPEG/PNG/GIF, 10MB) dengan RLS:
