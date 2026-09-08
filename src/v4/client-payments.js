@@ -36,6 +36,7 @@ const dateFmt = new Intl.DateTimeFormat('id-ID', {
 
 let initialized = false;
 let activeClientId = '';
+let activeClient = null;
 let currentProfile = null;
 let projects = [];
 let paymentsById = new Map();
@@ -236,7 +237,7 @@ function createPaymentRow(payment) {
     previewLink.type = 'button';
     previewLink.addEventListener('click', () => {
       const project = projects.find((p) => p.id === payment.case_id);
-      openInvoicePreview(payment, project, null);
+      openInvoicePreview(payment, project, activeClient);
     });
     invoiceLine.appendChild(previewLink);
     info.appendChild(invoiceLine);
@@ -470,6 +471,17 @@ function renderPayments(root, paymentRows) {
   root.appendChild(list);
   root.dataset.state = 'ready';
   root.setAttribute('aria-busy', 'false');
+}
+
+async function fetchClientDetail(clientId) {
+  if (!clientId) {return null;}
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, name, type, pic_name, pic_title, address')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (error || !data) {return null;}
+  return data;
 }
 
 async function loadPayments(root) {
@@ -751,6 +763,7 @@ export async function initClientPayments({ clientId, profile } = {}) {
   initialized = true;
   activeClientId = clientId || '';
   currentProfile = profile || null;
+  activeClient = await fetchClientDetail(activeClientId);
 
   const role = currentProfile?.role;
   if (!['admin', 'internal', 'client'].includes(role)) {

@@ -271,7 +271,7 @@ function buildInvoicedBadge(termin, project, payment) {
   if (payment) {
     const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat Invoice');
     viewBtn.type = 'button';
-    viewBtn.addEventListener('click', () => openInvoicePreview(payment, project, null));
+    viewBtn.addEventListener('click', () => openInvoicePreview(payment, project, client));
     wrap.appendChild(viewBtn);
   }
 
