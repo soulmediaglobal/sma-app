@@ -19,6 +19,12 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #234**: Case Deliverables — Produk & Summary Tahapan wajib
+  di-upload sebelum tahap kerja bisa ditandai "Selesai" (prasyarat
+  untuk fitur BAST yang akan menyusul). Tabel baru `case_deliverables`,
+  bucket `case-deliverables` (PDF only, 10MB), RLS full parity
+  admin/internal/supervisor. `updateWorkStageStatus` sekarang menolak
+  status DONE kalau belum ada deliverable untuk tahap tersebut.
 - **Issue #230**: reuse dokumen existing dari repository (toggle
   "Upload Baru"/"Pilih dari Repository" di modal Tambah Dokumen,
   dengan search dan exclude dokumen yang sudah attached ke case yang
