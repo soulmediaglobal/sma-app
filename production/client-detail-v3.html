@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detail Client v3 | SMA-app</title>
+<link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="/src/main-v4.js"></script>
+</head>
+<body data-shell="admin" data-page="client-detail-v3" data-breadcrumb="Home > Client|client.html > Detail Client v3">
+
+<main class="main">
+<div class="page-wrapper">
+  <section id="client-detail-v3-root" class="cdv3-root" aria-busy="true">
+
+    <div class="page-header cdv3-header">
+      <div class="page-header-row">
+        <div>
+          <div class="page-pretitle">Client Management</div>
+          <h1 class="page-title" id="cdv3-name">Detail Client</h1>
+          <span class="cdv3-type-badge" id="cdv3-type" hidden></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cdv3-info-bar">
+      <div class="cdv3-info-bar-cell">
+        <div class="cdv3-info-bar-label">PIC &amp; Kontak</div>
+        <div class="cdv3-info-bar-value" id="cdv3-info-pic">—</div>
+      </div>
+      <div class="cdv3-info-bar-cell">
+        <div class="cdv3-info-bar-label">Bidang Usaha</div>
+        <div class="cdv3-info-bar-value" id="cdv3-info-bidang">—</div>
+      </div>
+      <div class="cdv3-info-bar-cell">
+        <div class="cdv3-info-bar-label">Terdaftar Sejak</div>
+        <div class="cdv3-info-bar-value" id="cdv3-info-terdaftar">—</div>
+      </div>
+      <div class="cdv3-info-bar-cell cdv3-info-bar-cell--action">
+        <button class="cdv3-text-link" type="button" id="cdv3-info-toggle">Lihat detail lengkap →</button>
+      </div>
+    </div>
+
+    <div class="cdv3-info-full" id="cdv3-info-full" hidden>
+      <div class="cdv3-cards-grid">
+        <section class="cdv3-card" data-cdv3-card="business"></section>
+        <section class="cdv3-card" data-cdv3-card="director"></section>
+        <section class="cdv3-card" data-cdv3-card="other"></section>
+        <section class="cdv3-card cdv3-card--full" data-cdv3-card="address"></section>
+        <section class="cdv3-card cdv3-card--full" data-cdv3-card="pic"></section>
+      </div>
+    </div>
+
+    <section class="client-portal-access" aria-labelledby="cdv3-portal-access-heading">
+      <div class="client-portal-access-heading">
+        <div>
+          <h3 id="cdv3-portal-access-heading">Akses Client Portal</h3>
+          <p>Kelola satu akun portal untuk PIC client ini.</p>
+        </div>
+        <span class="status status-gray" data-client-portal-access-badge>Memuat…</span>
+      </div>
+      <div class="client-portal-access-state" data-client-portal-access-root aria-live="polite" aria-busy="true">
+        <p data-client-portal-access-message>Memeriksa status akses…</p>
+        <div class="client-portal-access-actions" data-client-portal-access-actions></div>
+      </div>
+    </section>
+
+    <div class="card client-detail-card">
+      <div class="client-detail-tabs tabs-underline" role="tablist" aria-label="Detail client" aria-orientation="horizontal">
+        <button class="tab active" id="cdv3-tab-project" type="button" role="tab" aria-selected="true" aria-controls="cdv3-panel-project" tabindex="0" data-client-tab="project">Project</button>
+        <button class="tab" id="cdv3-tab-workflow" type="button" role="tab" aria-selected="false" aria-controls="cdv3-panel-workflow" tabindex="-1" data-client-tab="workflow">Workflow</button>
+        <button class="tab" id="cdv3-tab-documents" type="button" role="tab" aria-selected="false" aria-controls="cdv3-panel-documents" tabindex="-1" data-client-tab="documents">Dokumen</button>
+        <button class="tab" id="cdv3-tab-payments" type="button" role="tab" aria-selected="false" aria-controls="cdv3-panel-payments" tabindex="-1" data-client-tab="payments">Pembayaran</button>
+        <button class="tab" id="cdv3-tab-activities" type="button" role="tab" aria-selected="false" aria-controls="cdv3-panel-activities" tabindex="-1" data-client-tab="activities">Aktivitas</button>
+      </div>
+
+      <section class="client-tab-panel" id="cdv3-panel-project" role="tabpanel" aria-labelledby="cdv3-tab-project" data-client-panel="project">
+        <p class="empty-state">Belum ada konten.</p>
+      </section>
+      <section class="client-tab-panel" id="cdv3-panel-workflow" role="tabpanel" aria-labelledby="cdv3-tab-workflow" data-client-panel="workflow" hidden>
+        <p class="empty-state">Belum ada konten.</p>
+      </section>
+      <section class="client-tab-panel" id="cdv3-panel-documents" role="tabpanel" aria-labelledby="cdv3-tab-documents" data-client-panel="documents" hidden>
+        <p class="empty-state">Belum ada konten.</p>
+      </section>
+      <section class="client-tab-panel" id="cdv3-panel-payments" role="tabpanel" aria-labelledby="cdv3-tab-payments" data-client-panel="payments" hidden>
+        <p class="empty-state">Belum ada konten.</p>
+      </section>
+      <section class="client-tab-panel" id="cdv3-panel-activities" role="tabpanel" aria-labelledby="cdv3-tab-activities" data-client-panel="activities" hidden>
+        <p class="empty-state">Belum ada konten.</p>
+      </section>
+    </div>
+
+  </section>
+</div>
+</main>
+
+</body>
+</html>
