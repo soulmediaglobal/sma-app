@@ -1,16 +1,20 @@
-// SMA-app — Client Detail v3 (Issue #240).
+// SMA-app — Client Detail v3 (Issue #240, tab Project/RAB Issue #242).
 //
 // Restrukturisasi dari client-detail-v2.js: section Info jadi card-based
-// dengan edit inline per kartu, sisanya jadi shell 6-tab. Tab
-// Project/Workflow/Dokumen/Pembayaran/Aktivitas baru placeholder --
-// logic project-row/workflow/BAST dari v2 belum dipindahkan ke sini,
-// menunggu issue terpisah per tab (lihat Issue #240 "Out of scope").
+// dengan edit inline per kartu, sisanya jadi shell 5-tab. Tab Project
+// reuse langsung loadQuotationsForCases()/buildQuotationSection() dari
+// client-quotations.js dan openAddCaseModal() dari case-form.js -- sama
+// persis seperti di V2, tanpa progress/workflow/deliverable/BAST (itu
+// masuk tab Workflow, issue terpisah). Tab Workflow/Dokumen/Pembayaran/
+// Aktivitas masih placeholder, menunggu issue terpisah per tab.
 //
 // V1 (client-detail.js) dan V2 (client-detail-v2.js) tidak disentuh.
 
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
+import { openAddCaseModal } from './case-form.js';
+import { loadQuotationsForCases, buildQuotationSection } from './client-quotations.js';
 
 const CLIENT_FIELDS = [
   'id', 'name', 'type', 'pic_name', 'pic_title', 'pic_phone', 'pic_email',
@@ -263,6 +267,67 @@ function wireTabs(root) {
   });
 }
 
+function renderProjectRow(project) {
+  const row = element('div', 'cdv3-proj-row');
+  const main = element('div', 'cdv3-proj-main');
+  main.append(
+    element('div', 'cdv3-proj-name', project.service_type || 'Project tanpa jenis'),
+    element('div', 'cdv3-proj-sub', project.case_number || '—')
+  );
+  const statusKey = (project.status || '').toLowerCase();
+  const statusBadge = element('span', `cdv3-status-pill cdv3-status-${statusKey}`, project.status || '—');
+  row.append(main, statusBadge);
+
+  const quotation = buildQuotationSection(project, {
+    profile: currentProfile,
+    clientId,
+    client,
+    onRefresh: () => loadAndRenderProjects()
+  });
+  quotation.classList.add('cdv3-proj-quotation');
+  row.appendChild(quotation);
+
+  return row;
+}
+
+async function loadAndRenderProjects() {
+  const table = document.getElementById('cdv3-project-table');
+  table.replaceChildren();
+
+  const { data, error } = await supabase
+    .from('cases')
+    .select('id, client_id, service_type, status, total_rab, negotiation_count, created_at, case_number')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    table.appendChild(element('div', 'empty-state', 'Gagal memuat project.'));
+    return;
+  }
+
+  const projects = data || [];
+  if (projects.length === 0) {
+    table.appendChild(element('div', 'empty-state', 'Belum ada project untuk client ini.'));
+    return;
+  }
+
+  await loadQuotationsForCases(projects.map((p) => p.id));
+  projects.forEach((project) => table.appendChild(renderProjectRow(project)));
+}
+
+function wireAddProject() {
+  document.getElementById('cdv3-add-project-btn')?.addEventListener('click', () => {
+    if (!currentProfile?.id) {
+      showToast('Gagal memuat profil pengguna. Muat ulang halaman.', { variant: 'error' });
+      return;
+    }
+    openAddCaseModal(clientId, {
+      profile: currentProfile,
+      onCreated: () => loadAndRenderProjects()
+    });
+  });
+}
+
 async function mountClientPortalAccess() {
   try {
     const { initClientPortalAccess } = await import('./client-portal-access.js');
@@ -304,6 +369,8 @@ export async function initClientDetailV3() {
   updateInfoBarTexts();
   wireInfoToggle();
   renderCards();
+  wireAddProject();
+  await loadAndRenderProjects();
   await mountClientPortalAccess();
 
   root.setAttribute('aria-busy', 'false');
