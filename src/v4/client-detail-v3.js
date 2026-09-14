@@ -1,5 +1,5 @@
 // SMA-app — Client Detail v3 (Issue #240, tab Project/RAB Issue #242,
-// tab Workflow Issue #244).
+// tab Workflow Issue #244, tab Dokumen/Pembayaran/Aktivitas Issue #246).
 //
 // Restrukturisasi dari client-detail-v2.js: section Info jadi card-based
 // dengan edit inline per kartu, sisanya jadi shell 5-tab. Tab Project
@@ -16,8 +16,11 @@
 // buildDeliverableSummarySection() dari V2 sengaja TIDAK di-port --
 // section duplikat, deliverable sudah muncul inline per-stage.
 //
-// Tab Dokumen/Pembayaran/Aktivitas masih placeholder, menunggu issue
-// terpisah per tab.
+// Tab Dokumen/Pembayaran/Aktivitas (Issue #246) reuse murni modul yang
+// sudah dipakai V1/V2 -- initClientDocuments/initClientPayments/
+// initClientActivities di-lazy-import dan mount langsung ke root
+// masing-masing (client-documents-root/client-payments-root/
+// client-activities-root), sama seperti mountClientPortalAccess().
 //
 // V1 (client-detail.js) dan V2 (client-detail-v2.js) tidak disentuh.
 
@@ -1189,6 +1192,36 @@ async function mountClientPortalAccess() {
   }
 }
 
+async function mountClientDocuments() {
+  try {
+    const { initClientDocuments } = await import('./client-documents.js');
+    await initClientDocuments({ clientId, profile: currentProfile });
+  } catch {
+    const root = document.getElementById('client-documents-root');
+    if (root) {root.textContent = 'Gagal memuat modul dokumen.';}
+  }
+}
+
+async function mountClientPayments() {
+  try {
+    const { initClientPayments } = await import('./client-payments.js');
+    await initClientPayments({ clientId, profile: currentProfile });
+  } catch {
+    const root = document.getElementById('client-payments-root');
+    if (root) {root.textContent = 'Gagal memuat modul pembayaran.';}
+  }
+}
+
+async function mountClientActivities() {
+  try {
+    const { initClientActivities } = await import('./client-activities.js');
+    await initClientActivities({ clientId, profile: currentProfile });
+  } catch {
+    const root = document.getElementById('client-activities-root');
+    if (root) {root.textContent = 'Gagal memuat modul aktivitas.';}
+  }
+}
+
 export async function initClientDetailV3() {
   const root = document.getElementById('client-detail-v3-root');
   if (!root) {return;}
@@ -1219,6 +1252,9 @@ export async function initClientDetailV3() {
   wireAddProject();
   await loadAndRenderProjects();
   await loadAndRenderWorkflow();
+  await mountClientDocuments();
+  await mountClientPayments();
+  await mountClientActivities();
   await mountClientPortalAccess();
 
   root.setAttribute('aria-busy', 'false');
