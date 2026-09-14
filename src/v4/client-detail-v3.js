@@ -323,8 +323,13 @@ function wireTabs(root) {
 function renderProjectRow(project) {
   const row = element('div', 'cdv3-proj-row');
   const main = element('div', 'cdv3-proj-main');
+  const hasTitle = Boolean(project.notes && project.notes.trim());
+  const nameEl = element('div', 'cdv3-proj-name', hasTitle ? project.notes : 'Judul belum diisi');
+  if (!hasTitle) {nameEl.classList.add('cdv3-title-empty');}
+  const titleGroup = element('div', 'cdv3-title-group');
+  titleGroup.append(nameEl, element('span', 'cdv3-service-chip', project.service_type || '—'));
   main.append(
-    element('div', 'cdv3-proj-name', project.service_type || 'Project tanpa jenis'),
+    titleGroup,
     element('div', 'cdv3-proj-sub', project.case_number || '—')
   );
   const statusKey = (project.status || '').toLowerCase();
@@ -349,7 +354,7 @@ async function loadAndRenderProjects() {
 
   const { data, error } = await supabase
     .from('cases')
-    .select('id, client_id, service_type, status, total_rab, negotiation_count, created_at, case_number')
+    .select('id, client_id, service_type, notes, status, total_rab, negotiation_count, created_at, case_number')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false });
 
@@ -376,7 +381,10 @@ function wireAddProject() {
     }
     openAddCaseModal(clientId, {
       profile: currentProfile,
-      onCreated: () => loadAndRenderProjects()
+      onCreated: () => {
+        loadAndRenderProjects();
+        loadAndRenderWorkflow();
+      }
     });
   });
 }
@@ -1142,8 +1150,13 @@ function renderWorkflowRow(project, stages, termin, invoicedTerminIds, deliverab
   const row = element('div', 'cdv3-workflow-row');
 
   const head = element('div', 'cdv3-workflow-row-head');
+  const hasTitle = Boolean(project.notes && project.notes.trim());
+  const nameEl = element('span', 'cdv3-workflow-row-name', hasTitle ? project.notes : 'Judul belum diisi');
+  if (!hasTitle) {nameEl.classList.add('cdv3-title-empty');}
+  const titleGroup = element('div', 'cdv3-title-group');
+  titleGroup.append(nameEl, element('span', 'cdv3-service-chip', project.service_type || '—'));
   head.append(
-    element('span', 'cdv3-workflow-row-name', project.service_type || 'Project tanpa jenis'),
+    titleGroup,
     element('span', 'cdv3-workflow-row-status', project.status || '—')
   );
   row.appendChild(head);
@@ -1172,7 +1185,7 @@ async function loadAndRenderWorkflow() {
 
   const { data, error } = await supabase
     .from('cases')
-    .select('id, client_id, service_type, status, total_rab, negotiation_count, created_at, case_number')
+    .select('id, client_id, service_type, notes, status, total_rab, negotiation_count, created_at, case_number')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false });
 

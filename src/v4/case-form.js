@@ -141,8 +141,8 @@ function buildForm(profile, state) {
     </div>
     <div class="form-group" data-team-slot></div>
     <div class="form-group">
-      <label class="form-label" for="case-notes">Deskripsi</label>
-      <textarea class="form-control" id="case-notes" name="notes"></textarea>
+      <label class="form-label" for="case-notes">Judul Project <span class="required">*</span></label>
+      <textarea class="form-control" id="case-notes" name="notes" required placeholder="Contoh: Pembuatan PBG untuk pembangunan gedung serba guna"></textarea>
     </div>
   `;
   // Set via property assignment, not innerHTML — profile.name is
