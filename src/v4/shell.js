@@ -20,7 +20,7 @@ function injectShellIfMissing() {
     ? body.dataset.breadcrumb.split('>').map((s) => s.trim()).filter(Boolean)
     : ['Home'];
 
-  const { sidebar, topbar, footer } = renderShell({ activeKey, breadcrumb });
+  const { sidebar, topbar, footer } = renderShell({ activeKey, breadcrumb, base: import.meta.env.BASE_URL });
 
   const tpl = document.createElement('template');
   tpl.innerHTML = sidebar.trim();
