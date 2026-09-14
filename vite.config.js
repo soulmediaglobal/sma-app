@@ -88,7 +88,7 @@ function shellInjectionPlugin() {
         const parsed = parseShellAttrs(bodyTag[1]);
         if (!parsed) return out;
 
-        const { sidebar, topbar, footer } = renderShell(parsed);
+        const { sidebar, topbar, footer } = renderShell({ ...parsed, base });
         const skipLink = `<a class="skip-link" href="#main-content">Skip to main content</a>`;
 
         out = out.replace(

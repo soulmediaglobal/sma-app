@@ -54,13 +54,20 @@
 }
 
 .sidebar-brand {
-  height: 56px;
+  height: 64px;
   padding: 0 16px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   border-bottom: 1px solid var(--sidebar-border);
   flex-shrink: 0;
+}
+.sidebar-logo {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 .brand-icon {
   width: 28px; height: 28px;
@@ -606,6 +613,7 @@
     justify-content: center;
   }
   body.sidebar-rail .brand-name { display: none; }
+  body.sidebar-rail .sidebar-logo { height: 10px; }
   body.sidebar-rail .nav-group { padding: 0 8px; }
   body.sidebar-rail .nav-label { display: none; }
   body.sidebar-rail .nav-link {

@@ -184,7 +184,7 @@ function renderNavItem(item, activeKey) {
   `;
 }
 
-export function renderSidebar(activeKey) {
+export function renderSidebar(activeKey, base = '/') {
   const groups = NAV.map(
     group => `
     <div class="nav-group">
@@ -197,8 +197,7 @@ export function renderSidebar(activeKey) {
   return `
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="sidebar-brand">
-        <div class="brand-icon">S</div>
-        <div class="brand-name">Soul Mitra Abadi</div>
+        <img src="${base}images/logo-sma.png" alt="Soul Mitra Abadi" class="sidebar-logo">
       </div>
       <nav class="sidebar-nav">${groups}</nav>
       <div class="sidebar-footer">
@@ -311,9 +310,9 @@ export function renderFooter() {
   `;
 }
 
-export function renderShell({ activeKey = '', breadcrumb = ['Home'] } = {}) {
+export function renderShell({ activeKey = '', breadcrumb = ['Home'], base = '/' } = {}) {
   return {
-    sidebar: renderSidebar(activeKey),
+    sidebar: renderSidebar(activeKey, base),
     topbar: renderTopbar(breadcrumb),
     footer: renderFooter()
   };
