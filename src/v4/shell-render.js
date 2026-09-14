@@ -198,6 +198,8 @@ export function renderSidebar(activeKey, base = '/') {
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="sidebar-brand">
         <img src="${base}images/logo-sma.png" alt="Soul Mitra Abadi" class="sidebar-logo">
+        <div class="sidebar-brand-name">Soul Mitra Abadi</div>
+        <div class="sidebar-brand-tagline">Client Management System</div>
       </div>
       <nav class="sidebar-nav">${groups}</nav>
       <div class="sidebar-footer">
