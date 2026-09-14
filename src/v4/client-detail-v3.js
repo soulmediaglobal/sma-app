@@ -1,20 +1,41 @@
-// SMA-app — Client Detail v3 (Issue #240, tab Project/RAB Issue #242).
+// SMA-app — Client Detail v3 (Issue #240, tab Project/RAB Issue #242,
+// tab Workflow Issue #244).
 //
 // Restrukturisasi dari client-detail-v2.js: section Info jadi card-based
 // dengan edit inline per kartu, sisanya jadi shell 5-tab. Tab Project
 // reuse langsung loadQuotationsForCases()/buildQuotationSection() dari
 // client-quotations.js dan openAddCaseModal() dari case-form.js -- sama
-// persis seperti di V2, tanpa progress/workflow/deliverable/BAST (itu
-// masuk tab Workflow, issue terpisah). Tab Workflow/Dokumen/Pembayaran/
-// Aktivitas masih placeholder, menunggu issue terpisah per tab.
+// persis seperti di V2.
+//
+// Tab Workflow (Issue #244) reuse murni fungsi Tahapan/Deliverable/
+// Invoice-alert/BAST dari client-detail-v2.js -- battle-tested, logic
+// dan query TIDAK ditulis ulang, hanya class/id DOM yang disesuaikan
+// prefix cdv3-. Query project-nya sengaja terpisah dari tab Project
+// (loadAndRenderWorkflow() vs loadAndRenderProjects()) -- coupling
+// cross-tab untuk share state dinilai nggak sepadan manfaatnya.
+// buildDeliverableSummarySection() dari V2 sengaja TIDAK di-port --
+// section duplikat, deliverable sudah muncul inline per-stage.
+//
+// Tab Dokumen/Pembayaran/Aktivitas masih placeholder, menunggu issue
+// terpisah per tab.
 //
 // V1 (client-detail.js) dan V2 (client-detail-v2.js) tidak disentuh.
 
 import { supabase } from '../lib/supabaseClient.js';
 import { getProfile } from '../lib/auth.js';
 import { showToast } from './toast.js';
+import { showModal } from './modal.js';
 import { openAddCaseModal } from './case-form.js';
-import { loadQuotationsForCases, buildQuotationSection } from './client-quotations.js';
+import {
+  loadQuotationsForCases,
+  buildQuotationSection,
+  getQuotationsByCaseId,
+  getWorkStagesForCase,
+  getAcceptedTerminForCase,
+  docEl,
+  PREVIEW_CSS
+} from './client-quotations.js';
+import { getInvoicedTerminIds, openInvoicePreview } from './client-payments.js';
 
 const CLIENT_FIELDS = [
   'id', 'name', 'type', 'pic_name', 'pic_title', 'pic_phone', 'pic_email',
@@ -62,6 +83,10 @@ function element(tag, className, text) {
 function formatDate(value) {
   if (!value) {return '—';}
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+function rupiah(value) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value || 0);
 }
 
 async function loadClient() {
@@ -328,6 +353,828 @@ function wireAddProject() {
   });
 }
 
+// ---------------------------------------------------------------------
+// Tab Workflow (Issue #244) -- reuse murni dari client-detail-v2.js.
+// Logic dan query TIDAK diubah; hanya class/id DOM yang di-prefix cdv3-.
+// ---------------------------------------------------------------------
+
+const WORK_STAGE_STATUS_LABEL = {
+  PENDING: 'Menunggu',
+  IN_PROGRESS: 'Berjalan',
+  DONE: 'Selesai',
+  BLOCKED: 'Terhambat'
+};
+
+const DELIVERABLE_BUCKET = 'case-deliverables';
+const MAX_DELIVERABLE_FILE_SIZE = 10 * 1024 * 1024;
+const DELIVERABLE_TYPE_LABEL = { PRODUK: 'Produk', SUMMARY: 'Summary Tahapan' };
+
+const bastDateFmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+async function updateWorkStageStatus(stage, newStatus, ctx) {
+  if (!ctx.profile?.id) {
+    showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
+    return false;
+  }
+  if (newStatus === 'DONE') {
+    const { count } = await supabase
+      .from('case_deliverables')
+      .select('id', { count: 'exact', head: true })
+      .eq('stage_id', stage.id);
+    if (!count) {
+      showToast('Upload minimal 1 Produk atau Summary Tahapan sebelum menandai tahap ini selesai.', { variant: 'error' });
+      return false;
+    }
+  }
+  const { error } = await supabase
+    .from('case_work_stages')
+    .update({ status: newStatus, completed_at: newStatus === 'DONE' ? new Date().toISOString() : null })
+    .eq('id', stage.id);
+  if (error) {
+    showToast('Gagal update status.', { variant: 'error' });
+    return false;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: ctx.caseId,
+    type: 'Status Tahapan',
+    notes: `Tahap "${stage.name}" ditandai ${newStatus === 'DONE' ? 'selesai' : 'terhambat'}.`,
+    by_user: ctx.profile.id
+  });
+  return true;
+}
+
+function calcProgress(stages) {
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  if (mainStages.length === 0) {return null;}
+  const done = mainStages.filter((s) => s.status === 'DONE').length;
+  return Math.round((done / mainStages.length) * 100);
+}
+
+function workStageStatusBadge(status) {
+  const key = (status || 'PENDING').toLowerCase();
+  return element('span', `cdv3-status-pill cdv3-status-${key}`, WORK_STAGE_STATUS_LABEL[status] || status || '—');
+}
+
+function buildWorkStageActions(stage, project) {
+  if (stage.status === 'DONE') {return null;}
+
+  const actions = element('div', 'cdv3-workflow-actions');
+  const doneBtn = element('button', 'btn btn-sm btn-success', 'Selesai');
+  doneBtn.type = 'button';
+  const blockedBtn = element('button', 'btn btn-sm btn-warning', 'Terhambat');
+  blockedBtn.type = 'button';
+
+  const handleClick = (newStatus) => async () => {
+    doneBtn.disabled = true;
+    blockedBtn.disabled = true;
+    const ok = await updateWorkStageStatus(stage, newStatus, { caseId: project.id, profile: currentProfile });
+    if (ok) {
+      showToast('Status tahap diperbarui.', { variant: 'success' });
+      await loadAndRenderWorkflow();
+      return;
+    }
+    doneBtn.disabled = false;
+    blockedBtn.disabled = false;
+  };
+
+  doneBtn.addEventListener('click', handleClick('DONE'));
+  blockedBtn.addEventListener('click', handleClick('BLOCKED'));
+  actions.append(doneBtn, blockedBtn);
+  return actions;
+}
+
+async function createInvoiceFromTermin(termin, project) {
+  const { error } = await supabase.from('payments').insert({
+    case_id: project.id,
+    type: termin.term_name,
+    amount: termin.amount,
+    quotation_item_id: termin.id,
+    invoice_issued_at: new Date().toISOString()
+  });
+  if (error) {
+    showToast('Gagal membuat invoice.', { variant: 'error' });
+    return false;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: project.id,
+    type: 'Invoice Dibuat',
+    notes: `Invoice untuk Termin "${termin.term_name}" sebesar ${rupiah(termin.amount)} berhasil dibuat.`,
+    by_user: currentProfile?.id
+  });
+  return true;
+}
+
+function buildInvoiceAlert(termin, project) {
+  const alert = element('div', 'cdv3-workflow-invoice-alert');
+  const info = element('div', 'cdv3-workflow-invoice-alert-info');
+  info.append(
+    element('span', 'cdv3-workflow-invoice-alert-name', termin.term_name),
+    element('span', 'cdv3-workflow-invoice-alert-amount', rupiah(termin.amount))
+  );
+  alert.appendChild(info);
+
+  const createBtn = element('button', 'btn btn-sm btn-primary', 'Buat Invoice');
+  createBtn.type = 'button';
+  createBtn.addEventListener('click', async () => {
+    createBtn.disabled = true;
+    const ok = await createInvoiceFromTermin(termin, project);
+    if (ok) {
+      showToast('Invoice berhasil dibuat.', { variant: 'success' });
+      await loadAndRenderWorkflow();
+      return;
+    }
+    createBtn.disabled = false;
+  });
+  alert.appendChild(createBtn);
+  return alert;
+}
+
+function buildInvoicedBadge(termin, project, payment) {
+  const wrap = element('div', 'cdv3-workflow-invoiced-row');
+
+  const badge = element('div', 'cdv3-workflow-invoiced-badge');
+  badge.append(
+    element('span', 'cdv3-workflow-invoiced-badge-icon', '✓'),
+    element('span', 'cdv3-workflow-invoiced-badge-text', `${termin.term_name} — Sudah di-invoice`)
+  );
+  wrap.appendChild(badge);
+
+  if (payment) {
+    const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat Invoice');
+    viewBtn.type = 'button';
+    viewBtn.addEventListener('click', () => openInvoicePreview(payment, project, client));
+    wrap.appendChild(viewBtn);
+  }
+
+  return wrap;
+}
+
+function buildInvoiceAlerts(stage, project, termin, invoicedTerminIds) {
+  if (stage.status !== 'DONE') {return null;}
+  const matchingTermin = termin.filter((t) => t.stage_id === stage.id);
+  if (matchingTermin.length === 0) {return null;}
+
+  const wrap = element('div', 'cdv3-workflow-invoice-alerts');
+  matchingTermin.forEach((t) => {
+    if (invoicedTerminIds.has(t.id)) {
+      wrap.appendChild(buildInvoicedBadge(t, project, invoicedTerminIds.get(t.id)));
+    } else {
+      wrap.appendChild(buildInvoiceAlert(t, project));
+    }
+  });
+  return wrap;
+}
+
+async function fetchDeliverablesForCase(caseId) {
+  const { data, error } = await supabase
+    .from('case_deliverables')
+    .select('id, stage_id, type, name, storage_path, created_at')
+    .eq('case_id', caseId);
+  if (error) {return new Map();}
+  const deliverablesByStage = new Map();
+  (data || []).forEach((row) => {
+    const list = deliverablesByStage.get(row.stage_id) || [];
+    list.push(row);
+    deliverablesByStage.set(row.stage_id, list);
+  });
+  return deliverablesByStage;
+}
+
+async function fetchCaseBast(caseId) {
+  const { data, error } = await supabase
+    .from('case_bast')
+    .select('id, bast_number, created_at')
+    .eq('case_id', caseId)
+    .maybeSingle();
+  if (error || !data) {return null;}
+  return data;
+}
+
+async function fetchCasePayments(caseId) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, type, amount, status, paid_at, invoice_number')
+    .eq('case_id', caseId)
+    .order('created_at', { ascending: true });
+  if (error) {return [];}
+  return data || [];
+}
+
+async function createBast(project) {
+  const { data, error } = await supabase
+    .from('case_bast')
+    .insert({ case_id: project.id, created_by: currentProfile?.id })
+    .select('id, bast_number, created_at')
+    .single();
+  if (error || !data) {
+    showToast('Gagal membuat BAST.', { variant: 'error' });
+    return null;
+  }
+  await supabase.from('activities').insert({
+    client_id: clientId,
+    case_id: project.id,
+    type: 'BAST Dibuat',
+    notes: `BAST ${data.bast_number} berhasil dibuat.`,
+    by_user: currentProfile?.id
+  });
+  return data;
+}
+
+async function viewDeliverable(deliverable, trigger) {
+  if (trigger.disabled) {return;}
+  trigger.disabled = true;
+  try {
+    const { data, error } = await supabase.storage
+      .from(DELIVERABLE_BUCKET)
+      .createSignedUrl(deliverable.storage_path, 60);
+    if (error || !data?.signedUrl) {
+      showToast('Dokumen belum dapat dibuka. Silakan coba lagi.', { variant: 'error' });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = data.signedUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+  } finally {
+    trigger.disabled = false;
+  }
+}
+
+function buildDeliverableRow(deliverable) {
+  const row = element('div', 'cdv3-deliverable-row');
+  const info = element('div', 'cdv3-deliverable-info');
+  info.append(
+    element('span', 'cdv3-deliverable-type', DELIVERABLE_TYPE_LABEL[deliverable.type] || deliverable.type),
+    element('span', 'cdv3-deliverable-name', deliverable.name)
+  );
+  row.appendChild(info);
+
+  const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat');
+  viewBtn.type = 'button';
+  viewBtn.addEventListener('click', () => viewDeliverable(deliverable, viewBtn));
+  row.appendChild(viewBtn);
+
+  return row;
+}
+
+function buildDeliverableForm(state) {
+  const form = document.createElement('form');
+  form.id = 'deliverable-form';
+  form.noValidate = true;
+
+  const segmented = element('div', 'segmented client-document-mode-toggle');
+  const produkLabel = document.createElement('label');
+  const produkRadio = element('input', '');
+  produkRadio.type = 'radio';
+  produkRadio.name = 'deliverable_type';
+  produkRadio.value = 'PRODUK';
+  produkRadio.checked = true;
+  produkLabel.append(produkRadio, element('span', '', DELIVERABLE_TYPE_LABEL.PRODUK));
+
+  const summaryLabel = document.createElement('label');
+  const summaryRadio = element('input', '');
+  summaryRadio.type = 'radio';
+  summaryRadio.name = 'deliverable_type';
+  summaryRadio.value = 'SUMMARY';
+  summaryLabel.append(summaryRadio, element('span', '', DELIVERABLE_TYPE_LABEL.SUMMARY));
+
+  segmented.append(produkLabel, summaryLabel);
+  produkRadio.addEventListener('change', () => {state.type = 'PRODUK';});
+  summaryRadio.addEventListener('change', () => {state.type = 'SUMMARY';});
+
+  const nameGroup = element('div', 'form-group');
+  const nameLabel = element('label', 'form-label', 'Nama Dokumen');
+  nameLabel.htmlFor = 'deliverable-name';
+  nameLabel.appendChild(element('span', 'required', ' *'));
+  const nameInput = element('input', 'form-control');
+  nameInput.id = 'deliverable-name';
+  nameInput.name = 'name';
+  nameInput.type = 'text';
+  nameInput.required = true;
+  nameGroup.append(nameLabel, nameInput);
+
+  const fileGroup = element('div', 'form-group');
+  const fileLabel = element('label', 'form-label', 'File PDF');
+  fileLabel.htmlFor = 'deliverable-file';
+  fileLabel.appendChild(element('span', 'required', ' *'));
+  const fileInput = element('input', 'form-control');
+  fileInput.id = 'deliverable-file';
+  fileInput.name = 'file';
+  fileInput.type = 'file';
+  fileInput.accept = 'application/pdf';
+  fileInput.required = true;
+  const help = element('div', 'form-help', 'Format PDF. Maksimal 10 MB.');
+  fileGroup.append(fileLabel, fileInput, help);
+
+  form.append(segmented, nameGroup, fileGroup);
+  return form;
+}
+
+async function submitDeliverable(ctx, form, stage, project) {
+  if (!form.reportValidity()) {return false;}
+  const submitButton = ctx.dialog.querySelector('.modal-footer .btn-primary');
+  if (submitButton.disabled) {return false;}
+
+  const type = form.elements.namedItem('deliverable_type').value;
+  const name = form.elements.namedItem('name').value.trim();
+  const file = form.elements.namedItem('file').files?.[0];
+
+  if (!file) {
+    showToast('Pilih file PDF terlebih dahulu.', { variant: 'error' });
+    return false;
+  }
+  if (file.type !== 'application/pdf') {
+    showToast('Gunakan file PDF.', { variant: 'error' });
+    return false;
+  }
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_DELIVERABLE_FILE_SIZE) {
+    showToast('Ukuran file maksimal 10 MB.', { variant: 'error' });
+    return false;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Menyimpan…';
+
+  const storagePath = `${project.id}/${stage.id}/${crypto.randomUUID()}.pdf`;
+
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from(DELIVERABLE_BUCKET)
+      .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
+    if (uploadError) {
+      showToast('Gagal upload deliverable.', { variant: 'error' });
+      return false;
+    }
+
+    const { error: insertError } = await supabase.from('case_deliverables').insert({
+      case_id: project.id,
+      stage_id: stage.id,
+      type,
+      name,
+      storage_path: storagePath,
+      mime_type: 'application/pdf',
+      file_size_bytes: file.size,
+      uploaded_by: currentProfile?.id
+    });
+
+    if (insertError) {
+      await supabase.storage.from(DELIVERABLE_BUCKET).remove([storagePath]);
+      showToast('Gagal menyimpan deliverable.', { variant: 'error' });
+      return false;
+    }
+
+    ctx.close();
+    showToast('Deliverable berhasil diupload.', { variant: 'success' });
+    await loadAndRenderWorkflow();
+    return true;
+  } catch {
+    showToast('Gagal upload deliverable.', { variant: 'error' });
+    return false;
+  } finally {
+    if (submitButton.isConnected) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Upload Deliverable';
+    }
+  }
+}
+
+function openUploadDeliverableModal(stage, project) {
+  if (!currentProfile?.id) {
+    showToast('Profil pengguna tidak tersedia.', { variant: 'error' });
+    return;
+  }
+  const state = { type: 'PRODUK' };
+  const form = buildDeliverableForm(state);
+
+  const ctx = showModal({
+    title: 'Upload Deliverable',
+    body: form,
+    size: 'sm',
+    actions: [
+      { label: 'Batal', variant: 'outline' },
+      {
+        label: 'Upload Deliverable',
+        variant: 'primary',
+        closeOnAction: false,
+        action: () => submitDeliverable(ctx, form, stage, project)
+      }
+    ]
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    submitDeliverable(ctx, form, stage, project);
+  });
+}
+
+function buildDeliverableSection(stage, project, deliverablesByStage) {
+  const wrap = element('div', 'cdv3-deliverable-section');
+  wrap.appendChild(element('span', 'cdv3-deliverable-label', 'Deliverable'));
+
+  const items = deliverablesByStage.get(stage.id) || [];
+  if (items.length === 0) {
+    wrap.appendChild(element('div', 'cdv3-deliverable-empty', 'Belum ada deliverable untuk tahap ini.'));
+  } else {
+    const list = element('div', 'cdv3-deliverable-list');
+    items.forEach((item) => list.appendChild(buildDeliverableRow(item)));
+    wrap.appendChild(list);
+  }
+
+  const uploadBtn = element('button', 'btn btn-outline btn-sm', 'Upload Deliverable');
+  uploadBtn.type = 'button';
+  uploadBtn.addEventListener('click', () => openUploadDeliverableModal(stage, project));
+  wrap.appendChild(uploadBtn);
+
+  return wrap;
+}
+
+function buildWorkflowSection(project, stages, termin, invoicedTerminIds, deliverablesByStage) {
+  const wrap = element('div', 'cdv3-proj-workflow');
+  wrap.appendChild(element('span', 'cdv3-workflow-label', 'Tahapan Pekerjaan'));
+
+  if (!stages || stages.length === 0) {
+    wrap.appendChild(element('div', 'cdv3-workflow-empty', 'Belum ada tahapan pekerjaan.'));
+    return wrap;
+  }
+
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const subStagesByParent = new Map();
+  stages.forEach((s) => {
+    if (!s.parent_stage_id) {return;}
+    const siblings = subStagesByParent.get(s.parent_stage_id) || [];
+    siblings.push(s);
+    subStagesByParent.set(s.parent_stage_id, siblings);
+  });
+
+  const list = element('div', 'cdv3-workflow-list');
+
+  mainStages.forEach((stage) => {
+    const subStages = subStagesByParent.get(stage.id) || [];
+    const stageEl = element('div', 'cdv3-workflow-stage');
+    const head = element('div', 'cdv3-workflow-stage-head');
+    head.append(
+      element('span', 'cdv3-workflow-stage-name', stage.name),
+      workStageStatusBadge(stage.status)
+    );
+    stageEl.appendChild(head);
+
+    if (subStages.length === 0) {
+      const actions = buildWorkStageActions(stage, project);
+      if (actions) {stageEl.appendChild(actions);}
+      stageEl.appendChild(buildDeliverableSection(stage, project, deliverablesByStage));
+      const alerts = buildInvoiceAlerts(stage, project, termin, invoicedTerminIds);
+      if (alerts) {stageEl.appendChild(alerts);}
+    } else {
+      const alerts = buildInvoiceAlerts(stage, project, termin, invoicedTerminIds);
+      if (alerts) {stageEl.appendChild(alerts);}
+      const subList = element('div', 'cdv3-workflow-substages');
+      subStages.forEach((sub) => {
+        const subEl = element('div', 'cdv3-workflow-substage');
+        const subHead = element('div', 'cdv3-workflow-substage-head');
+        subHead.append(
+          element('span', 'cdv3-workflow-substage-name', sub.name),
+          workStageStatusBadge(sub.status)
+        );
+        subEl.appendChild(subHead);
+        const subActions = buildWorkStageActions(sub, project);
+        if (subActions) {subEl.appendChild(subActions);}
+        subEl.appendChild(buildDeliverableSection(sub, project, deliverablesByStage));
+        subList.appendChild(subEl);
+      });
+      stageEl.appendChild(subList);
+    }
+
+    list.appendChild(stageEl);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function buildBastStagesTable(doc, stages) {
+  if (!stages || stages.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Belum ada tahapan pekerjaan.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tahap', 'Tanggal Selesai'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  stages.forEach((stage) => {
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', stage.name));
+    row.appendChild(docEl(doc, 'td', '', stage.completed_at ? bastDateFmt.format(new Date(stage.completed_at)) : '—'));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function buildBastPaymentsTable(doc, payments) {
+  if (!payments || payments.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Belum ada pembayaran tercatat.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tipe', 'Jumlah', 'Tanggal Lunas'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  let total = 0;
+  payments.forEach((payment) => {
+    total += Number(payment.amount) || 0;
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', payment.type));
+    row.appendChild(docEl(doc, 'td', 'preview-table-num', rupiah(payment.amount)));
+    row.appendChild(docEl(doc, 'td', '', payment.paid_at ? bastDateFmt.format(new Date(payment.paid_at)) : '—'));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+
+  const tfoot = doc.createElement('tfoot');
+  const totalRow = doc.createElement('tr');
+  const totalLabel = docEl(doc, 'td', 'preview-table-total-label', 'Total — Lunas');
+  totalLabel.colSpan = 2;
+  totalRow.appendChild(totalLabel);
+  totalRow.appendChild(docEl(doc, 'td', 'preview-table-num preview-table-total', rupiah(total)));
+  tfoot.appendChild(totalRow);
+  table.appendChild(tfoot);
+
+  return table;
+}
+
+function buildBastDeliverablesTable(doc, deliverableRows) {
+  if (!deliverableRows || deliverableRows.length === 0) {
+    return docEl(doc, 'p', 'preview-empty', 'Tidak ada dokumen tercatat.');
+  }
+  const table = docEl(doc, 'table', 'preview-table');
+  const thead = doc.createElement('thead');
+  const headRow = doc.createElement('tr');
+  ['Tahap', 'Dokumen'].forEach((h) => headRow.appendChild(docEl(doc, 'th', '', h)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = doc.createElement('tbody');
+  deliverableRows.forEach((item) => {
+    const row = doc.createElement('tr');
+    row.appendChild(docEl(doc, 'td', '', item.stageName));
+    row.appendChild(docEl(doc, 'td', '', `${item.name} (${DELIVERABLE_TYPE_LABEL[item.type] || item.type})`));
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+async function buildBastPreviewContent(doc, data) {
+  const { generatedDate, bastNumber, project, quotation, stages, payments, deliverableRows } = data;
+  const bastClient = data.client;
+  const root = docEl(doc, 'div', 'preview-doc');
+
+  const letterhead = docEl(doc, 'div', 'preview-letterhead');
+  letterhead.appendChild(docEl(doc, 'div', 'preview-company-name', 'Soul Mitra Abadi'));
+  letterhead.appendChild(docEl(doc, 'div', 'preview-doc-title', 'Berita Acara Serah Terima'));
+  root.appendChild(letterhead);
+
+  const meta = docEl(doc, 'div', 'preview-meta');
+  meta.appendChild(docEl(doc, 'span', '', `Tanggal: ${generatedDate}`));
+  meta.appendChild(docEl(doc, 'span', '', `No. BAST: ${bastNumber || '—'}`));
+  meta.appendChild(docEl(doc, 'span', '', `Ref. RAB: ${quotation?.quotation_number || '—'}`));
+  root.appendChild(meta);
+
+  root.appendChild(docEl(doc, 'p', 'preview-perihal', `Untuk: ${project?.service_type || '—'} (${project?.case_number || '—'})`));
+
+  const kepada = docEl(doc, 'div', 'preview-kepada');
+  kepada.appendChild(docEl(doc, 'p', '', 'Pihak Kedua'));
+  const picLine = [bastClient?.pic_name, bastClient?.pic_title].filter(Boolean).join(', ');
+  kepada.appendChild(docEl(doc, 'p', '', `Bpk/Ibu ${picLine || '—'}`));
+  const companyLine = [bastClient?.type, bastClient?.name].filter(Boolean).join(' ');
+  kepada.appendChild(docEl(doc, 'p', '', companyLine || '—'));
+  root.appendChild(kepada);
+
+  if (quotation?.description) {
+    root.appendChild(docEl(doc, 'p', 'preview-paragraph', quotation.description));
+  }
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Milestone Tahapan'));
+  root.appendChild(buildBastStagesTable(doc, stages));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Ringkasan Pembayaran'));
+  root.appendChild(buildBastPaymentsTable(doc, payments));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Dokumen yang Diserahkan'));
+  root.appendChild(buildBastDeliverablesTable(doc, deliverableRows));
+
+  root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Pernyataan'));
+  root.appendChild(docEl(doc, 'p', 'preview-paragraph', 'Dengan ini Pihak Kedua menyatakan telah menerima seluruh hasil pekerjaan dari Pihak Pertama dengan baik dan lengkap, serta menyatakan bahwa pekerjaan telah selesai dan seluruh pembayaran telah lunas.'));
+
+  const signatureBlock = docEl(doc, 'div', 'preview-signature-block');
+
+  const smaCol = docEl(doc, 'div', 'preview-signature-col');
+  smaCol.appendChild(docEl(doc, 'p', '', 'Soul Mitra Abadi,'));
+  smaCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  smaCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(smaCol);
+
+  const clientCol = docEl(doc, 'div', 'preview-signature-col');
+  clientCol.appendChild(docEl(doc, 'p', '', `${companyLine || 'Pihak Client'},`));
+  clientCol.appendChild(docEl(doc, 'div', 'preview-signature-space'));
+  clientCol.appendChild(docEl(doc, 'p', 'preview-signature-name', '( Nama Jelas )'));
+  signatureBlock.appendChild(clientCol);
+
+  root.appendChild(signatureBlock);
+
+  return root;
+}
+
+function renderBastPreviewWindow(win, data) {
+  const doc = win.document;
+  doc.title = data.bastNumber ? `BAST — ${data.bastNumber}` : 'BAST';
+
+  doc.head.replaceChildren();
+  const meta = doc.createElement('meta');
+  meta.setAttribute('charset', 'utf-8');
+  doc.head.appendChild(meta);
+  const style = doc.createElement('style');
+  style.textContent = PREVIEW_CSS;
+  doc.head.appendChild(style);
+
+  doc.body.replaceChildren();
+
+  const toolbar = docEl(doc, 'div', 'preview-toolbar');
+  const printBtn = docEl(doc, 'button', 'primary', 'Print / Simpan sebagai PDF');
+  printBtn.type = 'button';
+  printBtn.addEventListener('click', () => win.print());
+  const closeBtn = docEl(doc, 'button', '', 'Tutup');
+  closeBtn.type = 'button';
+  closeBtn.addEventListener('click', () => win.close());
+  toolbar.append(printBtn, closeBtn);
+  doc.body.appendChild(toolbar);
+
+  const page = docEl(doc, 'div', 'preview-page');
+  buildBastPreviewContent(doc, data).then((content) => {
+    page.appendChild(content);
+  });
+  doc.body.appendChild(page);
+}
+
+async function openBastPreview(project, bast, stages, payments, deliverablesByStage) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    showToast('Popup diblokir browser. Izinkan popup untuk membuka preview dokumen.', { variant: 'error' });
+    return;
+  }
+  win.document.title = 'Memuat BAST…';
+  const loading = docEl(win.document, 'p', '', 'Memuat dokumen…');
+  loading.style.cssText = 'font-family: Arial, sans-serif; padding: 24px;';
+  win.document.body.appendChild(loading);
+
+  const quotation = (getQuotationsByCaseId().get(project.id) || []).find((q) => q.status === 'ACCEPTED') || null;
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const deliverableRows = [];
+  mainStages.forEach((stage) => {
+    const items = deliverablesByStage.get(stage.id) || [];
+    items.forEach((item) => {
+      deliverableRows.push({ stageName: stage.name, name: item.name, type: item.type });
+    });
+  });
+
+  if (win.closed) {return;}
+
+  renderBastPreviewWindow(win, {
+    generatedDate: bastDateFmt.format(new Date(bast.created_at)),
+    bastNumber: bast.bast_number,
+    client,
+    project,
+    quotation,
+    stages: mainStages,
+    payments,
+    deliverableRows
+  });
+}
+
+function buildBastSection(project, stages, payments, bast, deliverablesByStage) {
+  const wrap = element('div', 'cdv3-bast-section');
+  wrap.appendChild(element('span', 'cdv3-bast-label', 'BAST'));
+
+  if (bast) {
+    const row = element('div', 'cdv3-workflow-invoiced-row');
+    const badge = element('div', 'cdv3-workflow-invoiced-badge');
+    badge.append(
+      element('span', 'cdv3-workflow-invoiced-badge-icon', '✓'),
+      element('span', 'cdv3-workflow-invoiced-badge-text', `${bast.bast_number} — dibuat ${bastDateFmt.format(new Date(bast.created_at))}`)
+    );
+    row.appendChild(badge);
+
+    const viewBtn = element('button', 'btn btn-outline btn-sm', 'Lihat BAST');
+    viewBtn.type = 'button';
+    viewBtn.addEventListener('click', () => openBastPreview(project, bast, stages, payments, deliverablesByStage));
+    row.appendChild(viewBtn);
+
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  const mainStages = stages.filter((s) => !s.parent_stage_id);
+  const eligible = mainStages.length > 0
+    && mainStages.every((s) => s.status === 'DONE')
+    && payments.length > 0
+    && payments.every((p) => p.status === 'Lunas');
+
+  if (!eligible) {
+    wrap.appendChild(element('div', 'cdv3-bast-empty', 'BAST dapat dibuat setelah semua tahap selesai dan semua pembayaran lunas.'));
+    return wrap;
+  }
+
+  const createBtn = element('button', 'btn btn-sm btn-primary', 'Buat BAST');
+  createBtn.type = 'button';
+  createBtn.addEventListener('click', async () => {
+    createBtn.disabled = true;
+    const created = await createBast(project);
+    if (created) {
+      showToast('BAST berhasil dibuat.', { variant: 'success' });
+      await loadAndRenderWorkflow();
+      return;
+    }
+    createBtn.disabled = false;
+  });
+  wrap.appendChild(createBtn);
+  return wrap;
+}
+
+function renderWorkflowRow(project, stages, termin, invoicedTerminIds, deliverablesByStage, payments, bast) {
+  const row = element('div', 'cdv3-workflow-row');
+
+  const head = element('div', 'cdv3-workflow-row-head');
+  head.append(
+    element('span', 'cdv3-workflow-row-name', project.service_type || 'Project tanpa jenis'),
+    element('span', 'cdv3-workflow-row-status', project.status || '—')
+  );
+  row.appendChild(head);
+
+  const progress = calcProgress(stages);
+  if (progress !== null) {
+    const progressEl = element('div', 'cdv3-proj-progress');
+    const bar = element('div', 'cdv3-proj-progress-bar');
+    const fill = element('div', 'cdv3-proj-progress-fill');
+    fill.style.width = `${progress}%`;
+    bar.appendChild(fill);
+    progressEl.append(bar, element('span', 'cdv3-proj-progress-label', `Progress: ${progress}%`));
+    row.appendChild(progressEl);
+  }
+
+  row.appendChild(buildWorkflowSection(project, stages, termin, invoicedTerminIds, deliverablesByStage));
+  row.appendChild(buildBastSection(project, stages, payments, bast, deliverablesByStage));
+
+  return row;
+}
+
+async function loadAndRenderWorkflow() {
+  const table = document.getElementById('cdv3-workflow-table');
+  if (!table) {return;}
+  table.replaceChildren();
+
+  const { data, error } = await supabase
+    .from('cases')
+    .select('id, client_id, service_type, status, total_rab, negotiation_count, created_at, case_number')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    table.appendChild(element('div', 'empty-state', 'Gagal memuat project.'));
+    return;
+  }
+
+  const projects = data || [];
+  if (projects.length === 0) {
+    table.appendChild(element('div', 'empty-state', 'Belum ada project untuk client ini.'));
+    table.setAttribute('aria-busy', 'false');
+    return;
+  }
+
+  await loadQuotationsForCases(projects.map((p) => p.id));
+  const invoicedTerminIds = await getInvoicedTerminIds(projects.map((p) => p.id));
+
+  for (const project of projects) {
+    const stages = (await getWorkStagesForCase(project.id)) || [];
+    const termin = await getAcceptedTerminForCase(project.id);
+    const deliverablesByStage = await fetchDeliverablesForCase(project.id);
+    const payments = await fetchCasePayments(project.id);
+    const bast = await fetchCaseBast(project.id);
+    table.appendChild(renderWorkflowRow(project, stages, termin, invoicedTerminIds, deliverablesByStage, payments, bast));
+  }
+
+  table.setAttribute('aria-busy', 'false');
+}
+
 async function mountClientPortalAccess() {
   try {
     const { initClientPortalAccess } = await import('./client-portal-access.js');
@@ -371,6 +1218,7 @@ export async function initClientDetailV3() {
   renderCards();
   wireAddProject();
   await loadAndRenderProjects();
+  await loadAndRenderWorkflow();
   await mountClientPortalAccess();
 
   root.setAttribute('aria-busy', 'false');
