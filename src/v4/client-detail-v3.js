@@ -50,6 +50,9 @@ const CLIENT_FIELDS = [
 const EDITABLE_FIELDS = CLIENT_FIELDS.filter((field) => !['id', 'created_at'].includes(field));
 
 const FIELD_META = {
+  name: { label: 'Nama', type: 'text' },
+  type: { label: 'Tipe', type: 'select', options: ['PT', 'CV', 'Yayasan', 'Perorangan'] },
+  business_field: { label: 'Bidang Usaha', type: 'text' },
   npwp: { label: 'NPWP', type: 'text' },
   nib: { label: 'NIB', type: 'text' },
   director_name: { label: 'Nama Direktur', type: 'text' },
@@ -65,6 +68,7 @@ const FIELD_META = {
 };
 
 const CARDS = [
+  { key: 'identity', title: 'Identitas', fields: ['name', 'type', 'business_field'] },
   { key: 'business', title: 'Badan Usaha', fields: ['npwp', 'nib'] },
   { key: 'director', title: 'Direktur', fields: ['director_name', 'director_phone', 'director_id_number'] },
   { key: 'other', title: 'Lainnya', fields: ['referral_source', 'general_notes'] },
@@ -146,8 +150,24 @@ function buildFieldInput(field) {
   const inputId = `cdv3-input-${field}`;
   const label = element('label', 'form-label', meta.label);
   label.htmlFor = inputId;
-  const control = meta.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
-  if (meta.type !== 'textarea') {control.type = meta.type;}
+
+  let control;
+  if (meta.type === 'select') {
+    control = document.createElement('select');
+    const placeholder = element('option', '', 'Pilih tipe');
+    placeholder.value = '';
+    control.appendChild(placeholder);
+    meta.options.forEach((option) => {
+      const optionEl = element('option', '', option);
+      optionEl.value = option;
+      control.appendChild(optionEl);
+    });
+  } else if (meta.type === 'textarea') {
+    control = document.createElement('textarea');
+  } else {
+    control = document.createElement('input');
+    control.type = meta.type;
+  }
   control.className = 'form-control';
   control.id = inputId;
   control.name = field;
@@ -247,7 +267,12 @@ function mountCard(cardDef) {
       readView.replaceWith(freshRead);
       readView = freshRead;
       setMode(false);
-      if (cardDef.key === 'pic') {updateInfoBarTexts();}
+      if (cardDef.key === 'identity') {
+        renderHeader();
+        updateInfoBarTexts();
+      } else if (cardDef.key === 'pic') {
+        updateInfoBarTexts();
+      }
       showToast('Info client berhasil diperbarui.', { variant: 'success' });
     } catch {
       showToast('Gagal menyimpan perubahan.', { variant: 'error' });

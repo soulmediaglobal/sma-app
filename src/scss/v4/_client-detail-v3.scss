@@ -55,7 +55,7 @@
 
 .cdv3-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
@@ -67,6 +67,8 @@
 }
 
 .cdv3-card--full { grid-column: 1 / -1; }
+
+.cdv3-card--half { grid-column: span 2; }
 
 .cdv3-card-head {
   display: flex;
