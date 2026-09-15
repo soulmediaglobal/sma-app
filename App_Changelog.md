@@ -19,6 +19,18 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Issue #256**: mekanisme ubah status case (Baru/Proses/Selesai/Batal)
+  di Client Detail V3 — port dari V1 (`client-detail.js`, dihapus saat
+  migrasi Issue #254), manual sepenuhnya tanpa auto-trigger. Dropdown
+  status muncul di tab Project & tab Workflow untuk role `admin`/
+  `internal`; role lain tetap lihat pill/teks status statis read-only.
+  Satu `updatingCaseIds` Set dipakai bareng dua tab (race-condition
+  guard konsisten lintas tab karena keduanya merujuk `cases.id` yang
+  sama). Update status sekarang selalu memanggil
+  `loadAndRenderProjects()` DAN `loadAndRenderWorkflow()` sekaligus
+  supaya kedua tab tetap sinkron — menutup gap yang sama seperti bug
+  Issue #250. Warna status reuse class `cdv3-status-<key>` yang sudah
+  ada dari Issue #242, tidak duplikasi `STATUS_BADGE` map terpisah.
 - **Issue #238**: BAST (Berita Acara Serah Terima) — bisa dibuat kalau
   semua tahap utama DONE dan semua payment Lunas, 1 BAST per case
   (final, tidak bisa dibuat ulang). Kolom baru

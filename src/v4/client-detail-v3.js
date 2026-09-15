@@ -76,6 +76,15 @@ const CARDS = [
   { key: 'pic', title: 'Kontak PIC', fields: ['pic_name', 'pic_title', 'pic_phone', 'pic_email'], gridLayout: true }
 ];
 
+// Status case (Baru/Proses/Selesai/Batal) -- diporting dari V1
+// (client-detail.js, dihapus di Issue #254; lihat Issue #256). Warna per
+// status sudah ada lewat class cdv3-status-<key> (Issue #242), jadi tidak
+// perlu STATUS_BADGE map terpisah seperti V1 -- cukup daftar valid value.
+const STATUS_OPTIONS = ['Baru', 'Proses', 'Selesai', 'Batal'];
+// Dipakai bareng tab Project & tab Workflow karena keduanya merujuk
+// cases.id yang sama -- race-condition guard harus konsisten lintas tab.
+const updatingCaseIds = new Set();
+
 let clientId = '';
 let currentProfile = null;
 let client = null;
@@ -320,6 +329,128 @@ function wireTabs(root) {
   });
 }
 
+// Ubah status case -- port dari V1 (client-detail.js), manual sepenuhnya,
+// tidak ada auto-trigger (keputusan Ray, Issue #256).
+
+function canUpdateCaseStatus() {
+  return Boolean(currentProfile?.id && ['admin', 'internal'].includes(currentProfile.role));
+}
+
+async function rollbackCaseStatus(caseId, changedStatus, oldStatus) {
+  try {
+    return await supabase
+      .from('cases')
+      .update({ status: oldStatus }, { count: 'exact' })
+      .eq('id', caseId)
+      .eq('client_id', clientId)
+      .eq('status', changedStatus);
+  } catch (error) {
+    return { error, count: null };
+  }
+}
+
+async function updateCaseStatus(caseId, oldStatus, newStatus) {
+  if (!canUpdateCaseStatus()) {return;}
+
+  const controls = Array.from(
+    document.querySelectorAll(`[data-case-status-control][data-case-id="${caseId}"]`)
+  );
+
+  if (
+    !STATUS_OPTIONS.includes(oldStatus) ||
+    !STATUS_OPTIONS.includes(newStatus) ||
+    updatingCaseIds.has(caseId)
+  ) {
+    showToast('Status project tidak dapat diubah.', { variant: 'error' });
+    await loadAndRenderProjects();
+    await loadAndRenderWorkflow();
+    return;
+  }
+  if (newStatus === oldStatus) {return;}
+
+  const serviceType = controls[0]?.dataset.serviceType || '';
+  controls.forEach((control) => {
+    control.value = oldStatus;
+    control.disabled = true;
+  });
+  updatingCaseIds.add(caseId);
+
+  try {
+    const { error: updateError, count: updatedCount } = await supabase
+      .from('cases')
+      .update({ status: newStatus }, { count: 'exact' })
+      .eq('id', caseId)
+      .eq('client_id', clientId)
+      .eq('status', oldStatus);
+
+    if (updateError || updatedCount !== 1) {
+      showToast('Gagal mengubah status project.', { variant: 'error' });
+      return;
+    }
+
+    const { error: activityError } = await supabase.from('activities').insert({
+      client_id: clientId,
+      case_id: caseId,
+      type: 'Status Case',
+      notes: `Status project ${serviceType} diubah dari ${oldStatus} menjadi ${newStatus}.`,
+      by_user: currentProfile?.id
+    });
+
+    if (activityError) {
+      const { error: rollbackError, count: rollbackCount } = await rollbackCaseStatus(
+        caseId,
+        newStatus,
+        oldStatus
+      );
+      if (rollbackError || rollbackCount !== 1) {
+        showToast('Status berubah, tetapi aktivitas gagal dicatat. Hubungi admin.', {
+          variant: 'error',
+          duration: 5000
+        });
+      } else {
+        showToast('Perubahan dibatalkan karena aktivitas gagal dicatat.', { variant: 'error' });
+      }
+      return;
+    }
+
+    showToast('Status project berhasil diubah.', { variant: 'success' });
+  } catch {
+    showToast('Gagal mengubah status project.', { variant: 'error' });
+  } finally {
+    updatingCaseIds.delete(caseId);
+    await loadAndRenderProjects();
+    await loadAndRenderWorkflow();
+  }
+}
+
+function buildStatusSelect(project) {
+  const select = document.createElement('select');
+  select.className = 'form-control cdv3-status-select';
+  select.dataset.caseStatusControl = '';
+  select.dataset.caseId = project.id;
+  select.dataset.oldStatus = project.status || '';
+  select.dataset.serviceType = project.service_type || '';
+  select.setAttribute(
+    'aria-label',
+    `Ubah status project ${project.service_type || 'tanpa jenis'}`
+  );
+  STATUS_OPTIONS.forEach((status) => {
+    const option = element('option', '', status);
+    option.value = status;
+    option.selected = status === project.status;
+    select.appendChild(option);
+  });
+  return select;
+}
+
+function wireCaseStatusControls(root) {
+  root.addEventListener('change', (event) => {
+    const control = event.target.closest('[data-case-status-control]');
+    if (!control) {return;}
+    updateCaseStatus(control.dataset.caseId, control.dataset.oldStatus, control.value);
+  });
+}
+
 function renderProjectRow(project) {
   const row = element('div', 'cdv3-proj-row');
   const main = element('div', 'cdv3-proj-main');
@@ -332,9 +463,14 @@ function renderProjectRow(project) {
     titleGroup,
     element('div', 'cdv3-proj-sub', project.case_number || '—')
   );
-  const statusKey = (project.status || '').toLowerCase();
-  const statusBadge = element('span', `cdv3-status-pill cdv3-status-${statusKey}`, project.status || '—');
-  row.append(main, statusBadge);
+  const statusEl = canUpdateCaseStatus()
+    ? buildStatusSelect(project)
+    : element(
+      'span',
+      `cdv3-status-pill cdv3-status-${(project.status || '').toLowerCase()}`,
+      project.status || '—'
+    );
+  row.append(main, statusEl);
 
   const quotation = buildQuotationSection(project, {
     profile: currentProfile,
@@ -1155,10 +1291,10 @@ function renderWorkflowRow(project, stages, termin, invoicedTerminIds, deliverab
   if (!hasTitle) {nameEl.classList.add('cdv3-title-empty');}
   const titleGroup = element('div', 'cdv3-title-group');
   titleGroup.append(nameEl, element('span', 'cdv3-service-chip', project.service_type || '—'));
-  head.append(
-    titleGroup,
-    element('span', 'cdv3-workflow-row-status', project.status || '—')
-  );
+  const statusEl = canUpdateCaseStatus()
+    ? buildStatusSelect(project)
+    : element('span', 'cdv3-workflow-row-status', project.status || '—');
+  head.append(titleGroup, statusEl);
   row.appendChild(head);
 
   const progress = calcProgress(stages);
@@ -1288,6 +1424,7 @@ export async function initClientDetailV3() {
   wireInfoToggle();
   renderCards();
   wireAddProject();
+  wireCaseStatusControls(root);
   await loadAndRenderProjects();
   await loadAndRenderWorkflow();
   await mountClientDocuments();
