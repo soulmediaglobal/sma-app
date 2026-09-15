@@ -10,10 +10,9 @@
 @use "datatable";
 @use "auth";
 @use "apps";
-@use "client-detail";
-@use './client-detail-v2';
 @use './client-detail-v3';
 @use './client-workflow';
 @use './project-setting';
 @use './client-portal-auth';
 @use './client-application';
+@use './client-form';

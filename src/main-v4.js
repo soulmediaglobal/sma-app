@@ -114,12 +114,6 @@ async function initializeAdminPage() {
   document.body.hidden = false;
   initDashboard();
   initClientList();
-  if (document.getElementById('client-detail-root')) {
-    import('./v4/client-detail.js').then((m) => m.initClientDetail());
-  }
-  if (document.getElementById('client-detail-v2-root')) {
-    import('./v4/client-detail-v2.js').then((m) => m.initClientDetailV2());
-  }
   if (document.getElementById('client-detail-v3-root')) {
     import('./v4/client-detail-v3.js').then((m) => m.initClientDetailV3());
   }
