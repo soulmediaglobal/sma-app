@@ -1,0 +1,39 @@
+// Client Form (Issue #254 Fase 5) — .client-info-columns/-column/-section
+// dipakai oleh production/client-form.html (layout 2-kolom Identitas Badan
+// Usaha | Kontak Direktur). Dipindah dari _client-detail.scss (V1) sebelum
+// file itu dihapus, karena ini satu-satunya halaman yang masih memakainya.
+
+.client-info-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.client-info-column,
+.client-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.client-info-section + .client-info-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color-light);
+}
+
+.client-info-section h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+}
+
+.client-info-section .form-group {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .client-info-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

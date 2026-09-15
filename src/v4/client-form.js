@@ -83,7 +83,7 @@ async function submitClient(form) {
     }
 
     showToast('Client baru berhasil ditambahkan.', { variant: 'success' });
-    window.location.href = `client-detail.html?id=${encodeURIComponent(id)}`;
+    window.location.href = `client-detail-v3.html?id=${encodeURIComponent(id)}`;
   } catch {
     showToast('Gagal menyimpan client baru.', { variant: 'error' });
   } finally {
