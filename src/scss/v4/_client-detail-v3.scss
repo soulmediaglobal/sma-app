@@ -227,6 +227,16 @@
 .cdv3-status-selesai { background: var(--green-lt); color: var(--green); }
 .cdv3-status-batal { background: var(--red-lt); color: var(--red); }
 
+// Dropdown ubah status (Issue #256) -- native select, bukan pill berwarna,
+// dipakai bareng tab Project & tab Workflow saat role punya akses ubah.
+.cdv3-status-select {
+  width: auto;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
 // Status case_work_stages (Issue #244) -- 4 nilai berbeda dari status
 // Case di atas, jadi varian warna terpisah biar tidak dianggap sama.
 .cdv3-status-pending { background: var(--border-color-light); color: var(--text-muted); }
