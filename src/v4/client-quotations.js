@@ -2164,7 +2164,19 @@ function buildPreviewLineItemsTable(doc, items) {
   return table;
 }
 
-function buildPreviewTerminTable(doc, items) {
+// Kalimat syarat pembayaran otomatis dari Tahapan + Sebelum/Sesudah yang
+// dipilih user, digabung dengan due_condition manual kalau ada (Issue #258).
+function composePaymentTerm(item, stages) {
+  const stage = item.stage_id ? (stages || []).find((candidate) => candidate.id === item.stage_id) : null;
+  const relationLabel = item.relation_type === 'BEFORE' ? 'Sebelum' : item.relation_type === 'AFTER' ? 'Sesudah' : null;
+  const autoSentence = stage && relationLabel ? `${relationLabel} tahap ${stage.name}` : null;
+
+  if (autoSentence && item.due_condition) {return `${autoSentence} — ${item.due_condition}`;}
+  if (autoSentence) {return autoSentence;}
+  return item.due_condition || '—';
+}
+
+function buildPreviewTerminTable(doc, items, stages) {
   if (!items || items.length === 0) {
     return docEl(doc, 'p', 'preview-empty', 'Belum ada rincian termin.');
   }
@@ -2184,7 +2196,7 @@ function buildPreviewTerminTable(doc, items) {
     const row = doc.createElement('tr');
     row.appendChild(docEl(doc, 'td', '', String(index + 1)));
     row.appendChild(docEl(doc, 'td', '', item.term_name));
-    row.appendChild(docEl(doc, 'td', '', item.due_condition || '—'));
+    row.appendChild(docEl(doc, 'td', '', composePaymentTerm(item, stages)));
     // Ditampilkan SUDAH termasuk pajak -- breakdown pajak sengaja tidak
     // diperlihatkan di sini (keputusan Issue #202); rinciannya nanti
     // muncul di invoice per-termin, bukan di dokumen penawaran ini.
@@ -2276,7 +2288,7 @@ function buildPreviewContent(doc, data) {
   root.appendChild(buildPreviewStagesList(doc, stages));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Termin Pembayaran'));
-  root.appendChild(buildPreviewTerminTable(doc, terminItems));
+  root.appendChild(buildPreviewTerminTable(doc, terminItems, stages));
 
   root.appendChild(docEl(doc, 'h3', 'preview-section-title', 'Rekening Pembayaran'));
   if (bankAccount) {
