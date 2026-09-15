@@ -107,7 +107,7 @@ function wireFilters() {
   document.getElementById('client-rows')?.addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-id]');
     if (!row) {return;}
-    window.location.href = `client-detail.html?id=${encodeURIComponent(row.dataset.id)}`;
+    window.location.href = `client-detail-v3.html?id=${encodeURIComponent(row.dataset.id)}`;
   });
 }
 
