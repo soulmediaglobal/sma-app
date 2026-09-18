@@ -1966,6 +1966,7 @@ export function docEl(doc, tag, className, text) {
 }
 
 export const PREVIEW_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
 body {
@@ -2053,6 +2054,51 @@ body {
 .preview-table-group-header { font-weight: bold; background: #fafafa; }
 .preview-table tbody tr.preview-table-group-continue > td { border-top: hidden; }
 .preview-empty { color: #777; font-style: italic; }
+.doc-letterhead { margin-bottom: 24px; }
+.doc-letterhead-bars { display: flex; flex-direction: column; }
+.doc-letterhead-bar-red { height: 16px; background: #c81e2c; }
+.doc-letterhead-bar-black { height: 9px; background: #0a0a0a; }
+.doc-letterhead-body { display: flex; width: 100%; align-items: stretch; }
+.doc-letterhead-left { flex: 1; padding: 16px 24px 16px 0; display: flex; flex-direction: column; justify-content: center; }
+.doc-title { font-family: 'Montserrat', Arial, sans-serif; font-size: 26px; font-weight: 700; color: #c81e2c; line-height: 1.2; }
+.doc-subtitle { font-family: 'Montserrat', Arial, sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 2.5px; color: #666; margin-top: 4px; }
+.doc-number { font-family: 'Montserrat', Arial, sans-serif; font-size: 13px; font-weight: 700; color: #c81e2c; margin-top: 12px; }
+.doc-letterhead-right { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; }
+.doc-letterhead-panel {
+  background: #0a0a0a;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 18% 100%);
+  padding: 18px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.doc-letterhead-logo { width: 216px; height: auto; object-fit: contain; display: block; }
+.doc-letterhead-company { margin-top: 8px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 1px; color: #ffffff; }
+.doc-letterhead-date {
+  background: #c81e2c;
+  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
+  padding: 8px 16px 10px;
+  text-align: center;
+}
+.doc-letterhead-date span { font-family: 'Montserrat', Arial, sans-serif; font-size: 12px; font-weight: 600; color: #ffffff; }
+.doc-perihal { font-weight: bold; color: #1a1a1a; margin: 16px 0; }
+.doc-recipient-card {
+  display: flex;
+  width: 100%;
+  background: #eeeeee;
+  border-left: 7px solid #c81e2c;
+  padding: 14px 20px;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+.doc-recipient-left { flex: 1; }
+.doc-recipient-right { flex: 1; text-align: right; }
+.doc-recipient-label { font-family: 'Montserrat', Arial, sans-serif; color: #c81e2c; font-weight: 700; font-size: 12px; margin: 0; }
+.doc-recipient-name { font-family: 'Montserrat', Arial, sans-serif; font-weight: 700; color: #1a1a1a; margin: 2px 0 0; }
+.doc-recipient-title { font-family: 'Montserrat', Arial, sans-serif; color: #333; margin: 2px 0 0; }
+.doc-recipient-company { font-family: 'Montserrat', Arial, sans-serif; font-weight: 700; font-size: 14px; color: #1a1a1a; margin: 0; }
+.doc-recipient-address { font-family: 'Montserrat', Arial, sans-serif; color: #666; margin: 4px 0 0; white-space: pre-line; }
 @page {
   size: A4;
   margin: 20mm 18mm;
@@ -2245,31 +2291,107 @@ function buildPreviewStagesList(doc, stages) {
   return list;
 }
 
+// Shared letterhead block (diagonal panel + date trapezoid + doc title/number +
+// perihal + recipient card), reusable across document types (RAB now, Invoice/BAST
+// planned for Fase 4 — Issue #261). Right column uses a fixed px width, not a
+// percentage of the page, so its clip-path diagonal (expressed in % of that
+// column) stays identical whether `.preview-page` is 800px on screen or reset to
+// ~658px under `@media print` (Issue #260 finding) — only the left column's
+// flex:1 width changes.
+export function buildDocLetterhead(doc, opts) {
+  const {
+    docTitle,
+    docSubtitle,
+    docType,
+    docNumber,
+    dateLabel = 'Tanggal',
+    dateValue,
+    perihal,
+    recipientLabel = 'Kepada Yth.',
+    picName,
+    picTitle,
+    companyName,
+    address
+  } = opts;
+
+  const fragment = doc.createDocumentFragment();
+
+  const letterhead = docEl(doc, 'div', 'doc-letterhead');
+
+  const bars = docEl(doc, 'div', 'doc-letterhead-bars');
+  bars.appendChild(docEl(doc, 'div', 'doc-letterhead-bar-red'));
+  bars.appendChild(docEl(doc, 'div', 'doc-letterhead-bar-black'));
+  letterhead.appendChild(bars);
+
+  const body = docEl(doc, 'div', 'doc-letterhead-body');
+
+  const left = docEl(doc, 'div', 'doc-letterhead-left');
+  left.appendChild(docEl(doc, 'div', 'doc-title', docTitle));
+  if (docSubtitle) {left.appendChild(docEl(doc, 'div', 'doc-subtitle', docSubtitle));}
+  left.appendChild(docEl(doc, 'div', 'doc-number', `NO ${docType} : ${docNumber || '—'}`));
+  body.appendChild(left);
+
+  const right = docEl(doc, 'div', 'doc-letterhead-right');
+  const panel = docEl(doc, 'div', 'doc-letterhead-panel');
+  const logo = doc.createElement('img');
+  logo.className = 'doc-letterhead-logo';
+  logo.src = new URL(`${import.meta.env.BASE_URL}images/logo-sma.png`, window.location.href).href;
+  logo.alt = 'Soul Mitra Abadi';
+  panel.appendChild(logo);
+  panel.appendChild(docEl(doc, 'div', 'doc-letterhead-company', 'SOUL MITRA ABADI'));
+  right.appendChild(panel);
+
+  const dateBar = docEl(doc, 'div', 'doc-letterhead-date');
+  dateBar.appendChild(docEl(doc, 'span', '', `${dateLabel} : ${dateValue || '—'}`));
+  right.appendChild(dateBar);
+
+  body.appendChild(right);
+  letterhead.appendChild(body);
+
+  fragment.appendChild(letterhead);
+
+  if (perihal) {
+    fragment.appendChild(docEl(doc, 'p', 'doc-perihal', perihal));
+  }
+
+  const card = docEl(doc, 'div', 'doc-recipient-card');
+
+  const cardLeft = docEl(doc, 'div', 'doc-recipient-left');
+  cardLeft.appendChild(docEl(doc, 'p', 'doc-recipient-label', recipientLabel));
+  cardLeft.appendChild(docEl(doc, 'p', 'doc-recipient-name', `Bpk/Ibu ${picName || '—'},`));
+  if (picTitle) {cardLeft.appendChild(docEl(doc, 'p', 'doc-recipient-title', picTitle));}
+  card.appendChild(cardLeft);
+
+  const cardRight = docEl(doc, 'div', 'doc-recipient-right');
+  cardRight.appendChild(docEl(doc, 'p', 'doc-recipient-company', companyName || '—'));
+  if (address) {cardRight.appendChild(docEl(doc, 'p', 'doc-recipient-address', address));}
+  card.appendChild(cardRight);
+
+  fragment.appendChild(card);
+
+  return fragment;
+}
+
 function buildPreviewContent(doc, data) {
   const { generatedDate, quotationNumber, serviceType, client, description, lineItems, lineItemsIntro, terminItems, stages, stagesIntro, documents, documentsIntro, bankAccount } = data;
 
   const root = docEl(doc, 'div', 'preview-doc');
 
-  const letterhead = docEl(doc, 'div', 'preview-letterhead');
-  letterhead.appendChild(docEl(doc, 'div', 'preview-company-name', 'Soul Mitra Abadi'));
-  letterhead.appendChild(docEl(doc, 'div', 'preview-doc-title', 'Surat Penawaran'));
-  root.appendChild(letterhead);
-
-  const meta = docEl(doc, 'div', 'preview-meta');
-  meta.appendChild(docEl(doc, 'span', '', `Tanggal: ${generatedDate}`));
-  meta.appendChild(docEl(doc, 'span', '', `No. RAB: ${quotationNumber || '—'}`));
-  root.appendChild(meta);
-
-  root.appendChild(docEl(doc, 'p', 'preview-perihal', `Perihal: Surat Penawaran ${serviceType || '—'}`));
-
-  const kepada = docEl(doc, 'div', 'preview-kepada');
-  kepada.appendChild(docEl(doc, 'p', '', 'Kepada Yth.'));
-  const picLine = [client?.pic_name, client?.pic_title].filter(Boolean).join(', ');
-  kepada.appendChild(docEl(doc, 'p', '', `Bpk/Ibu ${picLine || '—'}`));
   const companyLine = [client?.type, client?.name].filter(Boolean).join(' ');
-  kepada.appendChild(docEl(doc, 'p', '', companyLine || '—'));
-  if (client?.address) {kepada.appendChild(docEl(doc, 'p', '', client.address));}
-  root.appendChild(kepada);
+
+  root.appendChild(buildDocLetterhead(doc, {
+    docTitle: 'SURAT PENAWARAN',
+    docSubtitle: 'Rencana Anggaran Biaya',
+    docType: 'RAB',
+    docNumber: quotationNumber,
+    dateLabel: 'Tanggal',
+    dateValue: generatedDate,
+    perihal: `Perihal: Surat Penawaran ${serviceType || '—'}`,
+    picName: client?.pic_name,
+    picTitle: client?.pic_title,
+    companyName: companyLine,
+    address: client?.address
+  }));
 
   if (description) {
     root.appendChild(docEl(doc, 'p', 'preview-paragraph', description));
