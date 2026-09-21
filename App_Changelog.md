@@ -292,6 +292,27 @@ dan project ini mengikuti [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Issue #262**: halaman login staff dirombak ke tema Futuristic HUD
+  berdasarkan prototype final: background gelap dengan perspective grid dan
+  scanline bergerak, card bersudut ribbon merah, logo serta branding Soul Mitra
+  Abadi, dan form bergaya terminal. Branding Gentelella dihapus, sementara alur
+  OTP email → kode 6 digit dan seluruh ID integrasi existing tetap dipertahankan.
+  Styling baru di-scope khusus `.staff-login` agar halaman auth, error, dan
+  status lain yang memakai `_auth.scss` tidak berubah. Perubahan turunan:
+  font halaman login diganti dari Inter ke Montserrat; palet warna HUD
+  ditambahkan sebagai token `--staff-login-*` di `_tokens.scss`; placeholder
+  email berubah dari `kamu@smanusantara.id` ke `kamu@soulmitra.id`; prefix
+  "//" pada label dipindah ke CSS dengan alt text kosong agar tidak
+  dibacakan pembaca layar (browser lama yang belum mendukung alt text CSS
+  mungkin tetap membacakan "//"); dan halaman kini bisa di-scroll di semua
+  lebar saat kartu lebih tinggi dari jendela (sebelumnya tombol dan footer
+  terpotong di layar landscape pendek). Keputusan kontras yang disengaja:
+  label, link "Kirim ulang kode", dan teks tombol "Kirim kode" serta
+  "Verifikasi" dinaikkan ke sekitar 4,5:1 (token
+  `--staff-login-accent-text`; border dan latar tombol tetap sesuai
+  prototype), sedangkan teks footer dan placeholder menjadi satu-satunya
+  pengecualian yang sengaja dipertahankan sesuai prototype (kontras sekitar
+  2,7:1), belum memenuhi WCAG AA.
 - **Issue #194**: checklist "Dokumen Wajib" pada modal RAB & Penawaran
   kini difilter berdasarkan `document_templates.default_service_types`
   vs `service_type` Case yang sedang dibuka — sebelumnya menampilkan

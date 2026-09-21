@@ -50,6 +50,23 @@
   --purple-lt: rgba(174,62,201,0.06);
   --cyan-lt: rgba(23,162,184,0.06);
 
+  // Staff login HUD palette. Kept as tokens so the page-specific component
+  // never owns raw color values and can stay isolated from shared auth pages.
+  --staff-login-bg: #030303;
+  --staff-login-surface: rgba(8,8,8,0.85);
+  --staff-login-accent: #c81e2c;
+  --staff-login-accent-dark: #7a0f18;
+  // Lighter accent for small text (labels, links): >= 4.5:1 on the card surface.
+  --staff-login-accent-text: #e23a4a;
+  --staff-login-grid: rgba(200,30,44,0.15);
+  --staff-login-scan: rgba(200,30,44,0.8);
+  --staff-login-input-bg: rgba(255,255,255,0.02);
+  --staff-login-input-border: rgba(200,30,44,0.3);
+  --staff-login-text: #ffffff;
+  --staff-login-muted: #888888;
+  --staff-login-quiet: #555555;
+  --staff-login-icon: #666666;
+
   --radius: 6px;
   --radius-sm: 4px;
   --radius-lg: 8px;

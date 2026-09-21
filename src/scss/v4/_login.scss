@@ -1,0 +1,400 @@
+// Staff OTP login only. Shared auth/error/status pages continue to use _auth.scss.
+
+.staff-login {
+  min-height: 100vh;
+  // Grid and scanline are position: fixed, so only x is clipped; y must scroll
+  // when the card is taller than the window (short or landscape screens).
+  overflow-x: hidden;
+  overflow-y: auto;
+  color-scheme: dark;
+  background: var(--staff-login-bg);
+  font-family: "Montserrat", sans-serif;
+}
+
+.staff-login__grid,
+.staff-login__shade,
+.staff-login__scanline {
+  position: fixed;
+  pointer-events: none;
+}
+
+.staff-login__grid {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 60%;
+  background-image:
+    linear-gradient(var(--staff-login-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--staff-login-grid) 1px, transparent 1px);
+  background-size: 180px 180px;
+  opacity: 0.5;
+  transform: perspective(500px) rotateX(60deg);
+  transform-origin: bottom;
+  animation: staff-login-grid-move 4.5s linear infinite;
+}
+
+.staff-login__shade {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 100%, transparent 0%, var(--staff-login-bg) 70%);
+}
+
+.staff-login__scanline {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--staff-login-scan), transparent);
+  animation: staff-login-scan 5s ease-in-out infinite;
+}
+
+.staff-login__page.auth-page {
+  position: relative;
+  z-index: 1;
+  padding: var(--space-5);
+  background: transparent;
+}
+
+.staff-login__card.auth-card {
+  position: relative;
+  max-width: 400px;
+  // 44px/40px: prototype's card padding, between --space-6 (32px) and --space-7 (48px).
+  padding: 44px var(--space-6) 40px;
+  overflow: hidden;
+  background: var(--staff-login-surface);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: staff-login-card-in 0.8s ease-out both;
+}
+
+.staff-login__ribbon {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+}
+
+.staff-login__ribbon::before,
+.staff-login__ribbon::after {
+  position: absolute;
+  content: "";
+}
+
+.staff-login__ribbon::before {
+  width: 100%;
+  height: 100%;
+  background: var(--staff-login-accent);
+}
+
+.staff-login__ribbon::after {
+  width: 60%;
+  height: 60%;
+  background: var(--staff-login-accent-dark);
+}
+
+.staff-login__ribbon--top-left {
+  top: 0;
+  left: 0;
+}
+
+.staff-login__ribbon--top-left::before,
+.staff-login__ribbon--top-left::after {
+  top: 0;
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.staff-login__ribbon--top-right {
+  top: 0;
+  right: 0;
+}
+
+.staff-login__ribbon--top-right::before,
+.staff-login__ribbon--top-right::after {
+  top: 0;
+  right: 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+}
+
+.staff-login__ribbon--bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.staff-login__ribbon--bottom-left::before,
+.staff-login__ribbon--bottom-left::after {
+  bottom: 0;
+  left: 0;
+  clip-path: polygon(0 100%, 0 0, 100% 100%);
+}
+
+.staff-login__ribbon--bottom-right {
+  right: 0;
+  bottom: 0;
+}
+
+.staff-login__ribbon--bottom-right::before,
+.staff-login__ribbon--bottom-right::after {
+  right: 0;
+  bottom: 0;
+  clip-path: polygon(100% 100%, 0 100%, 100% 0);
+}
+
+.staff-login__brand.auth-brand {
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: var(--space-7);
+  text-align: center;
+}
+
+.staff-login__logo {
+  width: 140px;
+  height: auto;
+}
+
+.staff-login__brand-name {
+  margin-top: var(--space-3);
+  color: var(--staff-login-text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+}
+
+.staff-login__brand-subtitle {
+  // 3px: optical tightening under the brand name, below the 4px --space-1.
+  margin-top: 3px;
+  color: var(--staff-login-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.staff-login__title-block {
+  margin-bottom: var(--space-5);
+  text-align: center;
+}
+
+.staff-login__title.auth-title {
+  margin-bottom: var(--space-2);
+  color: var(--staff-login-text);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.staff-login__subtitle.auth-subtitle {
+  margin-bottom: 0;
+  color: var(--staff-login-muted);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.staff-login__subtitle strong {
+  color: var(--staff-login-text);
+  overflow-wrap: anywhere;
+}
+
+.staff-login .form-group {
+  margin-bottom: var(--space-5);
+}
+
+.staff-login .form-label {
+  margin-bottom: var(--space-2);
+  color: var(--staff-login-accent-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+// Terminal-style "//" prefix lives in CSS so screen readers don't announce
+// "slash slash". The "/ ''" alt text hides it where supported; the first
+// declaration is the fallback for browsers without alt-text support.
+.staff-login .form-label::before {
+  content: "// ";
+  content: "// " / "";
+}
+
+.staff-login .input-icon {
+  // 14px: prototype's icon inset, between --space-3 (12px) and --space-4 (16px).
+  left: 14px;
+  width: 15px;
+  height: 15px;
+  color: var(--staff-login-icon);
+}
+
+.staff-login .form-control {
+  height: 44px;
+  // 14px right: matches the icon inset above; 40px left: clears the 15px icon at 14px.
+  padding: 0 14px 0 40px;
+  color: var(--staff-login-text);
+  background: var(--staff-login-input-bg);
+  border-color: var(--staff-login-input-border);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+}
+
+.staff-login .form-control:focus {
+  border-color: var(--staff-login-accent);
+  box-shadow: 0 0 0 1px var(--staff-login-accent);
+}
+
+.staff-login .form-control::placeholder {
+  color: var(--staff-login-quiet);
+}
+
+.staff-login__submit.btn {
+  width: 100%;
+  height: 44px;
+  justify-content: center;
+  color: var(--staff-login-accent-text);
+  background: transparent;
+  border: 1px solid var(--staff-login-accent);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.staff-login__submit.btn::before {
+  content: "> ";
+}
+
+.staff-login__submit.btn::after {
+  content: "_";
+}
+
+.staff-login__submit.btn:hover,
+.staff-login__submit.btn:focus-visible {
+  color: var(--staff-login-text);
+  background: var(--staff-login-accent);
+}
+
+.staff-login__submit.btn:disabled {
+  color: var(--staff-login-muted);
+  background: transparent;
+  border-color: var(--staff-login-muted);
+  cursor: wait;
+}
+
+.staff-login__actions.auth-actions {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-mono);
+}
+
+.staff-login__link {
+  padding: 0;
+  color: var(--staff-login-muted);
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.staff-login__link--accent {
+  color: var(--staff-login-accent-text);
+}
+
+.staff-login__link:hover,
+.staff-login__link:focus-visible {
+  color: var(--staff-login-text);
+}
+
+.staff-login__link:disabled {
+  color: var(--staff-login-muted);
+  cursor: wait;
+}
+
+.staff-login__footer.auth-footer {
+  // 22px: prototype's footer gap, between --space-4 (16px) and --space-5 (24px).
+  margin-top: 22px;
+  color: var(--staff-login-quiet);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+
+@keyframes staff-login-grid-move {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 180px,
+      0 0;
+  }
+}
+
+@keyframes staff-login-scan {
+  0%,
+  100% {
+    left: 10%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  50% {
+    left: 90%;
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0;
+  }
+}
+
+@keyframes staff-login-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .staff-login__page.auth-page {
+    padding: var(--space-4);
+  }
+
+  .staff-login__card.auth-card {
+    // 40px top: same prototype rhythm as the desktop card padding.
+    padding: 40px var(--space-5) var(--space-6);
+  }
+
+  .staff-login__brand.auth-brand {
+    margin-bottom: var(--space-6);
+  }
+
+  .staff-login__logo {
+    width: 120px;
+  }
+
+  .staff-login__grid {
+    background-size: 120px 120px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-login__grid,
+  .staff-login__scanline,
+  .staff-login__card.auth-card {
+    animation: none;
+  }
+}

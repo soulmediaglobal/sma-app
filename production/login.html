@@ -7,33 +7,45 @@
 <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script type="module" src="/src/main-v4.js"></script>
 </head>
-<body>
+<body class="staff-login">
 
-<div class="auth-page" data-auth="otp">
-  <div class="auth-card">
-    <div class="auth-brand">
-      <div class="brand-icon">G</div>
-      <div class="brand-name">Gentelella <small style="font-weight:400;color:var(--text-muted);font-size:13px;margin-left:2px">v4</small></div>
-    </div>
+<div class="staff-login__grid" aria-hidden="true"></div>
+<div class="staff-login__shade" aria-hidden="true"></div>
+<div class="staff-login__scanline" aria-hidden="true"></div>
+
+<main class="auth-page staff-login__page" data-auth="otp">
+  <section class="auth-card staff-login__card">
+    <span class="staff-login__ribbon staff-login__ribbon--top-left" aria-hidden="true"></span>
+    <span class="staff-login__ribbon staff-login__ribbon--top-right" aria-hidden="true"></span>
+    <span class="staff-login__ribbon staff-login__ribbon--bottom-left" aria-hidden="true"></span>
+    <span class="staff-login__ribbon staff-login__ribbon--bottom-right" aria-hidden="true"></span>
+
+    <header class="auth-brand staff-login__brand">
+      <img class="staff-login__logo" src="../images/logo-sma.png" alt="Soul Mitra Abadi">
+      <div class="staff-login__brand-name">Soul Mitra Abadi</div>
+      <div class="staff-login__brand-subtitle">Client Management System</div>
+    </header>
 
     <!-- STEP 1: email -->
     <div id="otp-email-step">
-      <div class="auth-title">Masuk</div>
-      <div class="auth-subtitle">Masukkan email kamu, kami kirim kode login — tanpa password.</div>
+      <div class="staff-login__title-block">
+        <h1 class="auth-title staff-login__title">Masuk ke Sistem</h1>
+        <p class="auth-subtitle staff-login__subtitle">&gt; Masukkan email untuk mendapatkan kode verifikasi</p>
+      </div>
 
       <form id="otp-email-form">
         <div class="form-group">
           <label class="form-label" for="otp-email">Email</label>
           <div class="input-group">
             <svg class="input-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 5l6 4 6-4"/></svg>
-            <input type="email" id="otp-email" class="form-control" placeholder="kamu@smanusantara.id" required autocomplete="email">
+            <input type="email" id="otp-email" class="form-control" placeholder="kamu@soulmitra.id" required autocomplete="email">
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;height:38px">
+        <button type="submit" class="btn staff-login__submit">
           Kirim kode
         </button>
       </form>
@@ -41,8 +53,10 @@
 
     <!-- STEP 2: 6-digit code -->
     <div id="otp-code-step" style="display:none">
-      <div class="auth-title">Cek email kamu</div>
-      <div class="auth-subtitle">Kode 6 digit dikirim ke <strong id="otp-email-display"></strong></div>
+      <div class="staff-login__title-block">
+        <h1 class="auth-title staff-login__title">Cek Email Kamu</h1>
+        <p class="auth-subtitle staff-login__subtitle">&gt; Kode 6 digit dikirim ke <strong id="otp-email-display"></strong></p>
+      </div>
 
       <form id="otp-code-form">
         <div class="form-group">
@@ -53,22 +67,22 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;height:38px">
+        <button type="submit" class="btn staff-login__submit">
           Verifikasi
         </button>
       </form>
 
-      <div class="auth-actions" style="margin-top:12px">
-        <button type="button" id="otp-back" class="btn-link" style="background:none;border:none;padding:0;color:var(--text-muted);cursor:pointer;font-size:12.5px">&larr; Ganti email</button>
-        <button type="button" id="otp-resend" class="btn-link" style="background:none;border:none;padding:0;color:var(--primary);cursor:pointer;font-size:12.5px">Kirim ulang kode</button>
+      <div class="auth-actions staff-login__actions">
+        <button type="button" id="otp-back" class="staff-login__link">&larr; Ganti email</button>
+        <button type="button" id="otp-resend" class="staff-login__link staff-login__link--accent">Kirim ulang kode</button>
       </div>
     </div>
 
-    <div class="auth-footer">
+    <footer class="auth-footer staff-login__footer">
       Belum punya akun? Hubungi admin SMA untuk diundang.
-    </div>
-  </div>
-</div>
+    </footer>
+  </section>
+</main>
 
 </body>
 </html>
